@@ -1,0 +1,3 @@
+[workspace]
+members = [ "esp32" ]
+resolver = "3"
