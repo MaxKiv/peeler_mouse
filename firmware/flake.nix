@@ -1,5 +1,5 @@
 {
-  description = "Plant remote management and automation";
+  description = "ESP32 esp-idf/Rust Development shell";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -7,10 +7,6 @@
     esp-dev.url = "github:mirrexagon/nixpkgs-esp-dev";
     rust-overlay.url = "github:oxalica/rust-overlay";
 
-    nix-checks = {
-      url = "github:wyatt-avilla/nix-ci";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs =
@@ -20,7 +16,6 @@
       flake-utils,
       esp-dev,
       rust-overlay,
-      nix-checks,
     }:
     flake-utils.lib.eachDefaultSystem (
       system:
@@ -39,31 +34,14 @@
             ;
         };
 
-        backendOutputs = import ./backend { inherit self pkgs system; };
-        frontendOutputs = import ./frontend { inherit self pkgs system; };
         defaultShell = {
           default = esp32Outputs.devShells.esp32;
         };
+        devShells = esp32Outputs.devShells // defaultShell;
       in
       {
-        devShells = esp32Outputs.devShells // backendOutputs.devShells // frontendOutputs.devShells // defaultShell;
-        packages = esp32Outputs.packages // backendOutputs.packages // frontendOutputs.packages;
-        checks = {
-          formatting = nix-checks.lib.mkFormattingCheck {
-            inherit pkgs;
-            src = self;
-          };
-
-          linting = nix-checks.lib.mkLintingCheck {
-            inherit pkgs;
-            src = self;
-          };
-
-          dead-code = nix-checks.lib.mkDeadCodeCheck {
-            inherit pkgs;
-            src = self;
-          };
-        };
+        inherit devShells;
+        inherit (esp32Outputs) packages;
         inherit (esp32Outputs) apps;
       }
     );

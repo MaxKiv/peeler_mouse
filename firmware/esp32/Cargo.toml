@@ -14,7 +14,7 @@ default = []
 experimental = ["esp-idf-svc/experimental"]
 
 [dependencies]
-shared = { path = "../shared" }
+# shared = { path = "../shared" }
 log = "0.4"
 esp-idf-svc = { version = "0.51", features = ["embassy-time-driver", "embassy-sync"] }
 critical-section = { version = "1.1", features = ["std"], default-features = false }
@@ -59,7 +59,11 @@ lto = true
 debug = true    # Symbols are nice and they don't increase the size on Flash
 opt-level = "z"
 
-[[package.metadata.esp-idf-sys.extra_components]]
-component_dirs = "components/esp32-camera"
+[package.metadata.esp-idf-sys]
+extra_components = ["components/esp32-camera"]
+
+[[package.metadata.esp-idf-sys.bindings]]
+# The header we just created
 bindings_header = "components/bindings.h"
+# Name of the Rust module that will appear under `esp_idf_sys::`
 bindings_module = "camera"
