@@ -1,0 +1,3 @@
+[submodule "firmware/esp32/components/esp32-camera"]
+	path = firmware/esp32/components/esp32-camera
+	url = git@github.com:espressif/esp32-camera.git
