@@ -121,6 +121,8 @@ let
       ninja
       python3
       ldproxy
+
+      rust-bindgen
     ];
 
     buildInputs = with pkgs; [
@@ -142,7 +144,7 @@ let
 
       MCU = "esp32";
       ESP_IDF_VERSION = "v5.4.1";
-      ESP_IDF_SDKCONFIG_DEFAULTS = "${self}/esp32/sdkconfig.defaults";
+      # ESP_IDF_SDKCONFIG_DEFAULTS = "${self}/esp32/sdkconfig.defaults";
     };
   };
 
@@ -162,6 +164,7 @@ in
     shellHook = ''
       export CARGO_BUILD_TARGET="${buildConfig.target}"
       export PATH="${espRustToolchain}/bin:$PATH"
+      export ESP_IDF_SDKCONFIG_DEFAULTS="sdkconfig.defaults"
       BINDGEN_EXTRA_CLANG_ARGS="$BINDGEN_EXTRA_CLANG_ARGS ${pkgs.lib.concatStringsSep " " buildConfig.bindgenExtraClangArgs}"
 
       ${attrSetToEnv buildConfig.environmentVariables}

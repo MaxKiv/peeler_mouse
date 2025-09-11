@@ -19,3 +19,11 @@ ESP_IDF_VERSION = "v5.2.2"
 
 # Workaround for https://github.com/esp-rs/esp-idf-template/issues/174 
 CRATE_CC_NO_DEFAULTS = "1"
+
+[profile.release]
+opt-level = "s"
+lto = true
+
+[profile.dev]
+debug = true    # Symbols are nice and they don't increase the size on Flash
+opt-level = "z"
