@@ -1,5 +1,7 @@
 pub mod blinky;
+pub mod control;
 pub mod espcam;
+pub mod request;
 mod server;
 pub mod wifi;
 
@@ -12,13 +14,20 @@ use esp_idf_hal::{
     prelude::Peripherals,
 };
 use esp_idf_svc::{
-    eventloop::EspSystemEventLoop, nvs::EspDefaultNvsPartition, sys, timer::EspTaskTimerService,
+    eventloop::EspSystemEventLoop, nvs::EspDefaultNvsPartition, timer::EspTaskTimerService,
 };
+use serde::Deserialize;
 
 use crate::{espcam::Camera, wifi::WifiState};
-use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex as Cs, watch::Watch};
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Watch};
 
 static WIFI_STATE: Watch<Cs, WifiState, 1> = Watch::new();
+static SETPOINT: Watch<Cs, Setpoint, 1> = Watch::new();
+
+#[derive(Deserialize, Copy, Clone, Debug)]
+struct Setpoint {
+    depth: f32,
+}
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
@@ -73,7 +82,7 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
         peripherals.pins.gpio22,
         peripherals.pins.gpio26,
         peripherals.pins.gpio27,
-        esp_idf_sys::camera::pixformat_t_PIXFORMAT_GRAYSCALE,
+        esp_idf_sys::camera::pixformat_t_PIXFORMAT_JPEG,
         // Set quality here
         esp_idf_sys::camera::framesize_t_FRAMESIZE_SVGA,
     )?;
@@ -84,7 +93,13 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
         cam_arc,
         WIFI_STATE
             .receiver()
-            .expect("unable to construct wifi state receiver"),
+            .expect("Max wifi_state receivers reached"),
+        SETPOINT.sender(),
+    ))?;
+
+    log::info!("Initialize Controller task");
+    spawner.spawn(control::control_loop(
+        SETPOINT.receiver().expect("Max setpoint receivers reached"),
     ))?;
 
     core::future::pending::<()>().await;

@@ -1,4 +1,4 @@
-use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex as Cs, watch::Sender};
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Sender};
 use embassy_time::Timer;
 use esp_idf_hal::modem::Modem;
 use esp_idf_svc::{

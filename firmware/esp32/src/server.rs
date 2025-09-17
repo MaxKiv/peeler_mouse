@@ -1,19 +1,26 @@
-use std::sync::Arc;
+use std::{
+    io::{ErrorKind, Read},
+    sync::Arc,
+};
 
-use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex as Cs, watch::Receiver};
-use esp_idf_hal::io::Write;
+use embassy_sync::{
+    blocking_mutex::raw::CriticalSectionRawMutex as Cs,
+    watch::{Receiver, Sender},
+};
+use esp_idf_hal::io::{EspIOError, Write};
 use esp_idf_svc::http::{
     server::{EspHttpConnection, EspHttpServer, Request},
     Method,
 };
 use log::*;
 
-use crate::{espcam::Camera, wifi::WifiState};
+use crate::{espcam::Camera, request::ReadableRequest, wifi::WifiState, Setpoint};
 
 #[embassy_executor::task]
 pub async fn server_task(
     camera: Arc<Camera<'static>>,
     mut wifi_state_receiver: Receiver<'static, Cs, WifiState, 1>,
+    setpoint_sender: Sender<'static, Cs, Setpoint, 1>,
 ) {
     loop {
         // Set up a HTTP server when wifi is connected
@@ -29,6 +36,15 @@ pub async fn server_task(
                         if let Err(err) =
                             server.fn_handler("/camera", Method::Get, move |request| {
                                 handle_camera(request, &camera)
+                            })
+                        {
+                            error!("Unable to set up HTTP Server root handler: {err}, retrying...");
+                        }
+
+                        let sender = setpoint_sender.clone();
+                        if let Err(err) =
+                            server.fn_handler("/setpoint", Method::Post, move |request| {
+                                handle_setpoint(request, &sender)
                             })
                         {
                             error!("Unable to set up HTTP Server root handler: {err}, retrying...");
@@ -58,12 +74,37 @@ pub async fn server_task(
 }
 
 fn handle_root(request: Request<&mut EspHttpConnection<'_>>) -> anyhow::Result<()> {
-    let data = "<html><head><meta name=\"viewport\" content=\"width=device-width; height=device-height;\"><title>esp32cam</title></head><body><img src=\"camera\" alt=\"Failed to load image\" style=\"height: 100%;width: 100%; transform: rotate(180deg);\"></body></html>";
+    // A cursed html + javascript static webpage
+    let data = r#"
+        <html>
+          <body>
+            <img src="camera" alt="Failed to load image" style="height: 50%; width: 50%;">
+
+            <input type="number" id="depth" placeholder="0">
+            <button onclick="sendSetpoint()">Send Setpoint</button>
+
+            <script>
+              function sendSetpoint() {
+                console.log("MAX triggered sendsetpoint")
+                const depth = document.getElementById("depth").value;
+                fetch("/setpoint", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ depth: parseFloat(depth) })
+                }).then(resp => resp.text())
+                  .then(txt => alert("Response: " + txt))
+                  .catch(err => alert("Error: " + err));
+              }
+            </script>
+          </body>
+        </html>
+    "#;
 
     let headers = [
         ("Content-Type", "text/html"),
         ("Content-Length", &data.len().to_string()),
     ];
+
     let mut response = request.into_response(200, Some("OK"), &headers)?;
     response.write_all(data.as_bytes())?;
     Ok(())
@@ -92,4 +133,36 @@ fn handle_camera(
             response.flush()?;
         }
     }
+}
+
+fn handle_setpoint(
+    mut request: Request<&mut EspHttpConnection<'_>>,
+    sender: &Sender<'static, Cs, Setpoint, 1>,
+) -> anyhow::Result<()> {
+    log::info!("Received setpoint");
+
+    // Try to deserialize received data into setpoint
+    let readable_request = ReadableRequest(&mut request);
+    let setpoint: Setpoint = match readable_request.deserialize_into() {
+        Ok(r) => r,
+        Err(err) => {
+            log::warn!("Unable to deserialize get request into setpoint: {err}",);
+            let mut response = request.into_response(
+                400,
+                Some("Bad Request"),
+                &[("Content-Type", "text/plain")],
+            )?;
+            response.write_all(format!("Invalid JSON: {err}").as_bytes())?;
+            response.flush()?;
+            return Ok(());
+        }
+    };
+    log::info!("Deserialisation success! {setpoint:?}");
+
+    sender.send(setpoint);
+
+    // Success response
+    let mut response = request.into_response(200, Some("OK"), &[("Content-Type", "text/plain")])?;
+    response.write_all(b"Depth setpoint updated")?;
+    Ok(())
 }
