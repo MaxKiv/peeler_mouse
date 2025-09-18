@@ -9,8 +9,9 @@ use std::{ffi::CStr, sync::Arc};
 
 use anyhow::Result;
 use embassy_executor::Spawner;
+use embassy_time::{Duration, Ticker};
 use esp_idf_hal::{
-    ledc::{config::TimerConfig, LedcTimerDriver, TIMER0},
+    ledc::{config::TimerConfig, LedcDriver, LedcTimerDriver, TIMER0},
     prelude::Peripherals,
 };
 use esp_idf_svc::{
@@ -19,7 +20,6 @@ use esp_idf_svc::{
 
 use crate::{control::setpoint::Setpoint, espcam::Camera, wifi::WifiState};
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Watch};
-
 use static_cell::StaticCell;
 
 static WIFI_STATE: Watch<Cs, WifiState, 1> = Watch::new();
@@ -50,17 +50,25 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     let nvs = EspDefaultNvsPartition::take()?;
     let timer_service = EspTaskTimerService::new()?;
 
-    let timer = TIMER.init(
-        LedcTimerDriver::new(peripherals.ledc.timer0, &TimerConfig::default())
-            .expect("Unable to construct LedcTimerDriver"),
-    );
+    // let timer = TIMER.init(
+    //     LedcTimerDriver::new(peripherals.ledc.timer0, &TimerConfig::default())
+    //         .expect("Unable to construct LedcTimerDriver"),
+    // );
 
-    log::info!("Initialize LED task");
-    spawner.spawn(blinky::blink_led(
-        timer,
-        peripherals.ledc.channel0,
-        peripherals.pins.gpio33,
-    ))?;
+    let timer = LedcTimerDriver::new(peripherals.ledc.timer0, &TimerConfig::default())?;
+    let mut pwm_a = LedcDriver::new(peripherals.ledc.channel0, &timer, peripherals.pins.gpio12)?;
+    let mut pwm_b = LedcDriver::new(peripherals.ledc.channel1, &timer, peripherals.pins.gpio13)?;
+
+    // Duty: 0..=255 by default
+    pwm_a.set_duty(128)?;
+    pwm_b.set_duty(200)?;
+
+    // log::info!("Initialize LED task");
+    // spawner.spawn(blinky::blink_led(
+    //     timer,
+    //     peripherals.ledc.channel0,
+    //     peripherals.pins.gpio33,
+    // ))?;
 
     log::info!("Initialize Wifi task");
     spawner.spawn(wifi::wifi_task(
@@ -103,15 +111,28 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
         SETPOINT.sender(),
     ))?;
 
-    log::info!("Initialize Controller task");
-    spawner.spawn(control::controller::control_loop(
-        SETPOINT.receiver().expect("Max setpoint receivers reached"),
-        timer,
-        peripherals.ledc.channel1,
-        peripherals.pins.gpio12,
-        peripherals.ledc.channel2,
-        peripherals.pins.gpio13,
-    ))?;
+    // log::info!("Initialize Controller task");
+    // spawner.spawn(control::controller::control_loop(
+    //     SETPOINT.receiver().expect("Max setpoint receivers reached"),
+    //     timer,
+    //     peripherals.ledc.channel1,
+    //     peripherals.pins.gpio12,
+    //     peripherals.ledc.channel2,
+    //     peripherals.pins.gpio13,
+    // ))?;
+
+    let mut ticker = Ticker::every(Duration::from_millis(1000));
+    let mut dc_a = 0;
+    let mut dc_b = 255;
+    loop {
+        pwm_a.set_duty(dc_a)?;
+        pwm_b.set_duty(dc_b)?;
+
+        dc_a = (dc_a + 10) % 255;
+        dc_b = (dc_b + 10) % 255;
+
+        ticker.next().await;
+    }
 
     core::future::pending::<()>().await;
 
