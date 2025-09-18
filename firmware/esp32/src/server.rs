@@ -1,13 +1,10 @@
-use std::{
-    io::{ErrorKind, Read},
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex as Cs,
     watch::{Receiver, Sender},
 };
-use esp_idf_hal::io::{EspIOError, Write};
+use esp_idf_hal::io::Write;
 use esp_idf_svc::http::{
     server::{EspHttpConnection, EspHttpServer, Request},
     Method,
@@ -78,8 +75,6 @@ fn handle_root(request: Request<&mut EspHttpConnection<'_>>) -> anyhow::Result<(
     let data = r#"
         <html>
           <body>
-            <img src="camera" alt="Failed to load image" style="height: 50%; width: 50%;">
-
             <input type="number" id="depth" placeholder="0">
             <button onclick="sendSetpoint()">Send Setpoint</button>
 
@@ -89,7 +84,10 @@ fn handle_root(request: Request<&mut EspHttpConnection<'_>>) -> anyhow::Result<(
                 const depth = document.getElementById("depth").value;
                 fetch("/setpoint", {
                   method: "POST",
-                  headers: { "Content-Type": "application/json" },
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Connection": "close" // force a new request/connection
+                  },
                   body: JSON.stringify({ depth: parseFloat(depth) })
                 }).then(resp => resp.text())
                   .then(txt => alert("Response: " + txt))
@@ -107,6 +105,7 @@ fn handle_root(request: Request<&mut EspHttpConnection<'_>>) -> anyhow::Result<(
 
     let mut response = request.into_response(200, Some("OK"), &headers)?;
     response.write_all(data.as_bytes())?;
+    response.flush()?;
     Ok(())
 }
 
@@ -164,5 +163,6 @@ fn handle_setpoint(
     // Success response
     let mut response = request.into_response(200, Some("OK"), &[("Content-Type", "text/plain")])?;
     response.write_all(b"Depth setpoint updated")?;
+    response.flush()?;
     Ok(())
 }

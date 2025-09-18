@@ -10,24 +10,22 @@ use std::{ffi::CStr, sync::Arc};
 use anyhow::Result;
 use embassy_executor::Spawner;
 use esp_idf_hal::{
-    gpio::{AnyOutputPin, PinDriver},
+    ledc::{config::TimerConfig, LedcTimerDriver, TIMER0},
     prelude::Peripherals,
 };
 use esp_idf_svc::{
     eventloop::EspSystemEventLoop, nvs::EspDefaultNvsPartition, timer::EspTaskTimerService,
 };
-use serde::Deserialize;
 
-use crate::{espcam::Camera, wifi::WifiState};
+use crate::{control::setpoint::Setpoint, espcam::Camera, wifi::WifiState};
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Watch};
+
+use static_cell::StaticCell;
 
 static WIFI_STATE: Watch<Cs, WifiState, 1> = Watch::new();
 static SETPOINT: Watch<Cs, Setpoint, 1> = Watch::new();
 
-#[derive(Deserialize, Copy, Clone, Debug)]
-struct Setpoint {
-    depth: f32,
-}
+static TIMER: StaticCell<LedcTimerDriver<'_, TIMER0>> = StaticCell::new();
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
@@ -52,9 +50,17 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     let nvs = EspDefaultNvsPartition::take()?;
     let timer_service = EspTaskTimerService::new()?;
 
+    let timer = TIMER.init(
+        LedcTimerDriver::new(peripherals.ledc.timer0, &TimerConfig::default())
+            .expect("Unable to construct LedcTimerDriver"),
+    );
+
     log::info!("Initialize LED task");
-    let led = PinDriver::output(AnyOutputPin::from(peripherals.pins.gpio33))?;
-    spawner.spawn(blinky::blink_led(led))?;
+    spawner.spawn(blinky::blink_led(
+        timer,
+        peripherals.ledc.channel0,
+        peripherals.pins.gpio33,
+    ))?;
 
     log::info!("Initialize Wifi task");
     spawner.spawn(wifi::wifi_task(
@@ -98,8 +104,13 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     ))?;
 
     log::info!("Initialize Controller task");
-    spawner.spawn(control::control_loop(
+    spawner.spawn(control::controller::control_loop(
         SETPOINT.receiver().expect("Max setpoint receivers reached"),
+        timer,
+        peripherals.ledc.channel1,
+        peripherals.pins.gpio12,
+        peripherals.ledc.channel2,
+        peripherals.pins.gpio13,
     ))?;
 
     core::future::pending::<()>().await;
