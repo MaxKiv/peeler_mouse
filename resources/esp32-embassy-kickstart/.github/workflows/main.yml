@@ -1,0 +1,66 @@
+name: Build & Publish Release
+
+on:
+  push:
+    tags:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    container:
+      image: ghcr.io/telenkov88/idf-rust-esp32:latest
+      options: --user esp
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract crate version
+        id: version
+        run: |
+          VERSION=$(cargo metadata --no-deps --format-version 1 \
+                    | jq -r '.packages[0].version')
+          echo "version=${VERSION}"             >> "${GITHUB_OUTPUT}"
+          echo "VERSION=${VERSION}"             >> "${GITHUB_ENV}"
+          echo "TAG=v${VERSION}"                >> "${GITHUB_ENV}"
+
+      - name: Build (release & firmware)
+        run: |
+          . /home/esp/export-esp.sh
+          make lint
+          make release
+          make firmware
+
+      - name: Package firmware
+        id: package
+        run: |
+          zip esp32s3-firmware.zip -j output/firmware.bin
+          echo "zip=esp32s3-firmware.zip" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ env.TAG }}
+          release_name: "Release ${{ env.TAG }}"
+          draft: false
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./${{ steps.package.outputs.zip }}
+          asset_name: ${{ steps.package.outputs.zip }}
+          asset_content_type: application/zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

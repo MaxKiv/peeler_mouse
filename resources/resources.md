@@ -16,3 +16,7 @@ https://jamesmcm.github.io/blog/esp32-wifi-tank/
 Excellent source for the nix flake esp32 toolchain setup, and some commmon
 functionality like wifi.
 https://github.com/wyatt-avilla/rainworld/issues
+
+# Drive SSD1309 OLED in rust
+
+https://docs.rs/ssd1309/latest/ssd1309/
