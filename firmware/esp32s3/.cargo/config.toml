@@ -1,0 +1,33 @@
+[target.xtensa-esp32s3-none-elf]
+runner = "espflash flash --partition-table=./partitions.csv -s 16mb --monitor --chip esp32s3 -B 921600"
+
+[env]
+ESP_LOG="INFO"
+
+[build]
+rustflags = [
+  "-C", "link-arg=-nostartfiles",
+]
+
+target = "xtensa-esp32s3-none-elf"
+
+[unstable]
+build-std = ["alloc", "core"]
+
+[env]
+MCU="esp32"
+WIFI_SSID = "YOUR_SSID"
+WIFI_PASSWORD = "YOUR_PASSWORD"
+ESP_LOG="INFO"
+
+# Note: this variable is not used by the pio builder (`cargo build --features pio`)
+# ESP_IDF_VERSION = "v5.2.2"
+# ESPFLASH_BAUD="921600"
+
+[profile.release]
+opt-level = "s"
+lto = true
+
+[profile.dev]
+debug = true    # Symbols are nice and they don't increase the size on Flash
+opt-level = "z"
