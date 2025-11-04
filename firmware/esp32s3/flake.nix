@@ -1,48 +1,60 @@
 {
-  description = "ESP32 esp-idf/Rust Development shell";
+  description = "ESP32-S3 Rust dev environment";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
-    esp-dev.url = "github:mirrexagon/nixpkgs-esp-dev";
-    rust-overlay.url = "github:oxalica/rust-overlay";
-
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
   };
 
-  outputs =
-    {
-      self,
-      nixpkgs,
-      flake-utils,
-      esp-dev,
-      rust-overlay,
-    }:
-    flake-utils.lib.eachDefaultSystem (
-      system:
-      let
-        pkgs = import nixpkgs {
-          inherit system;
-          overlays = [ (import rust-overlay) ];
-        };
+  outputs = { self, nixpkgs }:
+    let
+      system = "x86_64-linux";
+      pkgs = import nixpkgs { inherit system; };
+    in {
+      devShells.${system}.default = pkgs.mkShell {
+        packages = with pkgs; [
+          # git
+          # cmake
+          # ninja
+          # python3
+          # python3Packages.virtualenv
+          # llvm
+          # clang
+          rustup
+          ldproxy
+          cargo-espflash
+          # gcc
+          # gperf
+          # ccache
+          dfu-util
+          minicom
+          # for flashing
+          esptool
+          espup
+        ];
 
-        esp32Outputs = import ./. {
-          inherit
-            self
-            pkgs
-            system
-            esp-dev
-            ;
-        };
+       # for debugging with lsp in neovim
+        CODE_LLDB_PATH = "${pkgs.vscode-extensions.vadimcn.vscode-lldb}/share/vscode/extensions/vadimcn.vscode-lldb/adapter/codelldb";
+        LIB_LLDB_PATH = "${pkgs.vscode-extensions.vadimcn.vscode-lldb}/share/vscode/extensions/vadimcn.vscode-lldb/lldb/lib/liblldb";
 
-        defaultShell = {
-          default = esp32Outputs.devShells.esp32s3;
-        };
-        devShells = esp32Outputs.devShells // defaultShell;
-      in
-      {
-        inherit devShells;
-        inherit (esp32Outputs) packages;
-        inherit (esp32Outputs) apps;
-      }
-    );
+
+        shellHook = ''
+          echo "Setting up ESP environment"
+          # to prevent infinite recursion of activating rust environment
+          # see .envrc for activation condition
+          export INSIDE_RUST_ENV=1
+
+          # To fix the issue with libiconv not found
+          # export LIBRARY_PATH=$LIBRARY_PATH:$(brew --prefix)/opt/libiconv/lib
+
+          set -e # stops this on error of any command below
+
+          # run espup to install the esp toolchain for this command to work
+          . ~/export-esp.sh
+
+          # ln -sf ~/.rustup/toolchains/nightly-aarch64-apple-darwin/bin/rust-analyzer ~/.rustup/toolchains/esp/bin/rust-analyzer
+        '';
+
+      };
+    };
 }
+
