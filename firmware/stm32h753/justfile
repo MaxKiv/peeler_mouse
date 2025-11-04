@@ -1,0 +1,11 @@
+openocd:
+    openocd -f interface/stlink.cfg -f target/stm32g4x.cfg
+
+build:
+    cargo build
+
+clean:
+    cargo clean
+
+run:
+    cargo run
