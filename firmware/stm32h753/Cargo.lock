@@ -765,6 +765,7 @@ dependencies = [
  "panic-probe",
  "static_cell",
  "stm32-fmc",
+ "stm32-metapac",
 ]
 
 [[package]]

@@ -9,3 +9,6 @@ clean:
 
 run:
     cargo run
+
+attach:
+    probe-rs attach --chip STM32H743ZITx ./target/thumbv7em-none-eabihf/debug/peeler_mouse
