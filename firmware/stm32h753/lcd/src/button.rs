@@ -1,7 +1,8 @@
 use defmt::info;
 use embassy_executor::Spawner;
 use embassy_stm32::exti::ExtiInput;
-use embassy_stm32::peripherals::*;
+use embassy_stm32::gpio::Pull;
+use embassy_stm32::{Peri, peripherals::*};
 
 pub struct Button<'a> {
     pub input: ExtiInput<'a>,
@@ -9,38 +10,40 @@ pub struct Button<'a> {
 }
 
 pub struct ButtonPeripherals {
-    pub b1: (PE2, EXTI2),
-    pub b2: (PE3, EXTI3),
-    pub b3: (PE4, EXTI4),
-    pub b4: (PE5, EXTI5),
-    pub b5: (PE6, EXTI6),
+    pub b1: (Peri<'static, PE2>, Peri<'static, EXTI2>),
+    pub b2: (Peri<'static, PE3>, Peri<'static, EXTI3>),
+    pub b3: (Peri<'static, PE4>, Peri<'static, EXTI4>),
+    pub b4: (Peri<'static, PE5>, Peri<'static, EXTI5>),
+    pub b5: (Peri<'static, PE6>, Peri<'static, EXTI6>),
 }
 
-impl ButtonPeripherals {
-    pub fn new(p: embassy_stm32::Peripherals) -> (Self, embassy_stm32::Peripherals) {
-        (
-            ButtonPeripherals {
-                b1: (*p.PE2, *p.EXTI2),
-                b2: (*p.PE3, *p.EXTI3),
-                b3: (*p.PE4, *p.EXTI4),
-                b4: (*p.PE5, *p.EXTI5),
-                b5: (*p.PE6, *p.EXTI6),
-            },
-            p,
-        )
-    }
-}
-
-pub fn setup(p: embassy_stm32::Peripherals, spawner: &Spawner) -> embassy_stm32::Peripherals {
-    let (pins, p) = ButtonPeripherals::new(p);
-
-    spawner.spawn(manage_button(pins)).unwrap();
-
-    p
+pub fn setup(p: ButtonPeripherals, spawner: &Spawner) {
+    spawner.spawn(manage_button(p)).unwrap();
 }
 
 #[embassy_executor::task]
-pub async fn manage_button(pins: ButtonPeripherals) {
+pub async fn manage_button(p: ButtonPeripherals) {
+    let button_1 = Button {
+        input: ExtiInput::new(p.b1.0, p.b1.1, Pull::Down),
+        name: "1",
+    };
+    let button_2 = Button {
+        input: ExtiInput::new(p.b2.0, p.b2.1, Pull::Down),
+        name: "2",
+    };
+    let button_3 = Button {
+        input: ExtiInput::new(p.b3.0, p.b3.1, Pull::Down),
+        name: "3",
+    };
+    let button_4 = Button {
+        input: ExtiInput::new(p.b4.0, p.b4.1, Pull::Down),
+        name: "4",
+    };
+    let button_5 = Button {
+        input: ExtiInput::new(p.b5.0, p.b5.1, Pull::Down),
+        name: "5",
+    };
+
     let handle_2 = handle_button(button_2);
     let handle_1 = handle_button(button_1);
     let handle_3 = handle_button(button_3);

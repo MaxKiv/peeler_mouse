@@ -2,8 +2,12 @@
 #![no_main]
 
 pub mod button;
+pub mod lcd;
 
-use crate::button::Button;
+use crate::{
+    button::{Button, ButtonPeripherals},
+    lcd::LcdPeripherals,
+};
 use defmt::*;
 use embassy_executor::Spawner;
 use embassy_stm32::exti::ExtiInput;
@@ -16,26 +20,22 @@ async fn main(spawner: Spawner) {
     let mut p = embassy_stm32::init(Default::default());
     info!("Hello World!");
 
-    let button_1 = Button {
-        input: ExtiInput::new(p.PE2, p.EXTI2, Pull::Down),
-        name: "1",
-    };
-    let button_2 = Button {
-        input: ExtiInput::new(p.PE4, p.EXTI4, Pull::Down),
-        name: "2",
-    };
-    let button_3 = Button {
-        input: ExtiInput::new(p.PE5, p.EXTI5, Pull::Down),
-        name: "3",
-    };
-    let button_4 = Button {
-        input: ExtiInput::new(p.PE6, p.EXTI6, Pull::Down),
-        name: "4",
-    };
-    let button_5 = Button {
-        input: ExtiInput::new(p.PE3, p.EXTI3, Pull::Down),
-        name: "5",
+    let button_peri = ButtonPeripherals {
+        b1: (p.PE2, p.EXTI2),
+        b2: (p.PE3, p.EXTI3),
+        b3: (p.PE4, p.EXTI4),
+        b4: (p.PE5, p.EXTI5),
+        b5: (p.PE6, p.EXTI6),
     };
 
-    p = button::setup(p, &spawner);
+    let lcd_peri = LcdPeripherals {
+        sda: p.PF0,
+        scl: p.PF1,
+        i2c: p.I2C2,
+        tx_dma: p.DMA1_CH4,
+        rx_dma: p.DMA1_CH5,
+    };
+
+    button::setup(button_peri, &spawner);
+    lcd::setup(lcd_peri, &spawner);
 }

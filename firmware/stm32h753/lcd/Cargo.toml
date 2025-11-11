@@ -34,3 +34,6 @@ embedded-storage = "0.3.1"
 static_cell = "2"
 chrono = { version = "^0.4", default-features = false }
 grounded = "0.2.0"
+ssd1309 = "0.4.0"
+embedded-graphics = { version = "0.8.1", features = ["defmt"] }
+display-interface-i2c = "0.4.0"
