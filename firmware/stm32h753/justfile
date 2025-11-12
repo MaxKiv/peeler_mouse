@@ -15,6 +15,5 @@ check:
 run CRATE:
     cargo run --bin {{ CRATE }}
 
-attach:
-    probe-rs attach --chip STM32H753ZITx ./target/thumbv7em-none-eabihf/debug/peeler_mouse
-
+attach TARGET:
+    probe-rs attach --chip STM32H753ZITx ./target/thumbv7em-none-eabihf/debug/{{ TARGET }}
