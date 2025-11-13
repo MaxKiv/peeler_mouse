@@ -22,6 +22,8 @@ use embedded_graphics::{
 use ssd1309::{Builder, mode::GraphicsMode};
 use tb6600::Tb6600;
 
+use crate::button::{ButtonPressed, WATCH_BUTTON};
+
 const MOTOR_PERIOD: Duration = Duration::from_millis(100);
 
 pub struct MotorPeripherals {
@@ -42,11 +44,24 @@ pub fn setup(p: MotorPeripherals, spawner: &Spawner) {
 
 #[embassy_executor::task]
 pub async fn manage_motors() {
+    let mut rx = WATCH_BUTTON
+        .receiver()
+        .expect("Not enough watch button receivers");
+
+    // let mut ticker = Ticker::every(MOTOR_PERIOD);
+
     info!("Starting to manage motors");
 
-    let mut ticker = Ticker::every(MOTOR_PERIOD);
-
     loop {
-        ticker.next().await;
+        let button = rx.changed().await;
+
+        use ButtonPressed::*;
+        match button {
+            b => info!("Motor task received button press: {:?}", b),
+            // b @ Button2 => info!("Motor task received button press: {:?}", b),
+            // b @ Button3 => info!("Motor task received button press: {:?}", b),
+            // b @ Button4 => info!("Motor task received button press: {:?}", b),
+            // b @ Button5 => info!("Motor task received button press: {:?}", b),
+        }
     }
 }

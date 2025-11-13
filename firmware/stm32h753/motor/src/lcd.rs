@@ -20,6 +20,8 @@ use embedded_graphics::{
 };
 use ssd1309::{Builder, mode::GraphicsMode};
 
+use crate::button::{ButtonPressed, WATCH_BUTTON};
+
 /// Period at which this task is ticked
 const LCD_PERIOD: Duration = Duration::from_millis(100);
 const ADDRESS: u8 = 0x3C;
@@ -61,18 +63,30 @@ pub fn setup(p: LcdPeripherals, spawner: &Spawner) {
 pub async fn manage_display(mut display: GraphicsMode<I2CInterface<I2c<'static, Async, Master>>>) {
     info!("Starting to manage display");
 
+    let mut rx = WATCH_BUTTON
+        .receiver()
+        .expect("Not enough watch button receivers");
+
     let mut ticker = Ticker::every(LCD_PERIOD);
 
     display.init().unwrap();
     display.clear();
     display.flush().unwrap();
 
-    let im: ImageRawLE<BinaryColor> = ImageRawLE::new(
+    let joris_im: ImageRawLE<BinaryColor> = ImageRawLE::new(
         include_bytes!("/home/max/git/saxion/peeler_mouse/data/joris.raw"),
         128,
     );
+    let rene_im: ImageRawLE<BinaryColor> = ImageRawLE::new(
+        include_bytes!("/home/max/git/saxion/peeler_mouse/data/rene.raw"),
+        128,
+    );
+    let lex_im: ImageRawLE<BinaryColor> = ImageRawLE::new(
+        include_bytes!("/home/max/git/saxion/peeler_mouse/data/lex.raw"),
+        128,
+    );
 
-    Image::new(&im, Point::new(0, 0))
+    Image::new(&joris_im, Point::new(0, 0))
         .draw(&mut display)
         .unwrap();
 
@@ -85,9 +99,33 @@ pub async fn manage_display(mut display: GraphicsMode<I2CInterface<I2c<'static, 
     //     .draw(&mut display)
     //     .unwrap();
 
-    display.flush().unwrap();
-
     loop {
-        ticker.next().await;
+        let button = rx.changed().await;
+
+        use ButtonPressed::*;
+        match button {
+            b @ Button1 => {
+                info!("LCD task received button press: {:?} - Drawing Joris", b);
+                Image::new(&joris_im, Point::new(0, 0))
+                    .draw(&mut display)
+                    .unwrap();
+                display.flush().unwrap();
+            }
+            b @ Button2 => {
+                info!("LCD task received button press: {:?} - Drawing Rene", b);
+                Image::new(&rene_im, Point::new(0, 0))
+                    .draw(&mut display)
+                    .unwrap();
+                display.flush().unwrap();
+            }
+            b @ Button3 => {
+                info!("LCD task received button press: {:?} - Drawing Lex", b);
+                Image::new(&lex_im, Point::new(0, 0))
+                    .draw(&mut display)
+                    .unwrap();
+                display.flush().unwrap();
+            }
+            b => info!("LCD task ignoring button {:?}", b),
+        }
     }
 }
