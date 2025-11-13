@@ -7,3 +7,4 @@ edition = "2024"
 embedded-hal = { version = "1.0.0", features = ["defmt-03"] }
 embedded-hal-async = { version = "1.0.0", features = ["defmt-03"] }
 thiserror = { version = "2.0.17",  default-features = false }
+defmt = "1.0.1"

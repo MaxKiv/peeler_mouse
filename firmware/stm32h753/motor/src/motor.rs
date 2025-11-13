@@ -8,7 +8,7 @@ use embassy_stm32::{
     mode::Async,
     peripherals::*,
 };
-use embassy_time::{Duration, Ticker};
+use embassy_time::{Delay, Duration, Ticker};
 use embedded_graphics::{
     Drawable,
     image::{Image, ImageRawLE},
@@ -37,13 +37,13 @@ pub fn setup(p: MotorPeripherals, spawner: &Spawner) {
     let step = Output::new(p.motor_a_step, Level::Low, Speed::Low);
     let dir = Output::new(p.motor_a_dir, Level::Low, Speed::Low);
 
-    Tb6600::new(step, dir, embassy_time::Delay);
+    let tb = Tb6600::new(step, dir, embassy_time::Delay);
 
-    spawner.spawn(manage_motors()).unwrap();
+    spawner.spawn(manage_motors(tb)).unwrap();
 }
 
 #[embassy_executor::task]
-pub async fn manage_motors() {
+pub async fn manage_motors(mut tb: Tb6600<Output<'static>, Output<'static>, Delay>) {
     let mut rx = WATCH_BUTTON
         .receiver()
         .expect("Not enough watch button receivers");
@@ -57,11 +57,22 @@ pub async fn manage_motors() {
 
         use ButtonPressed::*;
         match button {
-            b => info!("Motor task received button press: {:?}", b),
-            // b @ Button2 => info!("Motor task received button press: {:?}", b),
-            // b @ Button3 => info!("Motor task received button press: {:?}", b),
-            // b @ Button4 => info!("Motor task received button press: {:?}", b),
-            // b @ Button5 => info!("Motor task received button press: {:?}", b),
+            b @ Button4 => {
+                info!("Motor task received button press: {:?} - stepping once", b);
+                if let Err(err) = tb.step_once().await {
+                    error!("Err: {}", err);
+                }
+            }
+            b @ Button5 => {
+                info!(
+                    "Motor task received button press: {:?} - stepping 10 times",
+                    b
+                );
+                if let Err(err) = tb.step_n(10).await {
+                    error!("Err: {}", err);
+                }
+            }
+            b => info!("Motor task ignoring button {:?}", b),
         }
     }
 }

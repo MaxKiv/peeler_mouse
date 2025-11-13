@@ -77,18 +77,19 @@ pub async fn manage_display(mut display: GraphicsMode<I2CInterface<I2c<'static, 
         include_bytes!("/home/max/git/saxion/peeler_mouse/data/joris.raw"),
         128,
     );
+    let joris = Image::new(&joris_im, Point::new(0, 0));
+
     let rene_im: ImageRawLE<BinaryColor> = ImageRawLE::new(
         include_bytes!("/home/max/git/saxion/peeler_mouse/data/rene.raw"),
         128,
     );
+    let rene = Image::new(&rene_im, Point::new(0, 0));
+
     let lex_im: ImageRawLE<BinaryColor> = ImageRawLE::new(
         include_bytes!("/home/max/git/saxion/peeler_mouse/data/lex.raw"),
         128,
     );
-
-    Image::new(&joris_im, Point::new(0, 0))
-        .draw(&mut display)
-        .unwrap();
+    let lex = Image::new(&lex_im, Point::new(0, 0));
 
     // let text_style = MonoTextStyleBuilder::new()
     //     .font(&FONT_6X10)
@@ -106,23 +107,19 @@ pub async fn manage_display(mut display: GraphicsMode<I2CInterface<I2c<'static, 
         match button {
             b @ Button1 => {
                 info!("LCD task received button press: {:?} - Drawing Joris", b);
-                Image::new(&joris_im, Point::new(0, 0))
-                    .draw(&mut display)
-                    .unwrap();
+
+                // TODO: move to async display https://201.rustiec.be/4_display_async.html
+                joris.draw(&mut display).unwrap();
                 display.flush().unwrap();
             }
             b @ Button2 => {
                 info!("LCD task received button press: {:?} - Drawing Rene", b);
-                Image::new(&rene_im, Point::new(0, 0))
-                    .draw(&mut display)
-                    .unwrap();
+                rene.draw(&mut display).unwrap();
                 display.flush().unwrap();
             }
             b @ Button3 => {
                 info!("LCD task received button press: {:?} - Drawing Lex", b);
-                Image::new(&lex_im, Point::new(0, 0))
-                    .draw(&mut display)
-                    .unwrap();
+                lex.draw(&mut display).unwrap();
                 display.flush().unwrap();
             }
             b => info!("LCD task ignoring button {:?}", b),

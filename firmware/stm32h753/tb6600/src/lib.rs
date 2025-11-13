@@ -1,6 +1,7 @@
 #![no_std]
 
 use core::option::Option;
+use defmt::trace;
 use embedded_hal::digital::OutputPin;
 use embedded_hal_async::delay::DelayNs;
 use thiserror::Error;
@@ -14,7 +15,7 @@ pub struct Tb6600<StepPin, DirPin, Delay> {
     delay: Delay,
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, defmt::Format)]
 pub enum TB6600Error {
     #[error("Direction pin ging op zn gat")]
     DirectionPin,
@@ -75,10 +76,13 @@ where
 
     // Perform a single step
     pub async fn step_once(&mut self) -> Result<(), TB6600Error> {
+        trace!("Stepper stepping once");
+
         self.step_pin.set_high().map_err(|_| TB6600Error::StepPin)?;
 
         // Fierce googling: min pulse width ~5µs, maybe?
         self.delay.delay_us(5).await;
+
         self.step_pin.set_low().map_err(|_| TB6600Error::StepPin)?;
 
         self.delay.delay_us(5).await;
