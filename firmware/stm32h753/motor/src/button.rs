@@ -23,11 +23,11 @@ pub enum ButtonPressed {
 }
 
 pub struct ButtonPeripherals {
-    pub b1: (Peri<'static, PD7>, Peri<'static, EXTI7>),
-    pub b2: (Peri<'static, PD6>, Peri<'static, EXTI6>),
-    pub b3: (Peri<'static, PD5>, Peri<'static, EXTI5>),
-    pub b4: (Peri<'static, PD4>, Peri<'static, EXTI4>),
-    pub b5: (Peri<'static, PD3>, Peri<'static, EXTI3>),
+    pub b1: (Peri<'static, PC13>, Peri<'static, EXTI13>),
+    pub b2: (Peri<'static, PD7>, Peri<'static, EXTI7>),
+    pub b3: (Peri<'static, PD6>, Peri<'static, EXTI6>),
+    pub b4: (Peri<'static, PD5>, Peri<'static, EXTI5>),
+    pub b5: (Peri<'static, PD4>, Peri<'static, EXTI4>),
 }
 
 pub fn setup(p: ButtonPeripherals, spawner: &Spawner) {

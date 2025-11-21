@@ -17,11 +17,11 @@ async fn main(spawner: Spawner) {
     info!("Hello World!");
 
     let button_peri = ButtonPeripherals {
-        b1: (p.PD7, p.EXTI7),
-        b2: (p.PD6, p.EXTI6),
-        b3: (p.PD5, p.EXTI5),
-        b4: (p.PD4, p.EXTI4),
-        b5: (p.PD3, p.EXTI3),
+        b1: (p.PC13, p.EXTI13),
+        b2: (p.PD7, p.EXTI7),
+        b3: (p.PD6, p.EXTI6),
+        b4: (p.PD5, p.EXTI5),
+        b5: (p.PD4, p.EXTI4),
     };
 
     let lcd_peri = LcdPeripherals {

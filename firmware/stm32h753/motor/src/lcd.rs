@@ -7,7 +7,7 @@ use embassy_stm32::{
     mode::Async,
     peripherals::*,
 };
-use embassy_time::{Duration, Ticker};
+use embassy_time::{Delay, Duration, Ticker, Timer};
 use embedded_graphics::{
     Drawable,
     image::{Image, ImageRawLE},
@@ -18,6 +18,7 @@ use embedded_graphics::{
     prelude::Point,
     text::{Baseline, Text},
 };
+use embedded_hal_1::delay::DelayNs;
 use ssd1309::{Builder, mode::GraphicsMode};
 
 use crate::button::{ButtonPressed, WATCH_BUTTON};
@@ -69,9 +70,12 @@ pub async fn manage_display(mut display: GraphicsMode<I2CInterface<I2c<'static, 
 
     let mut ticker = Ticker::every(LCD_PERIOD);
 
-    display.init().unwrap();
+    while display.init().is_err() {
+        error!("Unable to initialise display, is it connected?");
+        Timer::after(Duration::from_millis(1000)).await;
+    }
     display.clear();
-    display.flush().unwrap();
+    flush_logged(&mut display);
 
     let joris_im: ImageRawLE<BinaryColor> = ImageRawLE::new(
         include_bytes!("/home/max/git/saxion/peeler_mouse/data/joris.raw"),
@@ -105,24 +109,30 @@ pub async fn manage_display(mut display: GraphicsMode<I2CInterface<I2c<'static, 
 
         use ButtonPressed::*;
         match button {
-            b @ Button1 => {
+            b @ Button3 => {
                 info!("LCD task received button press: {:?} - Drawing Joris", b);
 
                 // TODO: move to async display https://201.rustiec.be/4_display_async.html
                 joris.draw(&mut display).unwrap();
-                display.flush().unwrap();
+                flush_logged(&mut display);
             }
-            b @ Button2 => {
+            b @ Button4 => {
                 info!("LCD task received button press: {:?} - Drawing Rene", b);
                 rene.draw(&mut display).unwrap();
-                display.flush().unwrap();
+                flush_logged(&mut display);
             }
-            b @ Button3 => {
+            b @ Button5 => {
                 info!("LCD task received button press: {:?} - Drawing Lex", b);
                 lex.draw(&mut display).unwrap();
-                display.flush().unwrap();
+                flush_logged(&mut display);
             }
             b => info!("LCD task ignoring button {:?}", b),
         }
+    }
+}
+
+fn flush_logged(display: &mut GraphicsMode<I2CInterface<I2c<'static, Async, Master>>>) {
+    if display.flush().is_err() {
+        error!("Unable to flush display, skipping...");
     }
 }

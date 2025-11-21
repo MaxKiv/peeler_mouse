@@ -57,18 +57,18 @@ pub async fn manage_motors(mut tb: Tb6600<Output<'static>, Output<'static>, Dela
 
         use ButtonPressed::*;
         match button {
-            b @ Button4 => {
+            b @ Button1 => {
                 info!("Motor task received button press: {:?} - stepping once", b);
-                if let Err(err) = tb.step_once().await {
+                if let Err(err) = tb.step_n(100).await {
                     error!("Err: {}", err);
                 }
             }
-            b @ Button5 => {
+            b @ Button2 => {
                 info!(
                     "Motor task received button press: {:?} - stepping 10 times",
                     b
                 );
-                if let Err(err) = tb.step_n(10).await {
+                if let Err(err) = tb.step_n(1000).await {
                     error!("Err: {}", err);
                 }
             }
