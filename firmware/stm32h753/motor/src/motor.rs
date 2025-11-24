@@ -37,7 +37,7 @@ pub fn setup(p: MotorPeripherals, spawner: &Spawner) {
     let step = Output::new(p.motor_a_step, Level::Low, Speed::Low);
     let dir = Output::new(p.motor_a_dir, Level::Low, Speed::Low);
 
-    let tb = Tb6600::new(step, dir, embassy_time::Delay);
+    let tb = Tb6600::new(step, dir, embassy_time::Delay, 5);
 
     spawner.spawn(manage_motors(tb)).unwrap();
 }
