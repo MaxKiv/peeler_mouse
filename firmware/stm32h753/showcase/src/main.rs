@@ -3,6 +3,7 @@
 
 pub mod button;
 pub mod linear_motor;
+pub mod pot;
 pub mod rotational_motor;
 
 use crate::{

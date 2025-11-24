@@ -26,6 +26,7 @@ pub enum TB6600Error {
     EnablePin,
 }
 
+#[derive(Clone, Debug)]
 pub enum Direction {
     Forward,
     Reverse,
@@ -47,10 +48,10 @@ where
         }
     }
 
-    // ENABLE LOW = ON + EN tied low -> Driver is always on...
+    // ENABLE LOW = ON + EN tied low -> Driver is always on
     pub fn enable(&mut self) {}
 
-    // ENABLE LOW = ON + EN tied low -> Driver is always on...
+    // ENABLE LOW = ON + EN tied low -> Driver is always on
     pub fn disable(&mut self) {}
 
     // Set step direction

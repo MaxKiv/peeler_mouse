@@ -28,7 +28,7 @@
       toolchain = with fenix.packages.${system};
         fromToolchainFile {
           file = ./rust-toolchain.toml; # alternatively, dir = ./.;
-          sha256 = "sha256-2eWc3xVTKqg5wKSHGwt1XoM/kUBC6y3MWfKg74Zn+fY=";
+          sha256 = "sha256-SDu4snEWjuZU475PERvu+iO50Mi39KVjqCeJeNvpguU=";
         };
     in {
       # Development shells provided by this flake, to use:
@@ -40,7 +40,6 @@
           toolchain # Our Rust toolchain
           rust-analyzer # Rust LSP
           probe-rs-tools # probe-rs
-          gcc-arm-embedded # arm-none-eabi-gdb
           openocd # gdb server
           tio # serial monitor
         ];

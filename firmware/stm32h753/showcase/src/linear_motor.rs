@@ -1,19 +1,20 @@
 use defmt::*;
 use embassy_executor::Spawner;
-use embassy_futures::select::{Either, select};
+use embassy_futures::select::{Either, Either3, select, select3};
 use embassy_stm32::peripherals::*;
 use embassy_stm32::{
     Peri,
     gpio::{Level, Output, Speed},
 };
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::signal::Signal;
-use embassy_time::{Delay, Duration, Timer};
-use tb6600::Tb6600;
+use embassy_sync::watch::Watch;
+use embassy_time::{Delay, Timer};
+use tb6600::{Direction, Tb6600};
 
 use crate::button::{ButtonPressed, WATCH_BUTTON};
 
-static SHOULD_MOTOR_MOVE: Signal<CriticalSectionRawMutex, bool> = Signal::new();
+static MOTOR_ENABLED: Watch<CriticalSectionRawMutex, bool, 1> = Watch::new();
+static MOTOR_DIRECTION: Watch<CriticalSectionRawMutex, Direction, 1> = Watch::new();
 
 pub struct LinearAxisMotorPeripherals {
     pub step: Peri<'static, PE3>,
@@ -28,30 +29,33 @@ pub fn setup(p: LinearAxisMotorPeripherals, spawner: &Spawner) {
 
     let tb = Tb6600::new(step, dir, embassy_time::Delay, 5);
 
-    spawner.spawn(manage_linear_motor(tb)).unwrap();
+    spawner.spawn(latch_motor_movement(tb)).unwrap();
 }
 
 #[embassy_executor::task]
 pub async fn manage_linear_motor(mut tb: Tb6600<Output<'static>, Output<'static>, Delay>) {
-    let mut rx = WATCH_BUTTON
+    let mut rx_enabled = WATCH_BUTTON
         .receiver()
         .expect("Not enough watch button receivers");
+
+    let tx = MOTOR_ENABLED.sender();
 
     info!("Starting to manage motors");
 
     loop {
-        let button = rx.changed().await;
+        let button = rx_enabled.changed().await;
+        let mut moving = false;
 
         use ButtonPressed::*;
         match button {
             b @ Button2 => {
+                moving = !moving;
                 info!(
-                    "Motor task received button press: {:?} - stepping linear motor",
-                    b
+                    "Motor task received button press: {:?} - {} motor",
+                    b,
+                    if moving { "moving" } else { "stopping" }
                 );
-                if let Err(err) = tb.step_n(1000).await {
-                    error!("Err: {}", err);
-                }
+                tx.send(moving);
             }
             b @ Button3 => {
                 info!(
@@ -63,6 +67,54 @@ pub async fn manage_linear_motor(mut tb: Tb6600<Output<'static>, Output<'static>
                 }
             }
             b => info!("Motor task ignoring button {:?}", b),
+        }
+    }
+}
+
+#[embassy_executor::task]
+async fn latch_motor_movement(mut tb: Tb6600<Output<'static>, Output<'static>, Delay>) {
+    let mut rx_enabled = MOTOR_ENABLED.receiver().expect("increase MOTOR_ENABLED N");
+    let mut rx_direction = MOTOR_DIRECTION
+        .receiver()
+        .expect("increase MOTOR_DIRECTION N");
+
+    loop {
+        let moving = rx_enabled.get().await;
+
+        if moving {
+            // Motor running: step OR react to state change
+            match select3(tb.step_once(), rx_enabled.changed(), rx_direction.changed()).await {
+                Either3::First(_) => {
+                    // step_once finished, loop again -> next step
+                }
+                Either3::Second(_) => {
+                    // new value arrived, restart loop
+                }
+                Either3::Third(direction) => {
+                    // new direction, change direction and restart loop
+                    if let Err(err) = tb.set_direction(direction).await {
+                        error!("Unable to change TB6600 direction: {:?}", err);
+                    }
+                }
+            }
+        } else {
+            // Motor stopped: idle OR react to change
+            match select3(
+                Timer::after_millis(50),
+                rx_enabled.changed(),
+                rx_direction.changed(),
+            )
+            .await
+            {
+                Either3::First(_) => {}  // stay stopped
+                Either3::Second(_) => {} // changed → next iteration
+                Either3::Third(direction) => {
+                    // new direction, change direction and restart loop
+                    if let Err(err) = tb.set_direction(direction).await {
+                        error!("Unable to change TB6600 direction: {:?}", err);
+                    }
+                }
+            }
         }
     }
 }
