@@ -5,8 +5,11 @@ use embassy_stm32::gpio::Pull;
 use embassy_stm32::{Peri, peripherals::*};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::watch::Watch;
+use embassy_time::{Duration, Timer};
 
 pub static WATCH_BUTTON: Watch<CriticalSectionRawMutex, ButtonPressed, 2> = Watch::new();
+
+const DEBOUNCE_DURATION: Duration = Duration::from_millis(200);
 
 pub struct Button<'a> {
     pub input: ExtiInput<'a>,
@@ -39,23 +42,23 @@ pub async fn manage_button(p: ButtonPeripherals) {
     use ButtonPressed::*;
 
     let button_1 = Button {
-        input: ExtiInput::new(p.b1.0, p.b1.1, Pull::Down),
+        input: ExtiInput::new(p.b1.0, p.b1.1, Pull::Up),
         number: Button1,
     };
     let button_2 = Button {
-        input: ExtiInput::new(p.b2.0, p.b2.1, Pull::Down),
+        input: ExtiInput::new(p.b2.0, p.b2.1, Pull::Up),
         number: Button2,
     };
     let button_3 = Button {
-        input: ExtiInput::new(p.b3.0, p.b3.1, Pull::Down),
+        input: ExtiInput::new(p.b3.0, p.b3.1, Pull::Up),
         number: Button3,
     };
     let button_4 = Button {
-        input: ExtiInput::new(p.b4.0, p.b4.1, Pull::Down),
+        input: ExtiInput::new(p.b4.0, p.b4.1, Pull::Up),
         number: Button4,
     };
     let button_5 = Button {
-        input: ExtiInput::new(p.b5.0, p.b5.1, Pull::Down),
+        input: ExtiInput::new(p.b5.0, p.b5.1, Pull::Up),
         number: Button5,
     };
 
@@ -79,5 +82,7 @@ async fn handle_button(mut button: Button<'_>) {
 
         button.input.wait_for_falling_edge().await;
         info!("{:?} Released!", button.number);
+
+        Timer::after(DEBOUNCE_DURATION).await;
     }
 }

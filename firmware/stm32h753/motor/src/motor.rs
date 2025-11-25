@@ -3,10 +3,11 @@ use display_interface_i2c::I2CInterface;
 use embassy_executor::Spawner;
 use embassy_stm32::{
     Peri, bind_interrupts,
-    gpio::{Level, Output, Speed},
+    gpio::{Level, Output, OutputType, Speed},
     i2c::{self, I2c, Master},
     mode::Async,
     peripherals::*,
+    timer::simple_pwm::PwmPin,
 };
 use embassy_time::{Delay, Duration, Ticker};
 use embedded_graphics::{
@@ -27,15 +28,17 @@ use crate::button::{ButtonPressed, WATCH_BUTTON};
 const MOTOR_PERIOD: Duration = Duration::from_millis(100);
 
 pub struct MotorPeripherals {
-    pub motor_a_step: Peri<'static, PE3>,
-    pub motor_a_dir: Peri<'static, PF8>,
+    pub motor_step: Peri<'static, PE3>,
+    pub motor_dir: Peri<'static, PF8>,
 }
 
 pub fn setup(p: MotorPeripherals, spawner: &Spawner) {
     info!("Setting up motors");
+    // https://docs.embassy.dev/embassy-stm32/git/stm32h753zi/timer/simple_pwm/struct.SimplePwm.html
+    // https://github.com/embassy-rs/embassy/blob/db8641740c1e4653ba3fad79744ca6f8a0a139ae/examples/stm32h7/src/bin/pwm.rs
 
-    let step = Output::new(p.motor_a_step, Level::Low, Speed::Low);
-    let dir = Output::new(p.motor_a_dir, Level::Low, Speed::Low);
+    let step = Output::new(p.motor_step, Level::Low, Speed::VeryHigh);
+    let dir = Output::new(p.motor_dir, Level::Low, Speed::VeryHigh);
 
     let tb = Tb6600::new(step, dir, embassy_time::Delay, 5);
 

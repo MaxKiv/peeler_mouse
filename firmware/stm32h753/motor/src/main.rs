@@ -33,8 +33,8 @@ async fn main(spawner: Spawner) {
     };
 
     let motor_peri = MotorPeripherals {
-        motor_a_step: p.PE3,
-        motor_a_dir: p.PF8,
+        motor_step: p.PE3,
+        motor_dir: p.PF8,
     };
 
     button::setup(button_peri, &spawner);

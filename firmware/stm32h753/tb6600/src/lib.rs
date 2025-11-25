@@ -8,12 +8,12 @@ use thiserror::Error;
 pub struct Tb6600<StepPin, DirPin, Delay> {
     step_pin: StepPin,
     dir_pin: DirPin,
-    direction: Direction,
     // enable: Option<EnablePin>,
     // enabled: bool,
     delay: Delay,
     /// Fierce googling: min pulse width ~5µs, maybe?
-    pulse_period_us: u32,
+    pub direction: Direction,
+    pub pulse_period_us: u32,
 }
 
 #[derive(Error, Debug, defmt::Format)]
@@ -26,7 +26,7 @@ pub enum TB6600Error {
     EnablePin,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, defmt::Format)]
 pub enum Direction {
     Forward,
     Reverse,
@@ -92,7 +92,7 @@ where
 
         self.step_pin.set_high().map_err(|_| TB6600Error::StepPin)?;
 
-        self.delay.delay_us(self.pulse_period_us).await;
+        self.delay.delay_us(50).await;
 
         self.step_pin.set_low().map_err(|_| TB6600Error::StepPin)?;
 
@@ -105,6 +105,21 @@ where
         for _ in 0..steps {
             self.step_once().await.map_err(|_| TB6600Error::StepPin)?;
         }
+
+        Ok(())
+    }
+
+    // Perform a single step with given period
+    pub async fn step_once_with_period(&mut self, pulse_period_us: u32) -> Result<(), TB6600Error> {
+        trace!("Stepper stepping once");
+
+        self.step_pin.set_high().map_err(|_| TB6600Error::StepPin)?;
+
+        self.delay.delay_us(50).await;
+
+        self.step_pin.set_low().map_err(|_| TB6600Error::StepPin)?;
+
+        self.delay.delay_us(pulse_period_us).await;
 
         Ok(())
     }

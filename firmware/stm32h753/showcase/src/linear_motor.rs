@@ -1,6 +1,6 @@
 use defmt::*;
 use embassy_executor::Spawner;
-use embassy_futures::select::{Either, Either3, select, select3};
+use embassy_futures::select::{Either3, select3};
 use embassy_stm32::peripherals::*;
 use embassy_stm32::{
     Peri,
@@ -12,6 +12,7 @@ use embassy_time::{Delay, Timer};
 use tb6600::{Direction, Tb6600};
 
 use crate::button::{ButtonPressed, WATCH_BUTTON};
+use crate::pot::WATCH_POT;
 
 static MOTOR_ENABLED: Watch<CriticalSectionRawMutex, bool, 1> = Watch::new();
 static MOTOR_DIRECTION: Watch<CriticalSectionRawMutex, Direction, 1> = Watch::new();
@@ -30,21 +31,24 @@ pub fn setup(p: LinearAxisMotorPeripherals, spawner: &Spawner) {
     let tb = Tb6600::new(step, dir, embassy_time::Delay, 5);
 
     spawner.spawn(latch_motor_movement(tb)).unwrap();
+    spawner.spawn(manage_linear_motor()).unwrap();
 }
 
 #[embassy_executor::task]
-pub async fn manage_linear_motor(mut tb: Tb6600<Output<'static>, Output<'static>, Delay>) {
+pub async fn manage_linear_motor() {
     let mut rx_enabled = WATCH_BUTTON
         .receiver()
         .expect("Not enough watch button receivers");
 
-    let tx = MOTOR_ENABLED.sender();
+    let tx_enabled = MOTOR_ENABLED.sender();
+    let tx_dir = MOTOR_DIRECTION.sender();
 
     info!("Starting to manage motors");
 
+    let mut moving = false;
+    let mut dir = Direction::Forward;
     loop {
         let button = rx_enabled.changed().await;
-        let mut moving = false;
 
         use ButtonPressed::*;
         match button {
@@ -55,17 +59,21 @@ pub async fn manage_linear_motor(mut tb: Tb6600<Output<'static>, Output<'static>
                     b,
                     if moving { "moving" } else { "stopping" }
                 );
-                tx.send(moving);
+                tx_enabled.send(moving);
             }
             b @ Button3 => {
+                dir = match dir.clone() {
+                    Direction::Forward => Direction::Reverse,
+                    Direction::Reverse => Direction::Forward,
+                };
+
                 info!(
-                    "Motor task received button press: {:?} - reversing direction",
-                    b
+                    "Motor task received button press: {:?} - switched direction to {:?}",
+                    b, dir
                 );
-                if let Err(err) = tb.flip_direction().await {
-                    error!("Err: {}", err);
-                }
+                tx_dir.send(dir.clone())
             }
+
             b => info!("Motor task ignoring button {:?}", b),
         }
     }
@@ -77,13 +85,27 @@ async fn latch_motor_movement(mut tb: Tb6600<Output<'static>, Output<'static>, D
     let mut rx_direction = MOTOR_DIRECTION
         .receiver()
         .expect("increase MOTOR_DIRECTION N");
+    let mut rx_speed = WATCH_POT.receiver().expect("increase WATCH_POT N");
 
     loop {
         let moving = rx_enabled.get().await;
+        let pulse_period_us = rx_speed.get().await;
+
+        info!(
+            "{} with pulse_period_us {}",
+            if moving { "moving" } else { "not moving" },
+            pulse_period_us
+        );
 
         if moving {
             // Motor running: step OR react to state change
-            match select3(tb.step_once(), rx_enabled.changed(), rx_direction.changed()).await {
+            match select3(
+                tb.step_once_with_period(pulse_period_us.into()),
+                rx_enabled.changed(),
+                rx_direction.changed(),
+            )
+            .await
+            {
                 Either3::First(_) => {
                     // step_once finished, loop again -> next step
                 }
@@ -100,7 +122,7 @@ async fn latch_motor_movement(mut tb: Tb6600<Output<'static>, Output<'static>, D
         } else {
             // Motor stopped: idle OR react to change
             match select3(
-                Timer::after_millis(50),
+                Timer::after_millis(100),
                 rx_enabled.changed(),
                 rx_direction.changed(),
             )
