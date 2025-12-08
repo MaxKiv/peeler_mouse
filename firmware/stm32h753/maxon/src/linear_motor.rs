@@ -27,7 +27,7 @@ pub fn setup(p: LinearAxisMotorPeripherals, spawner: &Spawner) {
     info!("Setting up motors");
 
     let dir = Output::new(p.dir, Level::Low, Speed::VeryHigh);
-    let tb = Tb6600::new("Translation motor", p.step, dir, embassy_time::Delay, 5);
+    let tb = Tb6600::new("Translation", p.step, dir, embassy_time::Delay, 5);
 
     spawner.spawn(latch_motor_movement(tb)).unwrap();
     spawner.spawn(manage_linear_motor()).unwrap();
@@ -94,7 +94,7 @@ async fn latch_motor_movement(mut tb: Tb6600<TIM3, Output<'static>, Delay>) {
 
         tb.control_stepping(should_step);
 
-        // Motor stopped: idle OR react to change
+        // continue for 100ms or until a new enable or direction setpoint is received
         match select3(ticker.next(), rx_enabled.changed(), rx_direction.changed()).await {
             Either3::First(_) => {} // 100ms expired -> check for speed changes in next iteration
             Either3::Second(_) => {} // motor enabled/disabled -> next iteration
