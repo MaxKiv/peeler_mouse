@@ -1,3 +1,3 @@
 [workspace]
 resolver = "3"
-members = ["ethernet", "button", "lcd", "motor", "tb6600", "showcase", "maxon", "l9110"]
+members = ["ethernet", "button", "lcd", "motor", "tb6600", "full", "maxon", "l9110", "encoder", "as5048-pwm"]

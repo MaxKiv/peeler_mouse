@@ -1,6 +1,6 @@
 #![no_std]
 
-use defmt::trace;
+use defmt::{info, trace, warn};
 use embassy_stm32::{
     time::Hertz,
     timer::{GeneralInstance4Channel, simple_pwm::SimplePwm},
@@ -8,11 +8,13 @@ use embassy_stm32::{
 use embedded_hal::digital::OutputPin;
 use embedded_hal_async::delay::DelayNs;
 use thiserror::Error;
+use uom::si::{f32::Velocity, velocity::millimeter_per_second};
 
 const BASE_DUTY_CYCLE_PERCENT: u8 = 50;
 pub const BASE_STEP_FREQUENCY_HZ: Hertz = Hertz(10_000);
 pub const MIN_STEP_FREQUENCY_HZ: Hertz = Hertz(1);
 pub const MAX_STEP_FREQUENCY_HZ: Hertz = Hertz(25_000); // 100khz max theoretical (~5µs pulse width at 50% dc), but this cooks the Tb6600 already
+pub const DEFAULT_SPEED_MS_PS: f32 = 1.0;
 
 pub struct Tb6600<Timer, DirPin, Delay>
 where
@@ -26,7 +28,6 @@ where
     delay: Delay,
     /// Fierce googling: min pulse width ~5µs, maybe?
     pub direction: Direction,
-    pub pulse_period_us: u32,
 }
 
 #[derive(Error, Debug, defmt::Format)]
@@ -37,6 +38,8 @@ pub enum TB6600Error {
     StepPin,
     #[error("Enable pin ging op zn gat")]
     EnablePin,
+    #[error("Invalid input")]
+    Input,
 }
 
 #[derive(Clone, Debug, defmt::Format)]
@@ -56,7 +59,6 @@ where
         mut step_pwm: SimplePwm<'static, Timer>,
         dir_pin: DirPin,
         delay: Delay,
-        pulse_period_us: u32,
     ) -> Self {
         step_pwm.ch1().disable(); // start disabled
 
@@ -67,56 +69,83 @@ where
             dir_pin,
             delay,
             direction: Direction::Forward,
-            pulse_period_us,
             enabled: false,
         };
 
-        out.set_speed(BASE_STEP_FREQUENCY_HZ.0);
+        // start disabled
+        out.stop();
 
         out
     }
 
-    /// ENABLE LOW = ON + EN tied low -> Driver is always on
-    /// Software enables the step pwm output
-    pub fn start_stepping(&mut self) {
-        self.control_stepping(true);
-    }
+    /// Run the stepper at given speed
+    pub async fn run(&mut self, speed: Velocity) -> Result<(), TB6600Error> {
+        let mut speed = speed.get::<millimeter_per_second>();
+        info!("{} motor RUNNING at {}mm/s", self.name, speed);
 
-    /// ENABLE LOW = ON + EN tied low -> Driver is always on
-    /// Software disables the step pwm output
-    pub fn stop_stepping(&mut self) {
-        self.control_stepping(false);
-    }
-
-    /// ENABLE LOW = ON + EN tied low -> Driver is always on
-    /// Software controls the step pwm output
-    pub fn control_stepping(&mut self, should_step: bool) {
-        if should_step {
-            trace!(
-                "{} started stepping at {}hz",
-                self.name, self.step_frequency
-            );
-            self.step_pwm.ch1().enable();
+        // Check in which direction we should be running
+        if speed > 0.0 {
+            self.set_direction(Direction::Forward).await?;
         } else {
-            trace!("{} stopped stepping", self.name);
-            self.step_pwm.ch1().disable();
+            self.set_direction(Direction::Reverse).await?;
+            // make sure speed is positive from here
+            speed = -speed;
         }
-        self.enabled = should_step;
-    }
 
-    /// Set stepper speed
-    pub fn set_speed(&mut self, frequency: u32) {
-        let frequency = frequency.clamp(MIN_STEP_FREQUENCY_HZ.0, MAX_STEP_FREQUENCY_HZ.0);
-        trace!("{} set speed to {}Hz", self.name, frequency);
-        self.step_pwm.set_frequency(Hertz(frequency));
+        // Set stepping frequency appropriate to the velocity setpoint
+        let freq = self.speed_to_frequency(speed).ok_or(TB6600Error::Input)?;
+        self.step_pwm.set_frequency(freq);
         self.step_pwm
             .ch1()
             .set_duty_cycle_percent(BASE_DUTY_CYCLE_PERCENT); // set_frequency docs suggests I have to call this again
-        self.step_frequency = Hertz(frequency);
+
+        self.start_stepping();
+
+        self.step_frequency = freq;
+
+        Ok(())
+    }
+
+    /// Stop the stepper
+    pub fn stop(&mut self) {
+        info!("{} motor stopped stepping", self.name);
+        self.step_pwm.ch1().disable();
+        self.enabled = false;
+    }
+
+    /// Set step N times
+    pub async fn do_steps(&mut self, num_steps: u32, speed: Velocity) {
+        let us = ((num_steps as f32 / self.step_frequency.0 as f32) * 1_000_000.0) as u32;
+
+        info!(
+            "{} motor START stepping {} times -> {}us",
+            self.name, num_steps, us
+        );
+
+        self.run(speed).await;
+        self.delay.delay_us(us).await;
+
+        info!(
+            "{} motor DONE stepping {} times -> {}us",
+            self.name, num_steps, us
+        );
+        self.stop();
+    }
+
+    /// Start stepping
+    /// ENABLE LOW = ON + EN tied low -> Driver is always on
+    /// Software enables the step pwm output
+    fn start_stepping(&mut self) {
+        info!(
+            "{} motor started stepping at {}",
+            self.name, self.step_frequency
+        );
+        self.step_pwm.ch1().enable();
+        self.enabled = true;
     }
 
     /// Set step direction
-    pub async fn set_direction(&mut self, direction: Direction) -> Result<(), TB6600Error> {
+    async fn set_direction(&mut self, direction: Direction) -> Result<(), TB6600Error> {
         self.direction = direction;
 
         match self.direction {
@@ -137,7 +166,7 @@ where
     }
 
     /// Flip step direction
-    pub async fn flip_direction(&mut self) -> Result<(), TB6600Error> {
+    async fn flip_direction(&mut self) -> Result<(), TB6600Error> {
         let dir = match self.direction {
             Direction::Forward => Direction::Reverse,
             Direction::Reverse => Direction::Forward,
@@ -150,8 +179,38 @@ where
 
     /// Set step pwm dc
     /// Percentage [0-100]
-    pub fn set_duty_cycle_percent(&mut self, percentage: u8) {
-        trace!("{} set dc to {}%", self.name, percentage);
+    fn set_duty_cycle_percent(&mut self, percentage: u8) {
+        trace!("{} motor set dc to {}%", self.name, percentage);
         self.step_pwm.ch1().set_duty_cycle_percent(percentage);
+    }
+
+    fn speed_to_frequency(&self, speed: f32) -> Option<Hertz> {
+        /// Speed [mm/s] at maximum stepping frequency
+        /// TODO: validate
+        const MAX_SPEED_MS_PS: f32 = 10.0;
+
+        let speed_percentage = (speed / MAX_SPEED_MS_PS).clamp(0.0, 1.0);
+        let freq = (speed_percentage * MAX_STEP_FREQUENCY_HZ.0 as f32) as u32;
+        if freq > 0 {
+            info!(
+                "converting {} motor speed setpoint of {}mm/s to {}% speed ({})",
+                self.name,
+                speed,
+                speed_percentage * 100.0,
+                freq
+            );
+
+            Some(Hertz(freq))
+        } else {
+            warn!(
+                "INVALID SPEED: converting {} motor speed setpoint of {}mm/s to {}% speed ({})",
+                self.name,
+                speed,
+                speed_percentage * 100.0,
+                freq
+            );
+
+            None
+        }
     }
 }

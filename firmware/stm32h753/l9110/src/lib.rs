@@ -17,8 +17,8 @@ pub const PWM_FREQUENCY: Hertz = Hertz(20_000); // 1-20kHz, low means audible no
 pub const DEFAULT_DIR_STATE: PinState = PinState::Low;
 pub const DEFAULT_DIRECTION: Direction = Direction::Forward;
 pub const DEAD_TIME_US: u8 = 1; // TODO: validate
-pub const DEFAULT_SPEED_MS_PS: f32 = 0.0;
-pub const MAX_SPEED_MS_PS: f32 = 1.0;
+pub const DEFAULT_SPEED_MS_PS: f32 = 1.0;
+pub const MAX_SPEED_MS_PS: f32 = 2.0;
 /// Duration to break by shorting.
 /// Increasing this increase heat release due to large ampererage in L9110 H-bridge short, potentially killing the device
 pub const BREAK_DURATION_MS: u32 = 1;
@@ -128,11 +128,11 @@ where
         self.b.set_duty_cycle_percent(dc);
     }
 
-    pub fn run(&mut self, speed: Velocity, direction: &Direction) {
-        self.direction = direction.clone();
-        match &self.direction {
-            Direction::Forward => self.forward(speed),
-            Direction::Reverse => self.reverse(speed),
+    pub fn run(&mut self, speed: Velocity) {
+        if speed.get::<millimeter_per_second>() > 0.0 {
+            self.forward(speed);
+        } else {
+            self.reverse(speed);
         }
     }
 
@@ -155,8 +155,9 @@ where
     }
 
     fn speed_to_duty_cycle_percent(speed: Velocity) -> u8 {
-        let out =
-            ((100.0 * speed.get::<millimeter_per_second>() / MAX_SPEED_MS_PS) as u8).clamp(0, 100);
+        let speed_abs = speed.get::<millimeter_per_second>().abs();
+
+        let out = ((100.0 * speed_abs / MAX_SPEED_MS_PS) as u8).clamp(0, 100);
 
         trace!(
             "Converted speed {}mm/s to {}% dc",

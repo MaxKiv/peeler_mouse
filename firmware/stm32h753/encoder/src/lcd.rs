@@ -18,6 +18,7 @@ use embedded_graphics::{
     prelude::Point,
     text::{Baseline, Text},
 };
+use embedded_hal_1::delay::DelayNs;
 use ssd1309::{Builder, mode::GraphicsMode};
 
 use crate::button::{ButtonPressed, WATCH_BUTTON};

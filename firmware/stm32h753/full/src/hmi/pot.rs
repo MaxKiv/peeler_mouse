@@ -5,11 +5,12 @@ use embassy_stm32::{Peri, adc::Adc, peripherals::*};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::watch::Watch;
 use embassy_time::{Duration, Timer};
+use tb6600::BASE_STEP_FREQUENCY_HZ;
 
 // #[unsafe(link_section = ".ram_d3")]
 // static mut DMA_BUF: [u16; 2] = [0; 2];
 
-pub static WATCH_POT: Watch<CriticalSectionRawMutex, u16, 2> = Watch::new();
+pub static WATCH_POT: Watch<CriticalSectionRawMutex, u16, 1> = Watch::new();
 
 pub struct PotPeripherals {
     pub pin: Peri<'static, PA3>,
@@ -41,12 +42,17 @@ pub async fn manage_pot(mut pot: PotAdc) {
     // let pin = pot.pin.degrade_adc();
 
     let tx = WATCH_POT.sender();
-    tx.send(5);
+    tx.send(
+        BASE_STEP_FREQUENCY_HZ
+            .0
+            .try_into()
+            .expect("BASE_STEP_FREQUENCY_HZ doesnt fit u16"),
+    );
 
     loop {
         let measured = pot.adc.blocking_read(&mut pot.pin);
 
-        info!("pot measured: {}", measured);
+        // info!("pot measured: {}", measured);
 
         tx.send(measured);
 
@@ -59,6 +65,6 @@ pub async fn manage_pot(mut pot: PotAdc) {
         //     .await;
         // // ?
 
-        Timer::after(Duration::from_millis(100)).await;
+        Timer::after(Duration::from_millis(250)).await;
     }
 }

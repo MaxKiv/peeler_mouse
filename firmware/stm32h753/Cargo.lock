@@ -33,6 +33,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "as5048-pwm"
+version = "0.1.0"
+dependencies = [
+ "defmt 1.0.1",
+ "embassy-stm32",
+ "embedded-hal 1.0.0",
+ "embedded-hal-async",
+ "static_cell",
+ "thiserror",
+ "uom",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -117,7 +130,7 @@ dependencies = [
  "embedded-nal-async",
  "embedded-storage",
  "grounded",
- "heapless",
+ "heapless 0.8.0",
  "micromath",
  "panic-probe",
  "static_cell",
@@ -278,13 +291,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7517c040926d7b02b111884aa089177db80878533127f7c1b480d852c5fb4112"
 
 [[package]]
+name = "display-interface"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ba2aab1ef3793e6f7804162debb5ac5edb93b3d650fbcc5aeb72fcd0e6c03a0"
+
+[[package]]
 name = "display-interface-i2c"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4895cd4e54e5536ef370d7f1eec787aad8275dd8ad15815aebfa71dd847b4ebf"
 dependencies = [
- "display-interface",
+ "display-interface 0.4.1",
  "embedded-hal 0.2.7",
+]
+
+[[package]]
+name = "display-interface-i2c"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d964fa85bbbb5a6ecd06e58699407ac5dc3e3ad72dac0ab7e6b0d00a1cd262d"
+dependencies = [
+ "display-interface 0.5.0",
+ "embedded-hal 1.0.0",
+ "embedded-hal-async",
 ]
 
 [[package]]
@@ -378,7 +408,7 @@ dependencies = [
  "embassy-time",
  "embedded-io-async",
  "embedded-nal-async",
- "heapless",
+ "heapless 0.8.0",
  "managed",
  "smoltcp",
 ]
@@ -465,7 +495,7 @@ dependencies = [
  "embedded-io-async",
  "futures-core",
  "futures-sink",
- "heapless",
+ "heapless 0.8.0",
 ]
 
 [[package]]
@@ -501,7 +531,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "80e2ee86063bd028a420a5fb5898c18c87a8898026da1d4c852af2c443d0a454"
 dependencies = [
  "embassy-executor-timer-queue",
- "heapless",
+ "heapless 0.8.0",
 ]
 
 [[package]]
@@ -516,7 +546,7 @@ dependencies = [
  "embassy-sync",
  "embassy-usb-driver",
  "embedded-io-async",
- "heapless",
+ "heapless 0.8.0",
  "ssmarshal",
  "usbd-hid",
 ]
@@ -676,6 +706,45 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 
 [[package]]
+name = "encoder"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "cortex-m",
+ "cortex-m-rt",
+ "critical-section",
+ "defmt 1.0.1",
+ "defmt-rtt",
+ "display-interface-i2c 0.4.0",
+ "embassy-embedded-hal",
+ "embassy-executor",
+ "embassy-futures",
+ "embassy-net",
+ "embassy-stm32",
+ "embassy-sync",
+ "embassy-time",
+ "embassy-usb",
+ "embedded-graphics",
+ "embedded-hal 0.2.7",
+ "embedded-hal 1.0.0",
+ "embedded-hal-async",
+ "embedded-io-async",
+ "embedded-nal-async",
+ "embedded-storage",
+ "grounded",
+ "heapless 0.8.0",
+ "l9110",
+ "micromath",
+ "panic-probe",
+ "ssd1309",
+ "static_cell",
+ "stm32-fmc",
+ "stm32-metapac",
+ "tb6600",
+ "uom",
+]
+
+[[package]]
 name = "ethernet"
 version = "0.1.0"
 dependencies = [
@@ -700,7 +769,7 @@ dependencies = [
  "embedded-nal-async",
  "embedded-storage",
  "grounded",
- "heapless",
+ "heapless 0.8.0",
  "micromath",
  "panic-probe",
  "static_cell",
@@ -722,6 +791,45 @@ name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
+
+[[package]]
+name = "full"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "cortex-m",
+ "cortex-m-rt",
+ "critical-section",
+ "defmt 1.0.1",
+ "defmt-rtt",
+ "display-interface-i2c 0.5.0",
+ "embassy-embedded-hal",
+ "embassy-executor",
+ "embassy-futures",
+ "embassy-net",
+ "embassy-stm32",
+ "embassy-sync",
+ "embassy-time",
+ "embassy-usb",
+ "embedded-graphics",
+ "embedded-hal 0.2.7",
+ "embedded-hal 1.0.0",
+ "embedded-hal-async",
+ "embedded-io-async",
+ "embedded-nal-async",
+ "embedded-storage",
+ "grounded",
+ "heapless 0.9.2",
+ "l9110",
+ "micromath",
+ "oled_async",
+ "panic-probe",
+ "static_cell",
+ "stm32-fmc",
+ "stm32-metapac",
+ "tb6600",
+ "uom",
+]
 
 [[package]]
 name = "futures-core"
@@ -792,6 +900,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "heapless"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2af2455f757db2b292a9b1768c4b70186d443bcb3b316252d6b540aec1cd89ed"
+dependencies = [
+ "defmt 1.0.1",
+ "hash32",
+ "stable_deref_trait",
+]
+
+[[package]]
 name = "ident_case"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -821,7 +940,7 @@ dependencies = [
  "critical-section",
  "defmt 1.0.1",
  "defmt-rtt",
- "display-interface-i2c",
+ "display-interface-i2c 0.4.0",
  "embassy-embedded-hal",
  "embassy-executor",
  "embassy-futures",
@@ -838,7 +957,7 @@ dependencies = [
  "embedded-nal-async",
  "embedded-storage",
  "grounded",
- "heapless",
+ "heapless 0.8.0",
  "micromath",
  "panic-probe",
  "ssd1309",
@@ -875,7 +994,7 @@ dependencies = [
  "critical-section",
  "defmt 1.0.1",
  "defmt-rtt",
- "display-interface-i2c",
+ "display-interface-i2c 0.4.0",
  "embassy-embedded-hal",
  "embassy-executor",
  "embassy-futures",
@@ -892,7 +1011,7 @@ dependencies = [
  "embedded-nal-async",
  "embedded-storage",
  "grounded",
- "heapless",
+ "heapless 0.8.0",
  "l9110",
  "micromath",
  "panic-probe",
@@ -920,7 +1039,7 @@ dependencies = [
  "critical-section",
  "defmt 1.0.1",
  "defmt-rtt",
- "display-interface-i2c",
+ "display-interface-i2c 0.4.0",
  "embassy-embedded-hal",
  "embassy-executor",
  "embassy-futures",
@@ -937,7 +1056,7 @@ dependencies = [
  "embedded-nal-async",
  "embedded-storage",
  "grounded",
- "heapless",
+ "heapless 0.8.0",
  "micromath",
  "panic-probe",
  "ssd1309",
@@ -969,6 +1088,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "oled_async"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "66a1a30da0097d4c0e9d7ba0757d62f2db86df3254f59d1e15c3988eb0bb24c4"
+dependencies = [
+ "defmt 0.3.100",
+ "display-interface 0.5.0",
+ "embedded-graphics-core",
+ "embedded-hal 1.0.0",
 ]
 
 [[package]]
@@ -1108,43 +1239,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "showcase"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "cortex-m",
- "cortex-m-rt",
- "critical-section",
- "defmt 1.0.1",
- "defmt-rtt",
- "display-interface-i2c",
- "embassy-embedded-hal",
- "embassy-executor",
- "embassy-futures",
- "embassy-net",
- "embassy-stm32",
- "embassy-sync",
- "embassy-time",
- "embassy-usb",
- "embedded-graphics",
- "embedded-hal 0.2.7",
- "embedded-hal 1.0.0",
- "embedded-hal-async",
- "embedded-io-async",
- "embedded-nal-async",
- "embedded-storage",
- "grounded",
- "heapless",
- "micromath",
- "panic-probe",
- "ssd1309",
- "static_cell",
- "stm32-fmc",
- "stm32-metapac",
- "tb6600",
-]
-
-[[package]]
 name = "smoltcp"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1154,7 +1248,7 @@ dependencies = [
  "byteorder",
  "cfg-if",
  "defmt 0.3.100",
- "heapless",
+ "heapless 0.8.0",
  "managed",
 ]
 
@@ -1164,7 +1258,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce02bfbe5b946b770614c51ef0c17acf544a9a26bf21be986eb28e91d7e875b6"
 dependencies = [
- "display-interface",
+ "display-interface 0.4.1",
  "embedded-graphics-core",
  "embedded-hal 0.2.7",
 ]
@@ -1257,6 +1351,7 @@ dependencies = [
  "embedded-hal 1.0.0",
  "embedded-hal-async",
  "thiserror",
+ "uom",
 ]
 
 [[package]]
@@ -1307,7 +1402,7 @@ version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "98816b1accafbb09085168b90f27e93d790b4bfa19d883466b5e53315b5f06a6"
 dependencies = [
- "heapless",
+ "heapless 0.8.0",
  "portable-atomic",
 ]
 
