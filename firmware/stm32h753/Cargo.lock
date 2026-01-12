@@ -706,45 +706,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 
 [[package]]
-name = "encoder"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "cortex-m",
- "cortex-m-rt",
- "critical-section",
- "defmt 1.0.1",
- "defmt-rtt",
- "display-interface-i2c 0.4.0",
- "embassy-embedded-hal",
- "embassy-executor",
- "embassy-futures",
- "embassy-net",
- "embassy-stm32",
- "embassy-sync",
- "embassy-time",
- "embassy-usb",
- "embedded-graphics",
- "embedded-hal 0.2.7",
- "embedded-hal 1.0.0",
- "embedded-hal-async",
- "embedded-io-async",
- "embedded-nal-async",
- "embedded-storage",
- "grounded",
- "heapless 0.8.0",
- "l9110",
- "micromath",
- "panic-probe",
- "ssd1309",
- "static_cell",
- "stm32-fmc",
- "stm32-metapac",
- "tb6600",
- "uom",
-]
-
-[[package]]
 name = "ethernet"
 version = "0.1.0"
 dependencies = [
@@ -908,6 +869,45 @@ dependencies = [
  "defmt 1.0.1",
  "hash32",
  "stable_deref_trait",
+]
+
+[[package]]
+name = "hmi"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "cortex-m",
+ "cortex-m-rt",
+ "critical-section",
+ "defmt 1.0.1",
+ "defmt-rtt",
+ "display-interface-i2c 0.5.0",
+ "embassy-embedded-hal",
+ "embassy-executor",
+ "embassy-futures",
+ "embassy-net",
+ "embassy-stm32",
+ "embassy-sync",
+ "embassy-time",
+ "embassy-usb",
+ "embedded-graphics",
+ "embedded-hal 0.2.7",
+ "embedded-hal 1.0.0",
+ "embedded-hal-async",
+ "embedded-io-async",
+ "embedded-nal-async",
+ "embedded-storage",
+ "grounded",
+ "heapless 0.9.2",
+ "l9110",
+ "micromath",
+ "oled_async",
+ "panic-probe",
+ "static_cell",
+ "stm32-fmc",
+ "stm32-metapac",
+ "tb6600",
+ "uom",
 ]
 
 [[package]]

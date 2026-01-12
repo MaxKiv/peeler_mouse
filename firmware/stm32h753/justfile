@@ -6,8 +6,8 @@ openocd:
 clean:
     cargo clean
 
-check:
-    cargo check
+check CRATE:
+    cargo check -p {{ CRATE }}
 
 run CRATE:
     cargo run --bin {{ CRATE }}
