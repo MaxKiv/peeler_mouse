@@ -19,7 +19,7 @@ pub struct KnifeMotorPeripherals {
 pub fn setup(p: KnifeMotorPeripherals, spawner: &Spawner) {
     info!("Setting up knife motor");
 
-    // Set up L9110 momtor driver
+    // Set up L9110 motor driver
     let l9110 = L9110::try_new("Knife", p.pwm, embassy_time::Delay).unwrap();
 
     spawner.spawn(manage_knife_motor(l9110)).unwrap();

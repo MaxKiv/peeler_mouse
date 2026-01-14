@@ -1,6 +1,7 @@
+pub mod controller;
 pub mod knife;
-pub mod linear;
 pub mod rotation;
+pub mod translation;
 
 use core::fmt;
 use uom::si::f32::Velocity;
@@ -15,13 +16,32 @@ pub enum MotorState {
     Coasting,
 }
 
+#[derive(Debug, Clone, Default)]
+pub enum MotorDirection {
+    #[default]
+    Forward,
+    Backward,
+}
+
+impl MotorDirection {
+    pub fn reverse(&mut self) {
+        use MotorDirection::*;
+        *self = match self {
+            Forward => Backward,
+            Backward => Forward,
+        };
+    }
+}
+
 /// Commands all motors can accept
 #[derive(Debug, Clone, Default)]
 pub struct MotorCommand {
-    /// Speed of the motor
-    pub speed: Velocity,
     /// Operational state of the motor, i.e. is it enabled? Is it braking?
     pub state: MotorState,
+    /// Direction of axis rotation
+    pub dir: MotorDirection,
+    /// Speed of the motor
+    pub speed: Velocity,
 }
 
 impl core::fmt::Display for MotorState {

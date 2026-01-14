@@ -17,11 +17,17 @@ use embedded_graphics::{
 use embedded_graphics::{pixelcolor::BinaryColor, prelude::Point};
 use heapless::format;
 use oled_async::{displays::ssd1309::Ssd1309_128_64, mode::GraphicsMode};
+use uom::si::{
+    f32::Velocity,
+    velocity::{millimeter_per_minute, millimeter_per_second},
+};
 
 use crate::{
     hmi::lcd::setup::SSD1309_FRAMEBUFFER_SIZE,
     hmi::{button::BUTTON_WATCH_SIZE, encoder::ENCODER_STATE},
-    motor::{knife::KNIFE_SETPOINT, linear::LINEAR_SETPOINT, rotation::ROTATION_SETPOINT},
+    motor::{
+        knife::KNIFE_SETPOINT, rotation::ROTATION_SETPOINT, translation::TRANSLATION_SETPOINT,
+    },
 };
 
 pub static LCD_INPUT: Watch<CriticalSectionRawMutex, bool, { BUTTON_WATCH_SIZE }> = Watch::new();
@@ -39,50 +45,20 @@ pub async fn manage_display(
 ) {
     info!("Starting to manage display");
 
+    startup_display(&mut display).await;
+
     let mut ticker = Ticker::every(LCD_PERIOD);
 
     let mut knife_rx = KNIFE_SETPOINT
         .receiver()
         .expect("increase KNIFE_SETPOINT N");
-    let mut linear_rx = LINEAR_SETPOINT
+    let mut linear_rx = TRANSLATION_SETPOINT
         .receiver()
         .expect("increase LINEAR_SETPOINT N");
     let mut rotation_rx = ROTATION_SETPOINT
         .receiver()
         .expect("increase ROTATION_SETPOINT N");
     let mut encoder_rx = ENCODER_STATE.receiver().expect("increase ENCODER_STATE N");
-
-    // Initialise display
-    while display.init().await.is_err() {
-        error!("Unable to initialise display, is it connected?");
-        Timer::after(Duration::from_millis(1000)).await;
-    }
-    display.clear();
-    display.flush().await.unwrap();
-
-    // Load image data
-    let joris_im: ImageRawLE<BinaryColor> = ImageRawLE::new(
-        include_bytes!("/home/max/git/saxion/peeler_mouse/data/joris.raw"),
-        128,
-    );
-    let joris = Image::new(&joris_im, Point::new(0, 0));
-
-    // let rene_im: ImageRawLE<BinaryColor> = ImageRawLE::new(
-    //     include_bytes!("/home/max/git/saxion/peeler_mouse/data/rene.raw"),
-    //     128,
-    // );
-    // let rene = Image::new(&rene_im, Point::new(0, 0));
-    //
-    // let lex_im: ImageRawLE<BinaryColor> = ImageRawLE::new(
-    //     include_bytes!("/home/max/git/saxion/peeler_mouse/data/lex.raw"),
-    //     128,
-    // )
-    // let lex = Image::new(&lex_im, Point::new(0, 0));
-
-    joris.draw(&mut display).unwrap();
-    if display.flush().await.is_err() {
-        error!("Unable to flush display");
-    }
 
     let selected_style = MonoTextStyleBuilder::new()
         .font(&FONT_6X10)
@@ -95,8 +71,10 @@ pub async fn manage_display(
         .text_color(BinaryColor::On)
         .build();
 
-    // Give people time to appreciate the beautiful splash screen
-    Timer::after_millis(350).await;
+    let knife_str = format!(128; "Cut").expect("knife cmd string doesn't fit heapless string");
+    let linear_str = format!(128; "Lin").expect("linear cmd string doesn't fit heapless string");
+    let rotation_str =
+        format!(128; "Rot").expect("rotation cmd string doesn't fit heapless string");
 
     // Main Display loop
     loop {
@@ -108,33 +86,13 @@ pub async fn manage_display(
         let linear_cmd = linear_rx.try_get().unwrap_or_default();
         let rotation_cmd = rotation_rx.try_get().unwrap_or_default();
 
-        let selected = encoder_data.pos.abs();
+        // Format frame objects
 
-        let modu = selected % 5;
-        let selection = modu as usize;
-
-        // Format data
-        let knife_str = format!(128; "Cut - {}", knife_cmd)
-            .expect("knife cmd string doesn't fit heapless string");
-        let linear_str = format!(128; "Lin - {}", linear_cmd)
-            .expect("linear cmd string doesn't fit heapless string");
-        let rotation_str = format!(128; "Rot - {}", rotation_cmd)
-            .expect("rotation cmd string doesn't fit heapless string");
         let encoder_str = format!(128; "Encoder - {}", encoder_data)
-            .expect("rotation cmd string doesn't fit heapless string");
-        let selected_str = format!(128; "Sel # {} - {}", selection, modu)
             .expect("rotation cmd string doesn't fit heapless string");
 
         // Draw to display
-        let to_plot = [
-            &knife_str,
-            &linear_str,
-            &rotation_str,
-            &encoder_str,
-            &selected_str,
-        ];
-
-        // debug!("LCD selected # {}", selection);
+        let to_plot = [&knife_str, &linear_str, &rotation_str, &encoder_str];
 
         for (idx, data) in to_plot.iter().enumerate() {
             Text::with_baseline(
@@ -162,4 +120,56 @@ pub async fn manage_display(
 
         ticker.next().await;
     }
+}
+
+fn get_num_bars_for_speed(speed: Velocity, max_speed_mm_ps: f32) -> usize {
+    const BARS: usize = 8;
+
+    let percentage =
+        (speed.get::<millimeter_per_second>() / max_speed_mm_ps).clamp(0.0, max_speed_mm_ps);
+
+    percentage as usize * BARS
+}
+
+async fn startup_display(
+    display: &mut GraphicsMode<
+        Ssd1309_128_64,
+        I2CInterface<I2c<'static, Async, Master>>,
+        { SSD1309_FRAMEBUFFER_SIZE },
+    >,
+) {
+    // Initialise display
+    while display.init().await.is_err() {
+        error!("Unable to initialise display, is it connected?");
+        Timer::after(Duration::from_millis(1000)).await;
+    }
+    display.clear();
+    display.flush().await.unwrap();
+
+    // Load image data
+    let joris_im: ImageRawLE<BinaryColor> = ImageRawLE::new(
+        include_bytes!("/home/max/git/saxion/peeler_mouse/data/joris.raw"),
+        128,
+    );
+    let joris = Image::new(&joris_im, Point::new(0, 0));
+
+    // let rene_im: ImageRawLE<BinaryColor> = ImageRawLE::new(
+    //     include_bytes!("/home/max/git/saxion/peeler_mouse/data/rene.raw"),
+    //     128,
+    // );
+    // let rene = Image::new(&rene_im, Point::new(0, 0));
+    //
+    // let lex_im: ImageRawLE<BinaryColor> = ImageRawLE::new(
+    //     include_bytes!("/home/max/git/saxion/peeler_mouse/data/lex.raw"),
+    //     128,
+    // )
+    // let lex = Image::new(&lex_im, Point::new(0, 0));
+
+    joris.draw(display).unwrap();
+    if display.flush().await.is_err() {
+        error!("Unable to flush display");
+    }
+
+    // Give people time to appreciate the beautiful splash screen
+    Timer::after_millis(350).await;
 }

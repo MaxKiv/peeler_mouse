@@ -10,16 +10,14 @@ use embassy_stm32::{
         qei::{Qei, QeiPin},
     },
 };
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Watch};
 use embassy_time::{Duration, Ticker, Timer};
-use heapless::format;
 
-use crate::hmi::encoder::data::{Direction, EncoderData};
+use crate::{
+    hmi::encoder::data::{Direction, EncoderData},
+    supervisor::ENCODER_DATA,
+};
 
 const TASK_PERIOD: Duration = Duration::from_millis(10);
-
-pub const ENCODER_STATE_N: usize = 2;
-pub static ENCODER_STATE: Watch<Cs, EncoderData, { ENCODER_STATE_N }> = Watch::new();
 
 const SINGLE_THRESHOLD: f32 = 0.8;
 const MULTI_THRESHOLD: f32 = 2.3;
@@ -59,28 +57,28 @@ impl QuadratureEncoder {
 
 #[embassy_executor::task]
 async fn manage_encoder(encoder: QuadratureEncoder) {
+    let encoder_tx = ENCODER_DATA.sender();
     let mut ticker = Ticker::every(TASK_PERIOD);
-
-    let encoder_tx = ENCODER_STATE.sender();
     let mut pos: i16 = 0;
-
     let mut prev: u16 = 0;
 
     info!("Starting {} Encoder loop", encoder.name);
-
     loop {
+        // Read out the encoder
         let count = encoder.qei.count();
         let dir: Direction = encoder.qei.read_direction().into();
 
+        // Calculate delta
         let delta = count.wrapping_sub(prev) as i16;
         let abs_delta = delta.abs();
 
+        // Map delta -> abstract encoder position
         let increase = match abs_delta {
-            _ if abs_delta > 4 => 2,
-            _ if abs_delta > 1 => 1,
+            _ if abs_delta >= 4 => 2,
+            _ if abs_delta >= 1 => 1,
             _ => 0,
         };
-
+        // Make sure to in/decrement based on encoder direction
         pos += match dir {
             Direction::Increased => 1,
             Direction::Decreased => -1,
@@ -92,11 +90,12 @@ async fn manage_encoder(encoder: QuadratureEncoder) {
             count, delta, pos
         );
 
+        // Send the new value along
         encoder_tx.send(state.clone());
 
+        // Housekeeping
         prev = count;
-
-        // Debounce if we increased this cycle
+        // Debounce knob if we increased this cycle
         if abs_delta > 1 {
             Timer::after_millis(100).await;
         }

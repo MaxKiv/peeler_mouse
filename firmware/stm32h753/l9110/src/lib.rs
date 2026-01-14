@@ -128,8 +128,17 @@ where
         self.b.set_duty_cycle_percent(dc);
     }
 
-    pub fn run(&mut self, speed: Velocity) {
-        if speed.get::<millimeter_per_second>() > 0.0 {
+    pub fn run(&mut self, mut speed: Velocity) {
+        let mm_ps = speed.get::<millimeter_per_second>();
+        if mm_ps.abs() > MAX_SPEED_MS_PS {
+            warn!(
+                "{} attempting to set speed to {}mm/ps, exceeding max speed ({}mm/s)",
+                self.name, mm_ps, MAX_SPEED_MS_PS
+            );
+            speed = Velocity::new::<millimeter_per_second>(MAX_SPEED_MS_PS);
+        }
+
+        if mm_ps > 0.0 {
             self.forward(speed);
         } else {
             self.reverse(speed);
