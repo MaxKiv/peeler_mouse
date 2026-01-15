@@ -17,7 +17,7 @@ use crate::{
     supervisor::task::ENCODER_DATA,
 };
 
-const TASK_PERIOD: Duration = Duration::from_millis(10);
+const TASK_PERIOD: Duration = Duration::from_millis(50);
 
 const SINGLE_THRESHOLD: f32 = 0.8;
 const MULTI_THRESHOLD: f32 = 2.3;

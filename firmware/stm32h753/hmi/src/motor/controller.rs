@@ -1,6 +1,6 @@
 use crate::{
     motor::{
-        MotorCommand, MotorState, knife::KNIFE_SETPOINT, rotation::ROTATION_SETPOINT,
+        MotorCommand, MotorState, knife::CUT_SETPOINT, rotation::ROTATION_SETPOINT,
         translation::TRANSLATION_SETPOINT,
     },
     supervisor::{
@@ -13,6 +13,7 @@ use crate::{
 };
 use defmt::*;
 use embassy_executor::Spawner;
+use l9110::CUT_MAX_SPEED_MS_PS;
 use uom::si::{f32::Velocity, velocity::millimeter_per_second};
 
 pub fn setup(spawner: &Spawner) {
@@ -27,7 +28,7 @@ async fn control_motors() {
         .receiver()
         .expect("Increase APPSTATE_WATCH N");
 
-    let cut_tx = KNIFE_SETPOINT.sender();
+    let cut_tx = CUT_SETPOINT.sender();
     let rotation_tx = ROTATION_SETPOINT.sender();
     let translation_tx = TRANSLATION_SETPOINT.sender();
 
@@ -71,6 +72,13 @@ async fn control_motors() {
             };
 
             // Send the command to the right motor
+            debug!(
+                "Controller - {} Sending {} {} {}mm/s",
+                motor_type,
+                cmd.state,
+                cmd.dir,
+                cmd.speed.get::<millimeter_per_second>()
+            );
             tx.send(cmd)
         }
     }
@@ -80,10 +88,15 @@ fn speed_percentage_to_velocity(speed_percentage: f32, selected_motor: &Selected
     let max_velocity = match selected_motor {
         SelectedMotor::Translation => MAX_TRANSLATION_VELOCITY_MM_PS,
         SelectedMotor::Rotation => MAX_ROTATION_VELOCITY_MM_PS,
-        SelectedMotor::Cut => MAX_CUT_VELOCITY_MM_PS,
+        SelectedMotor::Cut => CUT_MAX_SPEED_MS_PS,
     };
 
-    let speed = speed_percentage * max_velocity;
+    let speed = speed_percentage * max_velocity / 100.0;
+
+    debug!(
+        "Controller - {} converted {}% speed to {}mm/s (max = {})",
+        selected_motor, speed_percentage, speed, max_velocity
+    );
 
     Velocity::new::<millimeter_per_second>(speed)
 }

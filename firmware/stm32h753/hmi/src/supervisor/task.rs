@@ -23,7 +23,7 @@ pub const MOTOR_SPEED_STEPS: usize = 10;
 pub const DEFAULT_ROTATION_VELOCITY_MM_PS: f32 = 0.0;
 pub const DEFAULT_TRANSLATION_VELOCITY_MM_PS: f32 = 0.0;
 pub const DEFAULT_CUT_VELOCITY_MM_PS: f32 = 0.0;
-pub const MAX_ROTATION_VELOCITY_MM_PS: f32 = 0.1;
+pub const MAX_ROTATION_VELOCITY_MM_PS: f32 = 10.0;
 pub const MAX_TRANSLATION_VELOCITY_MM_PS: f32 = 1.0;
 pub const MAX_CUT_VELOCITY_MM_PS: f32 = 1.4;
 
@@ -96,6 +96,7 @@ async fn supervise() {
                 let mut setpoint = app_state.get_current_motor_setpoint();
                 setpoint.speed_percentage = 0.0;
                 setpoint.dir.reverse();
+                setpoint.enabled = false;
 
                 debug!(
                     "Supervisor - Reversing {:?}",
@@ -117,11 +118,18 @@ async fn supervise() {
                     encoder_delta,
                 );
 
+                if setpoint.speed_percentage > 0.0 {
+                    debug!("Supervisor - speed {} > 0.0", setpoint.speed_percentage);
+                    setpoint.enabled = true;
+                } else {
+                    debug!("Supervisor - speed {} = 0.0", setpoint.speed_percentage);
+                    setpoint.enabled = false;
+                }
+
                 // Log change in speed
-                let speed = app_state.get_current_motor_setpoint().speed_percentage;
                 debug!(
-                    "Supervisor - Setting speed of {:?} to {}%",
-                    app_state.selected_motor, speed
+                    "Supervisor - Setting {} state {} speed {}%",
+                    app_state.selected_motor, setpoint.enabled, setpoint.speed_percentage
                 );
 
                 app_state.last_encoder_pos = encoder_data.pos;

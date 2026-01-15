@@ -6,7 +6,7 @@ use embassy_stm32::timer::simple_pwm::SimplePwm;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::watch::{self, Watch};
 use embassy_time::Delay;
-use l9110::{Direction, L9110, MAX_SPEED_MS_PS};
+use l9110::{CUT_MAX_SPEED_MS_PS, Direction, L9110};
 use uom::si::f32::Velocity;
 use uom::si::velocity::millimeter_per_second;
 
@@ -97,7 +97,7 @@ pub async fn manage_knife_motor(
 fn pot_to_speed(pot: u16) -> Velocity {
     const MAX_POT: u16 = u16::MAX;
 
-    let val = (pot as f32 / MAX_POT as f32) * MAX_SPEED_MS_PS;
+    let val = (pot as f32 / MAX_POT as f32) * CUT_MAX_SPEED_MS_PS;
     trace!("Converted pot value {} to speed {}mm/s", pot, val);
 
     Velocity::new::<millimeter_per_second>(val)

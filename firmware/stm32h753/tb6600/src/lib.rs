@@ -79,6 +79,18 @@ where
     }
 
     /// Run the stepper at given speed
+    pub async fn run_with_dir(
+        &mut self,
+        speed: Velocity,
+        dir: Direction,
+    ) -> Result<(), TB6600Error> {
+        match dir {
+            Direction::Forward => self.run(speed).await,
+            Direction::Reverse => self.run(-speed).await,
+        }
+    }
+
+    /// Run the stepper at given speed
     pub async fn run(&mut self, speed: Velocity) -> Result<(), TB6600Error> {
         let mut speed = speed.get::<millimeter_per_second>();
         info!("{} motor RUNNING at {}mm/s", self.name, speed);
@@ -93,15 +105,21 @@ where
         }
 
         // Set stepping frequency appropriate to the velocity setpoint
-        let freq = self.speed_to_frequency(speed).ok_or(TB6600Error::Input)?;
-        self.step_pwm.set_frequency(freq);
-        self.step_pwm
-            .ch1()
-            .set_duty_cycle_percent(BASE_DUTY_CYCLE_PERCENT); // set_frequency docs suggests I have to call this again
+        // Validate setpoint
+        if let Some(freq) = self.speed_to_frequency(speed) {
+            self.step_pwm.set_frequency(freq);
 
-        self.start_stepping();
+            self.step_pwm
+                .ch1()
+                .set_duty_cycle_percent(BASE_DUTY_CYCLE_PERCENT); // set_frequency docs suggests I have to call this again
 
-        self.step_frequency = freq;
+            self.start_stepping();
+
+            self.step_frequency = freq;
+        } else {
+            // Setpoint invalid, stop motor
+            self.stop();
+        }
 
         Ok(())
     }
@@ -186,7 +204,6 @@ where
 
     fn speed_to_frequency(&self, speed: f32) -> Option<Hertz> {
         /// Speed [mm/s] at maximum stepping frequency
-        /// TODO: validate
         const MAX_SPEED_MS_PS: f32 = 10.0;
 
         let speed_percentage = (speed / MAX_SPEED_MS_PS).clamp(0.0, 1.0);
@@ -203,7 +220,7 @@ where
             Some(Hertz(freq))
         } else {
             warn!(
-                "INVALID SPEED: converting {} motor speed setpoint of {}mm/s to {}% speed ({})",
+                "INVALID SPEED: attempting to convert {} motor speed setpoint of {}mm/s to {}% speed ({})",
                 self.name,
                 speed,
                 speed_percentage * 100.0,

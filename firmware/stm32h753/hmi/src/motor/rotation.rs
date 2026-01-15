@@ -50,9 +50,9 @@ pub async fn manage_rotational_motor(mut tb: Tb6600<TIM4, Output<'static>, Delay
 
         match &cmd.state {
             MotorState::Enabled => {
-                if let Err(_) = tb.run(cmd.speed).await {
-                    error!("unable to run Rotational motor");
-                }
+                if tb.run_with_dir(cmd.speed, cmd.dir.into()).await.is_err() {
+                    error!("Unable to drive rotation motor!");
+                };
             }
             _ => tb.stop(),
         };

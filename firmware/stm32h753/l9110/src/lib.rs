@@ -18,7 +18,7 @@ pub const DEFAULT_DIR_STATE: PinState = PinState::Low;
 pub const DEFAULT_DIRECTION: Direction = Direction::Forward;
 pub const DEAD_TIME_US: u8 = 1; // TODO: validate
 pub const DEFAULT_SPEED_MS_PS: f32 = 1.0;
-pub const MAX_SPEED_MS_PS: f32 = 2.0;
+pub const CUT_MAX_SPEED_MS_PS: f32 = 2.0;
 /// Duration to break by shorting.
 /// Increasing this increase heat release due to large ampererage in L9110 H-bridge short, potentially killing the device
 pub const BREAK_DURATION_MS: u32 = 1;
@@ -130,12 +130,12 @@ where
 
     pub fn run(&mut self, mut speed: Velocity) {
         let mm_ps = speed.get::<millimeter_per_second>();
-        if mm_ps.abs() > MAX_SPEED_MS_PS {
+        if mm_ps.abs() > CUT_MAX_SPEED_MS_PS {
             warn!(
-                "{} attempting to set speed to {}mm/ps, exceeding max speed ({}mm/s)",
-                self.name, mm_ps, MAX_SPEED_MS_PS
+                "{} attempting to set speed to {}mm/s, exceeding max speed ({}mm/s) - clipping to max",
+                self.name, mm_ps, CUT_MAX_SPEED_MS_PS
             );
-            speed = Velocity::new::<millimeter_per_second>(MAX_SPEED_MS_PS);
+            speed = Velocity::new::<millimeter_per_second>(CUT_MAX_SPEED_MS_PS);
         }
 
         if mm_ps > 0.0 {
@@ -166,7 +166,7 @@ where
     fn speed_to_duty_cycle_percent(speed: Velocity) -> u8 {
         let speed_abs = speed.get::<millimeter_per_second>().abs();
 
-        let out = ((100.0 * speed_abs / MAX_SPEED_MS_PS) as u8).clamp(0, 100);
+        let out = ((100.0 * speed_abs / CUT_MAX_SPEED_MS_PS) as u8).clamp(0, 100);
 
         trace!(
             "Converted speed {}mm/s to {}% dc",

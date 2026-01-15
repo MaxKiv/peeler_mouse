@@ -8,7 +8,7 @@ use embassy_sync::watch::Watch;
 use embassy_time::Delay;
 use tb6600::{Direction, Tb6600};
 
-use crate::motor::{MotorCommand, MotorState};
+use crate::motor::{MotorCommand, MotorDirection, MotorState};
 
 pub static TRANSLATION_SETPOINT: Watch<CriticalSectionRawMutex, MotorCommand, 2> = Watch::new();
 
@@ -32,7 +32,7 @@ impl From<TranslationDirection> for Direction {
 }
 
 pub struct TranslationMotorPeripherals {
-    pub pwm: SimplePwm<'static, TIM3>,
+    pub pwm: SimplePwm<'static, TIM8>,
     pub dir: Peri<'static, PF8>,
 }
 
@@ -48,7 +48,7 @@ pub fn setup(p: TranslationMotorPeripherals, spawner: &Spawner) {
 }
 
 #[embassy_executor::task]
-pub async fn manage_translation_motor(mut tb: Tb6600<TIM3, Output<'static>, Delay>) {
+pub async fn manage_translation_motor(mut tb: Tb6600<TIM8, Output<'static>, Delay>) {
     info!("Starting to manage translation motor");
 
     // start disabled
@@ -62,7 +62,7 @@ pub async fn manage_translation_motor(mut tb: Tb6600<TIM3, Output<'static>, Dela
 
         match &cmd.state {
             MotorState::Enabled => {
-                if tb.run(cmd.speed).await.is_err() {
+                if tb.run_with_dir(cmd.speed, cmd.dir.into()).await.is_err() {
                     error!("Unable to drive translation motor!");
                 };
             }

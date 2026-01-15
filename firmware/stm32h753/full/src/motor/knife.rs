@@ -7,7 +7,6 @@ use embassy_sync::watch::Watch;
 use embassy_time::Delay;
 use l9110::L9110;
 
-use crate::hmi::button::BUTTON_WATCH_SIZE;
 use crate::motor::{MotorCommand, MotorState};
 
 pub static KNIFE_SETPOINT: Watch<CriticalSectionRawMutex, MotorCommand, 2> = Watch::new();

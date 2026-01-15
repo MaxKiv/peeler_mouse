@@ -4,11 +4,12 @@ pub mod rotation;
 pub mod translation;
 
 use core::fmt;
+use tb6600::Direction;
 use uom::si::f32::Velocity;
 use uom::si::velocity::millimeter_per_second;
 
 /// Operational states a motor can be in
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, defmt::Format)]
 pub enum MotorState {
     Enabled,
     Braking,
@@ -16,7 +17,7 @@ pub enum MotorState {
     Coasting,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, defmt::Format, PartialEq)]
 pub enum MotorDirection {
     #[default]
     Forward,
@@ -30,6 +31,15 @@ impl MotorDirection {
             Forward => Backward,
             Backward => Forward,
         };
+    }
+}
+
+impl Into<Direction> for MotorDirection {
+    fn into(self) -> Direction {
+        match self {
+            Self::Forward => Direction::Forward,
+            Self::Backward => Direction::Reverse,
+        }
     }
 }
 

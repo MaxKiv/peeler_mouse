@@ -1,7 +1,7 @@
 #![no_std]
 
 use defmt::error;
-use embassy_stm32::{peripherals::TIM2, timer::GeneralInstance32bit4Channel};
+use embassy_stm32::timer::GeneralInstance32bit4Channel;
 
 /// AS5048 PWM driver backed by a zero interrupt hardware implementation using pwm input
 pub struct AS5048Pwm<Timer>
