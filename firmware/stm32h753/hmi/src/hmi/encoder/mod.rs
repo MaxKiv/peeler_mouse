@@ -14,7 +14,7 @@ use embassy_time::{Duration, Ticker, Timer};
 
 use crate::{
     hmi::encoder::data::{Direction, EncoderData},
-    supervisor::ENCODER_DATA,
+    supervisor::task::ENCODER_DATA,
 };
 
 const TASK_PERIOD: Duration = Duration::from_millis(10);
@@ -85,7 +85,7 @@ async fn manage_encoder(encoder: QuadratureEncoder) {
         } * increase;
 
         let state = EncoderData { dir, pos };
-        debug!(
+        trace!(
             "encoder - count: {} - delta: {} - pos: {}",
             count, delta, pos
         );

@@ -75,7 +75,7 @@ async fn main(spawner: Spawner) {
 
     hmi::button::DebouncedButton::run(
         green_button,
-        &supervisor::KNIFE_ENABLED,
+        &supervisor::task::STOP_ALL_SELECTED,
         "green",
         ButtonMode::FallingEdge,
         &spawner,
@@ -83,7 +83,7 @@ async fn main(spawner: Spawner) {
 
     hmi::button::DebouncedButton::run(
         blue_button,
-        &supervisor::KNIFE_ENABLED,
+        &supervisor::task::TRANSLATION_SELECTED,
         "blue",
         ButtonMode::FallingEdge,
         &spawner,
@@ -91,7 +91,7 @@ async fn main(spawner: Spawner) {
 
     hmi::button::DebouncedButton::run(
         purple_button,
-        &supervisor::KNIFE_ENABLED,
+        &supervisor::task::CUT_SELECTED,
         "purple",
         ButtonMode::FallingEdge,
         &spawner,
@@ -99,7 +99,7 @@ async fn main(spawner: Spawner) {
 
     hmi::button::DebouncedButton::run(
         gray_button,
-        &supervisor::KNIFE_ENABLED,
+        &supervisor::task::ROTATION_SELECTED,
         "gray",
         ButtonMode::FallingEdge,
         &spawner,
@@ -107,7 +107,7 @@ async fn main(spawner: Spawner) {
 
     hmi::button::DebouncedButton::run(
         encoder_button,
-        &supervisor::KNIFE_ENABLED,
+        &supervisor::task::ENCODER_PRESSED,
         "encoder",
         ButtonMode::FallingEdge,
         &spawner,
@@ -118,5 +118,5 @@ async fn main(spawner: Spawner) {
     hmi::lcd::setup::setup(lcd_peri, &spawner);
 
     // ---- Supervisor (routes HMI input to HMI & actuator output) -----
-    supervisor::setup(&spawner);
+    supervisor::task::setup(&spawner);
 }

@@ -3,10 +3,17 @@ use crate::{
         MotorCommand, MotorState, knife::KNIFE_SETPOINT, rotation::ROTATION_SETPOINT,
         translation::TRANSLATION_SETPOINT,
     },
-    supervisor::{APPSTATE_WATCH, MotorSetpoint},
+    supervisor::{
+        MotorSetpoint, SelectedMotor,
+        task::{
+            APPSTATE_WATCH, MAX_CUT_VELOCITY_MM_PS, MAX_ROTATION_VELOCITY_MM_PS,
+            MAX_TRANSLATION_VELOCITY_MM_PS,
+        },
+    },
 };
 use defmt::*;
 use embassy_executor::Spawner;
+use uom::si::{f32::Velocity, velocity::millimeter_per_second};
 
 pub fn setup(spawner: &Spawner) {
     info!("Setting up Motor Contoller");
@@ -29,16 +36,24 @@ async fn control_motors() {
         let appstate = appstate_rx.changed().await;
 
         let pairs = [
-            (&appstate.rotation_setpoint, &rotation_tx),
-            (&appstate.translation_setpoint, &translation_tx),
-            (&appstate.cut_setpoint, &cut_tx),
+            (
+                &appstate.rotation_setpoint,
+                &rotation_tx,
+                SelectedMotor::Rotation,
+            ),
+            (
+                &appstate.translation_setpoint,
+                &translation_tx,
+                SelectedMotor::Translation,
+            ),
+            (&appstate.cut_setpoint, &cut_tx, SelectedMotor::Cut),
         ];
 
-        for (setpoint, tx) in pairs.iter() {
+        for (setpoint, tx, motor_type) in pairs.iter() {
             // Construct the appropriate motor setpoint
             let MotorSetpoint {
                 enabled,
-                speed,
+                speed_percentage,
                 dir,
             } = setpoint;
 
@@ -47,8 +62,10 @@ async fn control_motors() {
                 true => MotorState::Enabled,
                 false => MotorState::Coasting,
             };
+
+            let speed = speed_percentage_to_velocity(*speed_percentage, motor_type);
             let cmd = MotorCommand {
-                speed: *speed,
+                speed,
                 state,
                 dir: dir.clone(),
             };
@@ -57,4 +74,16 @@ async fn control_motors() {
             tx.send(cmd)
         }
     }
+}
+
+fn speed_percentage_to_velocity(speed_percentage: f32, selected_motor: &SelectedMotor) -> Velocity {
+    let max_velocity = match selected_motor {
+        SelectedMotor::Translation => MAX_TRANSLATION_VELOCITY_MM_PS,
+        SelectedMotor::Rotation => MAX_ROTATION_VELOCITY_MM_PS,
+        SelectedMotor::Cut => MAX_CUT_VELOCITY_MM_PS,
+    };
+
+    let speed = speed_percentage * max_velocity;
+
+    Velocity::new::<millimeter_per_second>(speed)
 }
