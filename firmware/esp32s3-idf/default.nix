@@ -143,7 +143,7 @@ let
       CARGO_UNSTABLE_BUILD_STD = "std,panic_abort";
 
       MCU = "esp32s3";
-      ESP_IDF_VERSION = "v5.4.1";
+      ESP_IDF_VERSION = "v5.3.1";
       # ESP_IDF_SDKCONFIG_DEFAULTS = "${self}/esp32s3/sdkconfig.defaults";
     };
   };

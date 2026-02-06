@@ -113,24 +113,24 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     //     peripherals.pins.gpio13,
     // ))?;
 
-    let mut ticker = Ticker::every(Duration::from_hz(1));
-    let camera = cam_arc.clone();
-    loop {
-        if let Some(fb) = camera.get_framebuffer() {
-            info!(
-                "{:?} => Got {} bytes [{} x {}] {} frame buffer",
-                fb.timestamp(),
-                fb.len(),
-                fb.width(),
-                fb.height(),
-                fb.format()
-            );
-            let data = &fb.data()[..fb.width() / 10];
-            info!("data: {:?}", data);
-
-            ticker.next().await;
-        }
-    }
+    // let mut ticker = Ticker::every(Duration::from_hz(1));
+    // let camera = cam_arc.clone();
+    // loop {
+    //     if let Some(fb) = camera.get_framebuffer() {
+    //         info!(
+    //             "{:?} => Got {} bytes [{} x {}] {} frame buffer",
+    //             fb.timestamp(),
+    //             fb.len(),
+    //             fb.width(),
+    //             fb.height(),
+    //             fb.format()
+    //         );
+    //         let data = &fb.data()[..fb.width() / 10];
+    //         info!("data: {:?}", data);
+    //
+    //         ticker.next().await;
+    //     }
+    // }
 
     core::future::pending::<()>().await;
 
