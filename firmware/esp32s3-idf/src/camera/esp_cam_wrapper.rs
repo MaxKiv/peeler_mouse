@@ -4,14 +4,33 @@ use esp_idf_hal::gpio::*;
 use esp_idf_hal::peripheral::Peripheral;
 use esp_idf_sys::*;
 
-#[derive(Debug)]
-pub struct FrameBuffer<'a> {
+use crate::camera::framesize::FrameSize;
+use crate::camera::pixelformat::PixelFormat;
+
+#[derive(Debug, Clone)]
+pub struct FrameBuffer {
     fb: *mut camera::camera_fb_t,
-    _p: PhantomData<&'a camera::camera_fb_t>,
+    pub generation: u64,
 }
 
-impl<'a> FrameBuffer<'a> {
-    pub fn data(&self) -> &'a [u8] {
+/// Safety: Pointer refers to PSRAM, managed by esp-camera driver
+/// Invariant: No consumer may access framebuffer memory after the camera task has published the next generation.
+///
+/// valid only until next frame publish
+/// read-only
+/// no .await while holding
+/// no storing beyond handler scope
+///
+/// Usage:
+/// let gen = frame.generation;
+/// if gen != expected_gen {
+///   return Err(StaleFrame);
+/// }
+unsafe impl Send for FrameBuffer {}
+unsafe impl Sync for FrameBuffer {}
+
+impl FrameBuffer {
+    pub fn data(&self) -> &[u8] {
         unsafe { std::slice::from_raw_parts((*self.fb).buf, (*self.fb).len) }
     }
 
@@ -40,7 +59,7 @@ impl<'a> FrameBuffer<'a> {
     }
 }
 
-impl Drop for FrameBuffer<'_> {
+impl Drop for FrameBuffer {
     fn drop(&mut self) {
         self.fb_return();
     }
@@ -226,6 +245,7 @@ impl<'a> CameraSensor<'a> {
 
 pub struct Camera<'a> {
     _p: PhantomData<&'a ()>,
+    generation: u64,
 }
 
 impl<'a> Camera<'a> {
@@ -245,8 +265,10 @@ impl<'a> Camera<'a> {
         pin_pclk: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
         pin_sda: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
         pin_scl: impl Peripheral<P = impl InputPin + OutputPin> + 'a,
-        pixel_format: camera::pixformat_t,
-        frame_size: camera::framesize_t,
+        // pixel_format: camera::pixformat_t,
+        // frame_size: camera::framesize_t,
+        pixel_format: PixelFormat,
+        frame_size: FrameSize,
         xclk_freq_hz: i32,
         jpeg_quality: i32,
         fb_count: usize,
@@ -277,8 +299,8 @@ impl<'a> Camera<'a> {
             ledc_timer: esp_idf_sys::ledc_timer_t_LEDC_TIMER_0,
             ledc_channel: esp_idf_sys::ledc_channel_t_LEDC_CHANNEL_0,
 
-            pixel_format,
-            frame_size,
+            pixel_format: pixel_format.into(),
+            frame_size: frame_size.into(),
 
             jpeg_quality,
             fb_count,
@@ -298,10 +320,13 @@ impl<'a> Camera<'a> {
         };
 
         esp_idf_sys::esp!(unsafe { camera::esp_camera_init(&config) })?;
-        Ok(Self { _p: PhantomData })
+        Ok(Self {
+            _p: PhantomData,
+            generation: 0,
+        })
     }
 
-    pub fn get_framebuffer(&self) -> Option<FrameBuffer> {
+    pub fn get_framebuffer(&mut self) -> Option<FrameBuffer> {
         let fb = unsafe { camera::esp_camera_fb_get() };
         if fb.is_null() {
             unsafe {
@@ -309,9 +334,10 @@ impl<'a> Camera<'a> {
             }
             None
         } else {
+            self.generation += 1;
             Some(FrameBuffer {
                 fb,
-                _p: PhantomData,
+                generation: self.generation,
             })
         }
     }

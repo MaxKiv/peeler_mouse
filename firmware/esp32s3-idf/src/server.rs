@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex as Cs,
     watch::{Receiver, Sender},
@@ -11,11 +9,13 @@ use esp_idf_svc::http::{
 };
 use log::*;
 
-use crate::{espcam::Camera, request::ReadableRequest, wifi::WifiState, Setpoint};
+use crate::{
+    camera::camera_freertos_task::CAMERA_FRAMEBUFFER, request::ReadableRequest, wifi::WifiState,
+    Setpoint,
+};
 
 #[embassy_executor::task]
 pub async fn server_task(
-    camera: Arc<Camera<'static>>,
     mut wifi_state_receiver: Receiver<'static, Cs, WifiState, 1>,
     setpoint_sender: Sender<'static, Cs, Setpoint, 1>,
 ) {
@@ -31,10 +31,10 @@ pub async fn server_task(
                         if let Err(err) = server.fn_handler("/", Method::Get, handle_root) {
                             error!("Unable to set up HTTP Server root handler: {err}, retrying...");
                         }
-                        let camera = camera.clone();
+
                         if let Err(err) =
                             server.fn_handler("/camera", Method::Get, move |request| {
-                                handle_camera(request, &camera)
+                                handle_camera(request)
                             })
                         {
                             error!("Unable to set up HTTP Server root handler: {err}, retrying...");
@@ -55,11 +55,8 @@ pub async fn server_task(
 
                         // Keep server alive untill wifi connection drops
                         if let WifiState::Disconnected = wifi_state_receiver.changed().await {
-                            warn!("WiFi disconnected, shutting down HTTP server...");
-                            break; // drops server -> EspHttpServer::drop stops it
+                            warn!("Wifi disconnected, dropping & reconfiguring HTTP server");
                         }
-
-                        core::future::pending::<()>().await;
                     }
                     Err(err) => {
                         error!("Unable to set up HTTP Server: {err}, retrying...");
@@ -75,10 +72,21 @@ pub async fn server_task(
 }
 
 fn handle_root(request: Request<&mut EspHttpConnection<'_>>) -> anyhow::Result<()> {
-    // A cursed html + javascript static webpage
+    // A cursed html + javascript static webpage :)
     let data = r#"
         <html>
           <body>
+            <img id="cam" src="/camera" width="640">
+            <br>
+            <button onclick="refresh()">Fetch new frame</button>
+
+            <script>
+              function refresh() {
+                const img = document.getElementById("cam");
+                img.src = "/camera?t=" + Date.now(); // bust cache
+              }
+            </script>
+
             <input type="number" id="depth" placeholder="0">
             <button onclick="sendSetpoint()">Send Setpoint</button>
 
@@ -113,29 +121,37 @@ fn handle_root(request: Request<&mut EspHttpConnection<'_>>) -> anyhow::Result<(
     Ok(())
 }
 
-fn handle_camera(
-    request: Request<&mut EspHttpConnection<'_>>,
-    camera: &Arc<Camera>,
-) -> anyhow::Result<()> {
-    let part_boundary = "123456789000000000000987654321";
-    let frame_boundary = format!("\r\n--{part_boundary}\r\n");
+fn handle_camera(request: Request<&mut EspHttpConnection<'_>>) -> anyhow::Result<()> {
+    let mut frame_rx = CAMERA_FRAMEBUFFER
+        .receiver()
+        .expect("Max CAMERA_FRAMEBUFFER receivers reached");
 
-    let content_type = format!("multipart/x-mixed-replace;boundary={part_boundary}");
-    let headers = [("Content-Type", content_type.as_str())];
+    // Get latest frame
+    let Some(frame) = frame_rx.try_get() else {
+        let mut resp = request.into_response(
+            503,
+            Some("Service Unavailable"),
+            &[("Content-Type", "text/plain")],
+        )?;
+        resp.write_all(b"No frame available yet")?;
+        resp.flush()?;
+        return Ok(());
+    };
+
+    // PGM headers
+    let header = format!("P5\n{} {}\n255\n", frame.width(), frame.height());
+    let headers = [
+        ("Content-Type", "image/x-portable-graymap"),
+        ("Cache-Control", "no-store"),
+    ];
+
+    // Draft response
     let mut response = request.into_response(200, Some("OK"), &headers)?;
-    loop {
-        if let Some(fb) = camera.get_framebuffer() {
-            let data = fb.data();
-            let frame_part = format!(
-                "Content-Type: image/jpeg\r\nContent-Length: {}\r\n\r\n",
-                data.len()
-            );
-            response.write_all(frame_part.as_bytes())?;
-            response.write_all(data)?;
-            response.write_all(frame_boundary.as_bytes())?;
-            response.flush()?;
-        }
-    }
+    response.write_all(header.as_bytes())?;
+    response.write_all(frame.data())?;
+    response.flush()?;
+
+    Ok(())
 }
 
 fn handle_setpoint(
