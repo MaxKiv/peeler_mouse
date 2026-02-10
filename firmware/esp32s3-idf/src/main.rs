@@ -2,7 +2,8 @@ pub mod blinky;
 pub mod camera;
 pub mod control;
 pub mod request;
-mod server;
+pub mod sd;
+pub mod server;
 pub mod wifi;
 
 use std::ffi::CStr;
@@ -11,6 +12,8 @@ use std::io::{Read, Seek, Write};
 
 use anyhow::Result;
 use embassy_executor::Spawner;
+use esp_idf_hal::cpu::Core;
+use esp_idf_hal::task::watchdog::{TWDTConfig, TWDTDriver};
 use esp_idf_hal::{
     gpio,
     ledc::{config::TimerConfig, LedcTimerDriver},
@@ -29,6 +32,7 @@ use esp_idf_svc::{
 };
 use log::info;
 
+use crate::camera::peripherals::SDPeripherals;
 use crate::{
     camera::{camera_freertos_task::CAMERA_FRAMEBUFFER, peripherals::CameraPeripherals},
     control::setpoint::Setpoint,
@@ -38,6 +42,7 @@ use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Wa
 
 static WIFI_STATE: Watch<Cs, WifiState, 1> = Watch::new();
 static SETPOINT: Watch<Cs, Setpoint, 1> = Watch::new();
+static mut WATCHDOG: Option<TWDTDriver> = None;
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
@@ -62,6 +67,10 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     let nvs = EspDefaultNvsPartition::take()?;
     let timer_service = EspTaskTimerService::new()?;
 
+    log::info!("Disabling watchdog");
+    disable_watchdog(peripherals.twdt);
+    log::info!("Watchdog disabled");
+
     let timer = LedcTimerDriver::new(peripherals.ledc.timer0, &TimerConfig::default())
         .expect("Unable to construct LedcTimerDriver");
 
@@ -72,7 +81,8 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
         peripherals.pins.gpio2,
     ))?;
 
-    log::info!("Setting up camera");
+    log::info!("Initialize Camera freertos task");
+
     let camera_peripherals = CameraPeripherals {
         pin_xclk: peripherals.pins.gpio15,
         pin_d0: peripherals.pins.gpio11,
@@ -90,66 +100,14 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
         pin_scl: peripherals.pins.gpio5,
     };
 
-    log::info!("Initialize Camera freertos task");
+    let sd_peri = SDPeripherals {
+        slot: peripherals.sdmmc1,
+        cmd: peripherals.pins.gpio38,
+        clk: peripherals.pins.gpio39,
+        d0: peripherals.pins.gpio40,
+    };
 
-    camera::camera_freertos_task::setup_freertos(camera_peripherals);
-
-    let mut cfg = SdMmcHostConfiguration::new();
-    // It seems the esp32s3-cam has external pullups, but who really knows without a datasheet?
-    cfg.enable_internal_pullups = false;
-    let sd_card_driver = SdCardDriver::new_mmc(
-        // => Data width = 1 bit
-        SdMmcHostDriver::new_1bit(
-            peripherals.sdmmc1,
-            peripherals.pins.gpio38,
-            peripherals.pins.gpio39,
-            peripherals.pins.gpio40,
-            None::<gpio::AnyIOPin>,
-            None::<gpio::AnyIOPin>,
-            &cfg,
-        )?,
-        &SdCardConfiguration::new(),
-    )?;
-
-    let _mounted_fatfs = MountedFatfs::mount(Fatfs::new_sdcard(0, sd_card_driver)?, "/sdcard", 4)?;
-
-    let content = b"Hello, world!";
-
-    {
-        let mut file = File::create("/sdcard/test.txt")?;
-
-        info!("File {file:?} created");
-
-        file.write_all(content).expect("Write failed");
-
-        info!("File {file:?} written with {content:?}");
-
-        file.seek(std::io::SeekFrom::Start(0)).expect("Seek failed");
-
-        info!("File {file:?} seeked");
-    }
-
-    {
-        let mut file = File::open("/sdcard/test.txt")?;
-
-        info!("File {file:?} opened");
-
-        let mut file_content = String::new();
-
-        file.read_to_string(&mut file_content).expect("Read failed");
-
-        info!("File {file:?} read: {file_content}");
-
-        assert_eq!(file_content.as_bytes(), content);
-    }
-
-    {
-        let directory = read_dir("/sdcard")?;
-
-        for entry in directory {
-            log::info!("Entry: {:?}", entry?.file_name());
-        }
-    }
+    camera::camera_freertos_task::setup_freertos(camera_peripherals, sd_peri);
 
     log::info!("Initialize Wifi task");
     spawner.spawn(wifi::wifi_task(
@@ -197,7 +155,20 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     //     }
     // }
 
-    core::future::pending::<()>().await;
+    Ok(())
+}
+
+fn disable_watchdog(twdt: esp_idf_hal::task::watchdog::TWDT) -> Result<(), esp_idf_sys::EspError> {
+    let config = TWDTConfig {
+        duration: std::time::Duration::MAX,
+        panic_on_trigger: true,
+        subscribed_idle_tasks: Core::Core0.into(),
+    };
+    let driver = esp_idf_hal::task::watchdog::TWDTDriver::new(twdt, &config)?;
+    // Save the WD
+    unsafe {
+        WATCHDOG = Some(driver);
+    }
 
     Ok(())
 }

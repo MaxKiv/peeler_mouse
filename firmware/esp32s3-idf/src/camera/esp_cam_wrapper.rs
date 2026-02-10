@@ -61,6 +61,7 @@ impl FrameBuffer {
 
 impl Drop for FrameBuffer {
     fn drop(&mut self) {
+        log::info!("Dropping Framebuffer");
         self.fb_return();
     }
 }

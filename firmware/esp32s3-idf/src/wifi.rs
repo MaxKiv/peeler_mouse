@@ -4,6 +4,7 @@ use esp_idf_hal::modem::Modem;
 use esp_idf_svc::{
     eventloop::{EspEventLoop, System},
     nvs::{EspNvsPartition, NvsDefault},
+    sntp,
     timer::{EspTimerService, Task},
     wifi::{AccessPointConfiguration, AsyncWifi, ClientConfiguration, Configuration, EspWifi},
 };
@@ -28,6 +29,7 @@ pub async fn wifi_task(
     log::info!("Setting up Wifi stack");
 
     loop {
+        log::info!("Trying to connect to Wifi");
         match try_connect(
             dotenv!("WIFI_SSID"),
             dotenv!("WIFI_PASSWORD"),
@@ -39,6 +41,8 @@ pub async fn wifi_task(
         .await
         {
             Ok(wifi) => {
+                log::info!("Wifi connected");
+
                 wifi_state_sender.send(WifiState::Connected);
 
                 // Ghetto connectivity check

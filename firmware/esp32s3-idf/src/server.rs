@@ -74,19 +74,94 @@ pub async fn server_task(
 fn handle_root(request: Request<&mut EspHttpConnection<'_>>) -> anyhow::Result<()> {
     // A cursed html + javascript static webpage :)
     let data = r#"
+        <!DOCTYPE html>
         <html>
           <body>
-            <img id="cam" src="/camera" width="640">
             <br>
-            <button onclick="refresh()">Fetch new frame</button>
+            <canvas id="camCanvas"></canvas>
+            <br>
+            <button onclick="fetchFrame()">Refresh</button>
 
             <script>
-              function refresh() {
-                const img = document.getElementById("cam");
-                img.src = "/camera?t=" + Date.now(); // bust cache
+            async function fetchFrame() {
+              let res;
+              try {
+                res = await fetch("/camera", { cache: "no-store" });
+              } catch (e) {
+                console.error("Fetch failed:", e);
+                return;
               }
-            </script>
 
+              if (!res.ok) {
+                if (res.status === 503) {
+                  console.log("No frame available yet");
+                  return;
+                }
+                console.error("Camera error:", res.status);
+                return;
+              }
+
+              const buf = await res.arrayBuffer();
+              const bytes = new Uint8Array(buf);
+
+              let idx = 0;
+
+              function skipWhitespace() {
+                while (idx < bytes.length && bytes[idx] <= 32) idx++;
+              }
+
+              function readToken() {
+                skipWhitespace();
+                if (bytes[idx] === 35) { // '#'
+                  while (bytes[idx++] !== 10);
+                  return readToken();
+                }
+                let start = idx;
+                while (idx < bytes.length && bytes[idx] > 32) idx++;
+                return String.fromCharCode(...bytes.slice(start, idx));
+              }
+
+              const magic = readToken();
+              if (magic !== "P5") {
+                console.error("Not a P5 PGM");
+                return;
+              }
+
+              const width = parseInt(readToken(), 10);
+              const height = parseInt(readToken(), 10);
+              const maxval = parseInt(readToken(), 10);
+
+              if (!Number.isFinite(width) || !Number.isFinite(height) || maxval !== 255) {
+                console.error("Invalid PGM header");
+                return;
+              }
+
+              const expected = width * height;
+              const pixelData = bytes.slice(idx, idx + expected);
+              if (pixelData.length !== expected) {
+                console.error("Truncated PGM payload");
+                return;
+              }
+
+              const canvas = document.getElementById("camCanvas");
+              canvas.width = width;
+              canvas.height = height;
+
+              const ctx = canvas.getContext("2d");
+              const img = ctx.createImageData(width, height);
+
+              for (let i = 0; i < expected; i++) {
+                const v = pixelData[i];
+                const o = i * 4;
+                img.data[o + 0] = v;
+                img.data[o + 1] = v;
+                img.data[o + 2] = v;
+                img.data[o + 3] = 255;
+              }
+
+              ctx.putImageData(img, 0, 0);
+            }
+            </script>
             <input type="number" id="depth" placeholder="0">
             <button onclick="sendSetpoint()">Send Setpoint</button>
 
@@ -110,9 +185,11 @@ fn handle_root(request: Request<&mut EspHttpConnection<'_>>) -> anyhow::Result<(
         </html>
     "#;
 
+    let content_length = data.len().to_string();
     let headers = [
         ("Content-Type", "text/html"),
-        ("Content-Length", &data.len().to_string()),
+        ("Content-Length", content_length.as_str()),
+        ("Connection", "close"),
     ];
 
     let mut response = request.into_response(200, Some("OK"), &headers)?;
@@ -122,12 +199,8 @@ fn handle_root(request: Request<&mut EspHttpConnection<'_>>) -> anyhow::Result<(
 }
 
 fn handle_camera(request: Request<&mut EspHttpConnection<'_>>) -> anyhow::Result<()> {
-    let mut frame_rx = CAMERA_FRAMEBUFFER
-        .receiver()
-        .expect("Max CAMERA_FRAMEBUFFER receivers reached");
-
     // Get latest frame
-    let Some(frame) = frame_rx.try_get() else {
+    let Some(Some(frame)) = CAMERA_FRAMEBUFFER.try_take() else {
         let mut resp = request.into_response(
             503,
             Some("Service Unavailable"),
@@ -137,6 +210,14 @@ fn handle_camera(request: Request<&mut EspHttpConnection<'_>>) -> anyhow::Result
         resp.flush()?;
         return Ok(());
     };
+
+    log::info!(
+        "webserver got {}x{} framebuffer gen {} @ {:p}\n\n",
+        frame.width(),
+        frame.height(),
+        frame.generation,
+        &frame.data(),
+    );
 
     // PGM headers
     let header = format!("P5\n{} {}\n255\n", frame.width(), frame.height());
