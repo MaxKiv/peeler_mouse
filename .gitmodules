@@ -1,9 +1,9 @@
 [submodule "firmware/esp32/components/esp32-camera"]
 	path = firmware/esp32/components/esp32-camera
 	url = git@github.com:espressif/esp32-camera.git
-[submodule "firmware/esp32s3/firmware/esp32s3/components/esp32-camera"]
+[submodule "firmware/esp32s3/components/esp32-camera"]
 	path = firmware/esp32s3/firmware/esp32s3/components/esp32-camera
 	url = git@github.com:espressif/esp32-camera.git
-[submodule "firmware/esp32s3-idf/firmware/esp32s3-idf/components/esp32-camera"]
-	path = firmware/esp32s3-idf/firmware/esp32s3-idf/components/esp32-camera
-	url = git@github.com:espressif/esp32-camera.git
+[submodule "firmware/esp32s3-idf/components/esp32-camera"]
+	path = firmware/esp32s3-idf/components/esp32-camera
+	url = git@github.com:MaxKiv/esp32-camera.git

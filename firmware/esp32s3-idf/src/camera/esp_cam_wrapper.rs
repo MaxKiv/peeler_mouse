@@ -8,7 +8,7 @@ use crate::camera::framesize::FrameSize;
 use crate::camera::pixelformat::PixelFormat;
 
 #[derive(Debug, Clone)]
-pub struct FrameBuffer {
+pub struct EspCamFrameBuffer {
     fb: *mut camera::camera_fb_t,
     pub generation: u64,
 }
@@ -26,10 +26,10 @@ pub struct FrameBuffer {
 /// if gen != expected_gen {
 ///   return Err(StaleFrame);
 /// }
-unsafe impl Send for FrameBuffer {}
-unsafe impl Sync for FrameBuffer {}
+unsafe impl Send for EspCamFrameBuffer {}
+unsafe impl Sync for EspCamFrameBuffer {}
 
-impl FrameBuffer {
+impl EspCamFrameBuffer {
     pub fn data(&self) -> &[u8] {
         unsafe { std::slice::from_raw_parts((*self.fb).buf, (*self.fb).len) }
     }
@@ -59,7 +59,7 @@ impl FrameBuffer {
     }
 }
 
-impl Drop for FrameBuffer {
+impl Drop for EspCamFrameBuffer {
     fn drop(&mut self) {
         log::info!("Dropping Framebuffer");
         self.fb_return();
@@ -305,9 +305,8 @@ impl<'a> Camera<'a> {
 
             jpeg_quality,
             fb_count,
-            // grab_mode: camera::camera_grab_mode_t_CAMERA_GRAB_WHEN_EMPTY,
-            grab_mode: camera::camera_grab_mode_t_CAMERA_GRAB_LATEST,
-
+            grab_mode: camera::camera_grab_mode_t_CAMERA_GRAB_WHEN_EMPTY,
+            // grab_mode: camera::camera_grab_mode_t_CAMERA_GRAB_LATEST,
             fb_location: camera::camera_fb_location_t_CAMERA_FB_IN_PSRAM,
 
             __bindgen_anon_1: camera::camera_config_t__bindgen_ty_1 {
@@ -327,7 +326,7 @@ impl<'a> Camera<'a> {
         })
     }
 
-    pub fn get_framebuffer(&mut self) -> Option<FrameBuffer> {
+    pub fn get_framebuffer(&mut self) -> Option<EspCamFrameBuffer> {
         let fb = unsafe { camera::esp_camera_fb_get() };
         if fb.is_null() {
             unsafe {
@@ -336,7 +335,7 @@ impl<'a> Camera<'a> {
             None
         } else {
             self.generation += 1;
-            Some(FrameBuffer {
+            Some(EspCamFrameBuffer {
                 fb,
                 generation: self.generation,
             })

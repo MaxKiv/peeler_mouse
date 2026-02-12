@@ -6,38 +6,21 @@ pub mod sd;
 pub mod server;
 pub mod wifi;
 
+use esp_idf_hal::ledc::config::TimerConfig;
 use std::ffi::CStr;
-use std::fs::{read_dir, File};
-use std::io::{Read, Seek, Write};
 
 use anyhow::Result;
 use embassy_executor::Spawner;
 use esp_idf_hal::cpu::Core;
+use esp_idf_hal::ledc::LedcTimerDriver;
+use esp_idf_hal::prelude::Peripherals;
 use esp_idf_hal::task::watchdog::{TWDTConfig, TWDTDriver};
-use esp_idf_hal::{
-    gpio,
-    ledc::{config::TimerConfig, LedcTimerDriver},
-    prelude::Peripherals,
-};
-use esp_idf_svc::io::vfs::MountedFatfs;
 use esp_idf_svc::{
     eventloop::EspSystemEventLoop, nvs::EspDefaultNvsPartition, timer::EspTaskTimerService,
 };
-use esp_idf_svc::{
-    fs::fatfs::Fatfs,
-    hal::sd::{
-        mmc::{SdMmcHostConfiguration, SdMmcHostDriver},
-        SdCardConfiguration, SdCardDriver,
-    },
-};
-use log::info;
 
-use crate::camera::peripherals::SDPeripherals;
-use crate::{
-    camera::{camera_freertos_task::CAMERA_FRAMEBUFFER, peripherals::CameraPeripherals},
-    control::setpoint::Setpoint,
-    wifi::WifiState,
-};
+use crate::sd::periperhals::SDPeripherals;
+use crate::{camera::peripherals::CameraPeripherals, control::setpoint::Setpoint, wifi::WifiState};
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Watch};
 
 static WIFI_STATE: Watch<Cs, WifiState, 1> = Watch::new();
@@ -107,7 +90,9 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
         d0: peripherals.pins.gpio40,
     };
 
-    camera::camera_freertos_task::setup_freertos(camera_peripherals, sd_peri);
+    camera::camera_freertos_task::setup_freertos(camera_peripherals);
+
+    sd::save_image_task::run(spawner, sd_peri);
 
     log::info!("Initialize Wifi task");
     spawner.spawn(wifi::wifi_task(
@@ -158,6 +143,7 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     Ok(())
 }
 
+// Quick! Nobody is watching
 fn disable_watchdog(twdt: esp_idf_hal::task::watchdog::TWDT) -> Result<(), esp_idf_sys::EspError> {
     let config = TWDTConfig {
         duration: std::time::Duration::MAX,

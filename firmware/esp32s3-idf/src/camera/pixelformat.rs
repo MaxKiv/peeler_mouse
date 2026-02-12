@@ -1,7 +1,7 @@
 use crate::camera::pixelformat::camera::*;
 use esp_idf_sys::*;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PixelFormat {
     RGB565,
     YUV422,
