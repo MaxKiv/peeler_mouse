@@ -7,6 +7,9 @@ use esp_idf_hal::{
         SdCardConfiguration, SdCardDriver,
     },
 };
+use esp_idf_svc::fs::fatfs::Fatfs;
+use esp_idf_svc::io::vfs::MountedFatfs;
+
 use esp_idf_hal::{gpio::*, sd::mmc::SDMMC1};
 use log::*;
 use std::{
@@ -18,12 +21,10 @@ use std::{
     time::UNIX_EPOCH,
 };
 
-use esp_idf_svc::fs::fatfs::Fatfs;
-use esp_idf_svc::io::vfs::MountedFatfs;
-
 use crate::{
     camera::{
         camera_freertos_task::{FRAMEBUFFER_SD_CHANNEL, PIXEL_FORMAT},
+        framebuffer::FrameBuffer,
         pixelformat::PixelFormat,
     },
     sd::periperhals::SDPeripherals,
@@ -84,38 +85,48 @@ pub async fn log_to_sd_task(sd_card_driver: SdCardDriver<SdMmcHostDriver<'static
         }
     }
 
+    let mut rx = FRAMEBUFFER_SD_CHANNEL
+        .receiver()
+        .expect("not enough FRAMEBUFFER_SD_CHANNEL rx N");
+
     loop {
-        if let Some(frame) = FRAMEBUFFER_SD_CHANNEL.try_take() {
-            log::info!(
-                "SD log: received {}x{} framebuffer -> logging to SD",
-                frame.width,
-                frame.height
-            );
-
-            // let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-            let gen = frame.generation;
-            let width = frame.width;
-            let height = frame.height;
-            let extension = match PIXEL_FORMAT {
-                PixelFormat::GRAYSCALE => "pgm",
-                PixelFormat::JPEG => "jpeg",
-                _ => "unkown",
-            };
-            let filename = format!("/sdcard/{gen:?}.{extension}");
-
-            info!("Attempting to create {filename}");
-            let mut file = File::create(filename.clone())
-                .expect(format!("Unable to create file {filename}").as_str());
-            info!("File {file:?} created");
-
-            // Write PGM header for grayscale pixelformat
-            if PIXEL_FORMAT == PixelFormat::GRAYSCALE {
-                let pgm_header = format!("P5\n{} {}\n255\n", width, height);
-                file.write_all(pgm_header.as_bytes()).expect("Write failed");
-            }
-
-            file.write_all(&frame.data).expect("Write failed");
-            info!("File {file:?} written");
+        let frame = rx.changed().await;
+        if let Err(err) = try_save_frame(frame) {
+            log::warn!("SD log: unable to save frame: {err}");
         }
     }
+}
+
+fn try_save_frame(frame: FrameBuffer) -> std::io::Result<()> {
+    log::info!(
+        "SD log: received {}x{} framebuffer -> logging to SD",
+        frame.width,
+        frame.height
+    );
+
+    let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+    let gen = frame.generation;
+    let width = frame.width;
+    let height = frame.height;
+    let extension = match PIXEL_FORMAT {
+        PixelFormat::GRAYSCALE => "pgm",
+        PixelFormat::JPEG => "jpeg",
+        _ => "unkown",
+    };
+    let filename = format!("/sdcard/{gen:?}.{extension}");
+
+    info!("Attempting to create {filename}");
+    let mut file = File::create(filename)?;
+    info!("File {file:?} created");
+
+    // Write PGM header for grayscale pixelformat
+    if PIXEL_FORMAT == PixelFormat::GRAYSCALE {
+        let pgm_header = format!("P5\n{} {}\n255\n", width, height);
+        file.write_all(pgm_header.as_bytes())?
+    }
+
+    file.write_all(&frame.data)?;
+    info!("File {file:?} written");
+
+    Ok(())
 }

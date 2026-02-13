@@ -3,7 +3,7 @@ use crate::camera::{
     peripherals::CameraPeripherals, pixelformat::PixelFormat,
 };
 
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, signal::*};
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, signal::*, watch::Watch};
 
 use esp_idf_sys::*;
 use log::*;
@@ -12,17 +12,17 @@ pub const PIXEL_FORMAT: PixelFormat = PixelFormat::GRAYSCALE;
 // pub const PIXEL_FORMAT: PixelFormat = PixelFormat::JPEG;
 pub const FRAME_SIZE: FrameSize = FrameSize::FramesizeVga;
 pub const FRAMEBUFFER_LEN: usize = FRAME_SIZE.get_dimensions().0 * FRAME_SIZE.get_dimensions().1;
-pub const XCLK_FREQ: i32 = 20_000_000;
+pub const XCLK_FREQ: i32 = 10_000_000;
 pub const JPEG_QUALITY: i32 = 20;
 
-pub static FRAMEBUFFER_WEBSERVER_CHANNEL: Signal<Cs, FrameBuffer> = Signal::new();
-pub static FRAMEBUFFER_SD_CHANNEL: Signal<Cs, FrameBuffer> = Signal::new();
+pub static FRAMEBUFFER_WEBSERVER_CHANNEL: Watch<Cs, FrameBuffer, 1> = Watch::new();
+pub static FRAMEBUFFER_SD_CHANNEL: Watch<Cs, FrameBuffer, 1> = Watch::new();
 static mut CAMERA_TASK_ARGS: Option<CameraTaskArgs> = None;
 
 pub struct CameraTaskArgs {
     camera_peripherals: Option<CameraPeripherals>,
-    webserver_signal: &'static Signal<Cs, FrameBuffer>,
-    sd_signal: &'static Signal<Cs, FrameBuffer>,
+    webserver_signal: &'static Watch<Cs, FrameBuffer, 1>,
+    sd_signal: &'static Watch<Cs, FrameBuffer, 1>,
 }
 
 pub fn setup_freertos(camera_peripherals: CameraPeripherals) {
@@ -110,6 +110,7 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
 
             // Copy framebuffer, continue if this fails
             let Some(fb_owned) = FrameBuffer::try_from_esp(frame) else {
+                log::error!("unable to make 1st FB copy for SD usage");
                 // Failed to alloc, wait a bit and continue
                 vTaskDelay(1 * configTICK_RATE_HZ);
                 continue;
@@ -117,19 +118,14 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
 
             // Send the copied frame buffer to embassy context
             if let Some(fb_copy) = fb_owned.try_clone() {
-                webserver_signal.signal(fb_copy);
+                webserver_signal.sender().send(fb_copy);
+            } else {
+                log::warn!("unable to make 2nd FB copy for webserver usage");
             }
-            sd_signal.signal(fb_owned);
+            sd_signal.sender().send(fb_owned);
         };
 
         // 1 Hz
-        vTaskDelay(1 * configTICK_RATE_HZ);
-
-        // Signal the imminent destruction of the framebuffer
-        // This actually triggers the camera::esp_camera_fb_return(fb) through FrameBuffer::Drop,
-        // which is required before fetching a new frame
-        // signal.signal(None);
-
         // vTaskDelay(1 * configTICK_RATE_HZ);
     }
 }

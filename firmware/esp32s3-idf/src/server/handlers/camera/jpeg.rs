@@ -5,9 +5,12 @@ use esp_idf_svc::http::{
     Method,
 };
 use log::*;
-
 pub fn handle_camera_jpeg(request: Request<&mut EspHttpConnection<'_>>) -> anyhow::Result<()> {
-    let Some(frame) = FRAMEBUFFER_WEBSERVER_CHANNEL.try_take() else {
+    let mut rx = FRAMEBUFFER_WEBSERVER_CHANNEL
+        .receiver()
+        .expect("not enough FRAMEBUFFER_SD_CHANNEL rx N");
+
+    let Some(frame) = rx.try_changed() else {
         let mut resp = request.into_response(
             503,
             Some("Service Unavailable"),

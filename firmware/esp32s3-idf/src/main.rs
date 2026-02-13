@@ -92,7 +92,7 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
 
     camera::camera_freertos_task::setup_freertos(camera_peripherals);
 
-    sd::save_image_task::run(spawner, sd_peri);
+    sd::save_image_task::run(spawner, sd_peri)?;
 
     log::info!("Initialize Wifi task");
     spawner.spawn(wifi::wifi_task(

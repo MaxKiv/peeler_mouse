@@ -15,17 +15,25 @@ pub struct FrameBuffer {
     pub generation: u64,
 }
 
+impl Clone for FrameBuffer {
+    fn clone(&self) -> Self {
+        // Yea
+        self.try_clone().unwrap()
+    }
+}
+
 impl FrameBuffer {
     pub unsafe fn try_from_esp(fb: EspCamFrameBuffer) -> Option<FrameBuffer> {
         let len = fb.len() as usize;
 
         let ptr = heap_caps_malloc(len, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) as *mut u8;
+
+        let bytes_left = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
         if ptr.is_null() {
+            log::warn!("FrameBuffer allocation in PSRAM FAILED, heap left: {bytes_left}");
             // Alloc failed
             return None;
         }
-
-        let bytes_left = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
         log::info!("FrameBuffer allocated in PSRAM, heap left: {bytes_left}");
 
         let src = fb.data().as_ptr();
@@ -47,12 +55,13 @@ impl FrameBuffer {
 
         unsafe {
             let ptr = heap_caps_malloc(len, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) as *mut u8;
+
+            let bytes_left = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
             if ptr.is_null() {
+                log::warn!("FrameBuffer allocation in PSRAM FAILED, heap left: {bytes_left}");
                 // Alloc failed
                 return None;
             }
-
-            let bytes_left = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
             log::info!("FrameBuffer allocated in PSRAM, heap left: {bytes_left}");
 
             let src = self.data.as_ptr();
