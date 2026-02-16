@@ -10,9 +10,9 @@ use log::*;
 
 pub const PIXEL_FORMAT: PixelFormat = PixelFormat::GRAYSCALE;
 // pub const PIXEL_FORMAT: PixelFormat = PixelFormat::JPEG;
-pub const FRAME_SIZE: FrameSize = FrameSize::FramesizeVga;
+pub const FRAME_SIZE: FrameSize = FrameSize::FramesizeQqvga;
 pub const FRAMEBUFFER_LEN: usize = FRAME_SIZE.get_dimensions().0 * FRAME_SIZE.get_dimensions().1;
-pub const XCLK_FREQ: i32 = 10_000_000;
+pub const XCLK_FREQ: i32 = 16_000_000;
 pub const JPEG_QUALITY: i32 = 20;
 
 pub static FRAMEBUFFER_WEBSERVER_CHANNEL: Watch<Cs, FrameBuffer, 1> = Watch::new();
@@ -108,6 +108,7 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
                 &frame.data(),
             );
 
+            log::info!("Starting 1st FB copy");
             // Copy framebuffer, continue if this fails
             let Some(fb_owned) = FrameBuffer::try_from_esp(frame) else {
                 log::error!("unable to make 1st FB copy for SD usage");
@@ -115,13 +116,16 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
                 vTaskDelay(1 * configTICK_RATE_HZ);
                 continue;
             };
+            log::info!("Finished 1st FB copy");
 
             // Send the copied frame buffer to embassy context
+            log::info!("Starting 2nd FB copy");
             if let Some(fb_copy) = fb_owned.try_clone() {
                 webserver_signal.sender().send(fb_copy);
             } else {
                 log::warn!("unable to make 2nd FB copy for webserver usage");
             }
+            log::info!("Finished 2nd FB copy");
             sd_signal.sender().send(fb_owned);
         };
 

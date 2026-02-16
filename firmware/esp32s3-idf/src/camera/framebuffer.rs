@@ -26,15 +26,15 @@ impl FrameBuffer {
     pub unsafe fn try_from_esp(fb: EspCamFrameBuffer) -> Option<FrameBuffer> {
         let len = fb.len() as usize;
 
-        let ptr = heap_caps_malloc(len, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) as *mut u8;
+        let ptr = heap_caps_malloc(len, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA) as *mut u8;
 
-        let bytes_left = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+        let bytes_left = heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA);
         if ptr.is_null() {
-            log::warn!("FrameBuffer allocation in PSRAM FAILED, heap left: {bytes_left}");
+            log::warn!("FrameBuffer allocation in PSRAM FAILED, SPIRAM + DMA capable heap left: {bytes_left}");
             // Alloc failed
             return None;
         }
-        log::info!("FrameBuffer allocated in PSRAM, heap left: {bytes_left}");
+        log::info!("FrameBuffer allocated in PSRAM, SPIRAM + DMA capable heap left: {bytes_left}");
 
         let src = fb.data().as_ptr();
         core::ptr::copy_nonoverlapping(src, ptr, len);
@@ -58,11 +58,13 @@ impl FrameBuffer {
 
             let bytes_left = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
             if ptr.is_null() {
-                log::warn!("FrameBuffer allocation in PSRAM FAILED, heap left: {bytes_left}");
+                log::warn!("FrameBuffer allocation in PSRAM FAILED, SPIRAM + DMA capable heap left: {bytes_left}");
                 // Alloc failed
                 return None;
             }
-            log::info!("FrameBuffer allocated in PSRAM, heap left: {bytes_left}");
+            log::info!(
+                "FrameBuffer allocated in PSRAM, SPIRAM + DMA capable heap left: {bytes_left}"
+            );
 
             let src = self.data.as_ptr();
             core::ptr::copy_nonoverlapping(src, ptr, len);

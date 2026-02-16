@@ -1,5 +1,6 @@
 pub mod blinky;
 pub mod camera;
+pub mod comms;
 pub mod control;
 pub mod request;
 pub mod sd;

@@ -1,5 +1,6 @@
 use embassy_executor::Spawner;
 use embassy_sync::watch::{Receiver, Sender};
+use embassy_time::{Duration, Ticker};
 use esp_idf_hal::{
     gpio,
     sd::{
@@ -29,6 +30,8 @@ use crate::{
     },
     sd::periperhals::SDPeripherals,
 };
+
+const SD_WRITE_FREQUENCY: Duration = Duration::from_hz(1);
 
 pub struct SdLogTaskPeripherals {
     sd_peripherals: Option<SDPeripherals>,
@@ -89,11 +92,19 @@ pub async fn log_to_sd_task(sd_card_driver: SdCardDriver<SdMmcHostDriver<'static
         .receiver()
         .expect("not enough FRAMEBUFFER_SD_CHANNEL rx N");
 
+    let mut ticker = Ticker::every(SD_WRITE_FREQUENCY);
+
     loop {
+        // Wait for latest frame to arrive
         let frame = rx.changed().await;
+        // Attempt to write it to the SD card
+
         if let Err(err) = try_save_frame(frame) {
             log::warn!("SD log: unable to save frame: {err}");
         }
+
+        // Throttle writes to desired frequency
+        ticker.next().await;
     }
 }
 
@@ -113,7 +124,7 @@ fn try_save_frame(frame: FrameBuffer) -> std::io::Result<()> {
         PixelFormat::JPEG => "jpeg",
         _ => "unkown",
     };
-    let filename = format!("/sdcard/{gen:?}.{extension}");
+    let filename = format!("/sdcard/frame_{gen}.{extension}");
 
     info!("Attempting to create {filename}");
     let mut file = File::create(filename)?;
