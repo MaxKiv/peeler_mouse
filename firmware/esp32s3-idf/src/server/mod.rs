@@ -1,3 +1,5 @@
+#![cfg(feature = "webserver")]
+
 pub mod handlers;
 
 use embassy_sync::{
@@ -20,14 +22,10 @@ use crate::{
         setpoint::handle_setpoint,
     },
     wifi::WifiState,
-    Setpoint,
 };
 
 #[embassy_executor::task]
-pub async fn server_task(
-    mut wifi_state_receiver: Receiver<'static, Cs, WifiState, 1>,
-    setpoint_sender: Sender<'static, Cs, Setpoint, 1>,
-) {
+pub async fn server_task(mut wifi_state_receiver: Receiver<'static, Cs, WifiState, 1>) {
     log::info!("Starting Server Embassy task");
 
     loop {
@@ -59,14 +57,14 @@ pub async fn server_task(
                             _ => (),
                         }
 
-                        let sender = setpoint_sender.clone();
-                        if let Err(err) =
-                            server.fn_handler("/setpoint", Method::Post, move |request| {
-                                handle_setpoint(request, &sender)
-                            })
-                        {
-                            error!("Unable to set up HTTP Server root handler: {err}, retrying...");
-                        }
+                        // let sender = setpoint_sender.clone();
+                        // if let Err(err) =
+                        //     server.fn_handler("/setpoint", Method::Post, move |request| {
+                        //         handle_setpoint(request, &sender)
+                        //     })
+                        // {
+                        //     error!("Unable to set up HTTP Server root handler: {err}, retrying...");
+                        // }
 
                         info!(
                             "HTTP server handlers set up, keeping alive until wifi connected is dropped"

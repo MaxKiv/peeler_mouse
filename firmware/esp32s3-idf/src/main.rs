@@ -7,25 +7,27 @@ pub mod sd;
 pub mod server;
 pub mod wifi;
 
-use esp_idf_hal::ledc::config::TimerConfig;
-use std::ffi::CStr;
-
+use crate::camera::peripherals::CameraPeripherals;
+use crate::comms::comms_task::SETPOINT_WATCH;
+use crate::comms::periperhals::CommsPeripherals;
 use anyhow::Result;
 use embassy_executor::Spawner;
 use esp_idf_hal::cpu::Core;
+use esp_idf_hal::ledc::config::TimerConfig;
 use esp_idf_hal::ledc::LedcTimerDriver;
 use esp_idf_hal::prelude::Peripherals;
 use esp_idf_hal::task::watchdog::{TWDTConfig, TWDTDriver};
 use esp_idf_svc::{
     eventloop::EspSystemEventLoop, nvs::EspDefaultNvsPartition, timer::EspTaskTimerService,
 };
+use std::ffi::CStr;
 
+#[cfg(feature = "sd")]
 use crate::sd::periperhals::SDPeripherals;
-use crate::{camera::peripherals::CameraPeripherals, control::setpoint::Setpoint, wifi::WifiState};
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Watch};
 
-static WIFI_STATE: Watch<Cs, WifiState, 1> = Watch::new();
-static SETPOINT: Watch<Cs, Setpoint, 1> = Watch::new();
+#[cfg(feature = "webserver")]
+use crate::wifi::WIFI_STATE;
+
 static mut WATCHDOG: Option<TWDTDriver> = None;
 
 #[embassy_executor::main]
@@ -84,62 +86,62 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
         pin_scl: peripherals.pins.gpio5,
     };
 
-    let sd_peri = SDPeripherals {
-        slot: peripherals.sdmmc1,
-        cmd: peripherals.pins.gpio38,
-        clk: peripherals.pins.gpio39,
-        d0: peripherals.pins.gpio40,
+    let comms_peri = CommsPeripherals {
+        uart: peripherals.uart0,
+        tx: peripherals.pins.gpio43,
+        rx: peripherals.pins.gpio44,
     };
 
     camera::camera_freertos_task::setup_freertos(camera_peripherals);
+    comms::comms_task::run(spawner, comms_peri)?;
 
-    sd::save_image_task::run(spawner, sd_peri)?;
-
-    log::info!("Initialize Wifi task");
-    spawner.spawn(wifi::wifi_task(
-        peripherals.modem,
-        sys_loop,
-        nvs,
-        timer_service,
-        WIFI_STATE.sender(),
-    ))?;
-
-    log::info!("Initialize Webserver task");
-    spawner.spawn(server::server_task(
-        WIFI_STATE
+    log::info!("Initialize Controller task");
+    spawner.spawn(control::controller::control_loop(
+        SETPOINT_WATCH
             .receiver()
-            .expect("Max wifi_state receivers reached"),
-        SETPOINT.sender(),
+            .expect("Increase SETPOINT_WATCH N"),
     ))?;
 
-    // log::info!("Initialize Controller task");
-    // spawner.spawn(control::controller::control_loop(
-    //     SETPOINT.receiver().expect("Max setpoint receivers reached"),
-    //     timer,
-    //     peripherals.ledc.channel1,
-    //     peripherals.pins.gpio12,
-    //     peripherals.ledc.channel2,
-    //     peripherals.pins.gpio13,
-    // ))?;
+    // spawner.spawn(control::actuation::actuation_task())?;
 
-    // let mut ticker = Ticker::every(Duration::from_hz(1));
-    // let camera = cam_arc.clone();
-    // loop {
-    //     if let Some(fb) = camera.get_framebuffer() {
-    //         info!(
-    //             "{:?} => Got {} bytes [{} x {}] {} frame buffer",
-    //             fb.timestamp(),
-    //             fb.len(),
-    //             fb.width(),
-    //             fb.height(),
-    //             fb.format()
-    //         );
-    //         let data = &fb.data()[..fb.width() / 10];
-    //         info!("data: {:?}", data);
-    //
-    //         ticker.next().await;
-    //     }
-    // }
+    // Spawn auxilary SD writing task, when enabled
+    #[cfg(feature = "sd")]
+    {
+        let sd_peri = SDPeripherals {
+            slot: peripherals.sdmmc1,
+            cmd: peripherals.pins.gpio38,
+            clk: peripherals.pins.gpio39,
+            d0: peripherals.pins.gpio40,
+        };
+
+        if let Err(err) = sd::save_image_task::run(spawner, sd_peri) {
+            log::error!("Unable to Initialize SD write task: {err}");
+        }
+    }
+
+    // Spawn auxilary Webserver task and wifi stack, when enabled
+    // #[cfg(feature = "Webserver")]
+    {
+        log::info!("Initialize Wifi task");
+        if let Err(err) = spawner.spawn(wifi::wifi_task(
+            peripherals.modem,
+            sys_loop,
+            nvs,
+            timer_service,
+            WIFI_STATE.sender(),
+        )) {
+            log::error!("Unable to Initialize Wifi task: {err}");
+        }
+
+        log::info!("Initialize Webserver task");
+        if let Err(err) = spawner.spawn(server::server_task(
+            WIFI_STATE
+                .receiver()
+                .expect("Max wifi_state receivers reached"),
+        )) {
+            log::error!("Unable to Initialize Webserver task: {err}");
+        }
+    }
 
     Ok(())
 }

@@ -1,4 +1,9 @@
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Sender};
+#![cfg(feature = "webserver")]
+
+use embassy_sync::{
+    blocking_mutex::raw::CriticalSectionRawMutex as Cs,
+    watch::{Sender, Watch},
+};
 use embassy_time::Timer;
 use esp_idf_hal::modem::Modem;
 use esp_idf_svc::{
@@ -11,6 +16,8 @@ use esp_idf_svc::{
 
 use dotenvy_macro::dotenv;
 use log::*;
+
+pub static WIFI_STATE: Watch<Cs, WifiState, 1> = Watch::new();
 
 #[derive(Clone)]
 pub enum WifiState {

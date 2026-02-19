@@ -1,3 +1,5 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use crate::camera::{
     esp_cam_wrapper::Camera, framebuffer::FrameBuffer, framesize::FrameSize,
     peripherals::CameraPeripherals, pixelformat::PixelFormat,
@@ -10,10 +12,11 @@ use log::*;
 
 pub const PIXEL_FORMAT: PixelFormat = PixelFormat::GRAYSCALE;
 // pub const PIXEL_FORMAT: PixelFormat = PixelFormat::JPEG;
-pub const FRAME_SIZE: FrameSize = FrameSize::FramesizeQqvga;
+pub const FRAME_SIZE: FrameSize = FrameSize::FramesizeQvga;
 pub const FRAMEBUFFER_LEN: usize = FRAME_SIZE.get_dimensions().0 * FRAME_SIZE.get_dimensions().1;
 pub const XCLK_FREQ: i32 = 16_000_000;
 pub const JPEG_QUALITY: i32 = 20;
+pub const CAM_HZ: u64 = 10;
 
 pub static FRAMEBUFFER_WEBSERVER_CHANNEL: Watch<Cs, FrameBuffer, 1> = Watch::new();
 pub static FRAMEBUFFER_SD_CHANNEL: Watch<Cs, FrameBuffer, 1> = Watch::new();
@@ -49,6 +52,9 @@ pub fn setup_freertos(camera_peripherals: CameraPeripherals) {
 
 unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
     log::info!("Starting camera FreeRtos task");
+
+    let mut x_last_wake_time = xTaskGetTickCount();
+    let mut last_time = SystemTime::now();
 
     // Get our camera args
     let args = &mut *(arg as *mut CameraTaskArgs);
@@ -98,38 +104,71 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
     log::info!("camera initialised");
 
     loop {
+        x_last_wake_time = xTaskGetTickCount();
+
         // Take picture!
         if let Some(frame) = cam.get_framebuffer() {
+            // Figure out FPS
+            let now = SystemTime::now();
+            let time_since_last_fb = now.duration_since(last_time).unwrap_or_default();
+            last_time = now;
+
+            // Convert the duration to seconds as an f64
+            let secs = time_since_last_fb.as_secs_f64();
+
+            // Guard against a zero‑length interval
+            let frequency_hz = if secs > 0.0 {
+                1.0 / secs
+            } else {
+                f64::INFINITY
+            };
+
             log::info!(
-                "Camera got {}x{} framebuffer gen {} @ {:p}\n\n",
+                "Camera got {}x{} framebuffer gen {} @ {:p}\nFPS: {:.3}\n\n",
                 frame.width(),
                 frame.height(),
                 frame.generation,
                 &frame.data(),
+                frequency_hz,
             );
 
-            log::info!("Starting 1st FB copy");
-            // Copy framebuffer, continue if this fails
-            let Some(fb_owned) = FrameBuffer::try_from_esp(frame) else {
-                log::error!("unable to make 1st FB copy for SD usage");
-                // Failed to alloc, wait a bit and continue
-                vTaskDelay(1 * configTICK_RATE_HZ);
-                continue;
-            };
-            log::info!("Finished 1st FB copy");
-
-            // Send the copied frame buffer to embassy context
-            log::info!("Starting 2nd FB copy");
-            if let Some(fb_copy) = fb_owned.try_clone() {
-                webserver_signal.sender().send(fb_copy);
-            } else {
-                log::warn!("unable to make 2nd FB copy for webserver usage");
+            #[cfg(feature = "webserver")]
+            {
+                // Send the copied frame buffer to embassy context
+                log::info!("Starting FB copy for Webserver usage");
+                if let Some(fb_copy) = FrameBuffer::try_from_esp(&frame) {
+                    webserver_signal.sender().send(fb_copy);
+                } else {
+                    log::warn!("unable to make FB copy for webserver usage");
+                }
+                log::info!("Finished FB copy");
             }
-            log::info!("Finished 2nd FB copy");
-            sd_signal.sender().send(fb_owned);
+
+            #[cfg(feature = "sd")]
+            {
+                // Throttle logging
+                if frame.generation % CAM_HZ == 0 {
+                    log::info!("Starting FB(gen-{}) copy for SD logging", frame.generation);
+
+                    // Copy framebuffer, continue if this fails
+                    let Some(fb_owned) = FrameBuffer::try_from_esp(&frame) else {
+                        // Failed to alloc
+                        log::error!("unable to make FB copy for SD usage");
+                        continue;
+                    };
+                    log::info!("Finished FB copy");
+
+                    // Send to SD logging task
+                    sd_signal.sender().send(fb_owned);
+                }
+            }
+
+            // Note `frame` is dropped here, which releases the esp FB back to the esp32-camera
         };
 
-        // 1 Hz
-        // vTaskDelay(1 * configTICK_RATE_HZ);
+        // 5 Hz
+        // vTaskDelay(configTICK_RATE_HZ / CAM_HZ as u32);
+        let last_wake_ptr: *mut u32 = &mut x_last_wake_time as *mut u32;
+        xTaskDelayUntil(last_wake_ptr, configTICK_RATE_HZ / CAM_HZ as u32);
     }
 }

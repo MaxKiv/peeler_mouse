@@ -1,8 +1,7 @@
-use esp_idf_hal::{gpio::*, sd::mmc::SDMMC1};
+use esp_idf_hal::{gpio::*, uart::UART0};
 
 pub struct CommsPeripherals {
-    pub slot: SDMMC1,
-    pub cmd: Gpio38,
-    pub clk: Gpio39,
-    pub d0: Gpio40,
+    pub uart: UART0,
+    pub tx: Gpio43,
+    pub rx: Gpio44,
 }

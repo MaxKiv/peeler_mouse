@@ -33,30 +33,24 @@ use crate::{
 
 const SD_WRITE_FREQUENCY: Duration = Duration::from_hz(1);
 
-pub struct SdLogTaskPeripherals {
-    sd_peripherals: Option<SDPeripherals>,
-}
-
-pub fn run(spawner: &Spawner, sd_peri: SDPeripherals) -> Result<(), embassy_executor::SpawnError> {
+pub fn run(spawner: &Spawner, sd_peri: SDPeripherals) -> anyhow::Result<()> {
     log::info!("initialising SD card driver");
     let mut cfg = SdMmcHostConfiguration::new();
     // It seems the esp32s3-cam has external pullups, but who really knows without a datasheet?
     cfg.enable_internal_pullups = false;
-    let sd_card_driver = SdCardDriver::new_mmc(
-        // => Data width = 1 bit
-        SdMmcHostDriver::new_1bit(
-            sd_peri.slot,
-            sd_peri.cmd,
-            sd_peri.clk,
-            sd_peri.d0,
-            None::<gpio::AnyIOPin>,
-            None::<gpio::AnyIOPin>,
-            &cfg,
-        )
-        .expect("unable to construct SdMmcHostDriver"),
-        &SdCardConfiguration::new(),
-    )
-    .expect("Unable to construct SdCardDriver");
+
+    // SDMMC Data width = 1 bit
+    let sd_mmc_host_driver = SdMmcHostDriver::new_1bit(
+        sd_peri.slot,
+        sd_peri.cmd,
+        sd_peri.clk,
+        sd_peri.d0,
+        None::<gpio::AnyIOPin>,
+        None::<gpio::AnyIOPin>,
+        &cfg,
+    )?;
+
+    let sd_card_driver = SdCardDriver::new_mmc(sd_mmc_host_driver, &SdCardConfiguration::new())?;
 
     log::info!("SD card driver initialised");
 

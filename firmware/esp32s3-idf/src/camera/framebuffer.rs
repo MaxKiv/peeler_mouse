@@ -23,7 +23,7 @@ impl Clone for FrameBuffer {
 }
 
 impl FrameBuffer {
-    pub unsafe fn try_from_esp(fb: EspCamFrameBuffer) -> Option<FrameBuffer> {
+    pub unsafe fn try_from_esp(fb: &EspCamFrameBuffer) -> Option<FrameBuffer> {
         let len = fb.len() as usize;
 
         let ptr = heap_caps_malloc(len, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA) as *mut u8;

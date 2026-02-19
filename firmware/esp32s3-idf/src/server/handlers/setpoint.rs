@@ -8,8 +8,9 @@ use esp_idf_svc::http::{
     Method,
 };
 use log::*;
+use messenger_mouse::Setpoint;
 
-use crate::{request::ReadableRequest, Setpoint};
+use crate::request::ReadableRequest;
 
 pub fn handle_setpoint(
     mut request: Request<&mut EspHttpConnection<'_>>,

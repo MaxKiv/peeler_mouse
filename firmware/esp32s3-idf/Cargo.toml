@@ -9,14 +9,15 @@ path = "src/main.rs"
 harness = false # do not use the built in cargo test harness -> resolve rust-analyzer errors
 
 [features]
-default = []
-
+default = ["sd", "webserver"]
+sd = []
+webserver = []
 experimental = ["esp-idf-svc/experimental"]
 
 [dependencies]
 # shared = { path = "../shared" }
 log = "0.4"
-esp-idf-svc = { version = "0.51", features = ["embassy-time-driver", "embassy-sync", "embedded-storage", "experimental"] } # Experimental for SD card support, shouldn't be required but here we are!
+esp-idf-svc = { version = "0.51", features = ["embassy-time-driver", "embassy-sync", "embedded-storage", "experimental"] }
 critical-section = { version = "1.1", features = ["std"], default-features = false }
 embassy-executor = { version = "0.7", features = ["executor-thread", "arch-std", "task-arena-size-16384"] }
 embassy-time = { version = "0.4.0" }
@@ -34,6 +35,8 @@ serde = { version = "1.0.225", features = ["derive"] }
 uom = { version = "0.37.0", features = ["serde", "si", "f32"] }
 static_cell = "2.1.1"
 
+messenger-mouse = { path = "../messenger_mouse" }
+
 [build-dependencies]
 embuild = "0.33"
 
@@ -41,4 +44,5 @@ embuild = "0.33"
 component_dirs = "components/esp32-camera"
 bindings_header = "components/bindings.h"
 bindings_module = "camera"
+
 
