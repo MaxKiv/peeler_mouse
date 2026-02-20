@@ -1,9 +1,6 @@
 #![no_std]
 
-use defmt::Format;
 use serde::{Deserialize, Serialize};
-use uom::si::f32::Length;
-use uom::si::length::millimeter;
 
 pub const REPORT_BYTES: usize = core::mem::size_of::<Report>();
 pub const SETPOINT_BYTES: usize = core::mem::size_of::<Setpoint>();
@@ -25,7 +22,7 @@ pub fn deserialize_setpoint(buf: &mut [u8]) -> postcard::Result<Setpoint> {
     postcard::from_bytes_cobs(buf)
 }
 
-#[derive(Deserialize, Serialize, Clone, Format, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct Report {
     pub setpoint: Setpoint,
     pub app_state: AppState,
@@ -35,56 +32,34 @@ pub struct Report {
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct Setpoint {
     pub enable: bool,
+    pub led_setpoint: LedSetpoint,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct Measurements {
     /// microseconds since boot of mcu
     pub timestamp: u64,
-
     pub camera_fps: f32,
-
-    pub current_knife_depth: Length,
-
     pub controller_output: VisionAlgorithmOutput,
+    // pub current_knife_depth: Length,
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug, Format)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+pub struct LedSetpoint {
+    pub brightness: f32, // Percentage brightness [0.0, 1.0]
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
 pub enum VisionAlgorithmOutput {
     Up,
     Hold,
     Down,
 }
 
-#[derive(PartialEq, Clone, Copy, Deserialize, Serialize, Format, Default, Debug)]
+#[derive(PartialEq, Clone, Copy, Deserialize, Serialize, Default, Debug)]
 pub enum AppState {
     #[default]
     StandBy,
-    Running, // Frequency in Hz
+    Active,
     Fault,
-}
-
-// defmt Format impls from here
-impl Format for Measurements {
-    fn format(&self, fmt: defmt::Formatter) {
-        defmt::write!(
-            fmt,
-            "Measurement({}ms -> depth {} - {:?})",
-            self.timestamp,
-            self.current_knife_depth.get::<millimeter>(),
-            self.controller_output,
-        );
-    }
-}
-
-impl Format for Setpoint {
-    fn format(&self, fmt: defmt::Formatter) {
-        use defmt::write;
-
-        write!(fmt, "Knife Controller -> ");
-        match &self.enable {
-            true => write!(fmt, "ENABLED",),
-            false => write!(fmt, "DISABLED"),
-        };
-    }
 }
