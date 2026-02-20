@@ -76,4 +76,9 @@ impl FrameBuffer {
             })
         }
     }
+
+    // #[inline]
+    pub fn rows(&self) -> impl Iterator<Item = &[u8]> {
+        self.data.chunks(self.width)
+    }
 }

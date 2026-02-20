@@ -12,11 +12,12 @@ use log::*;
 
 pub const PIXEL_FORMAT: PixelFormat = PixelFormat::GRAYSCALE;
 // pub const PIXEL_FORMAT: PixelFormat = PixelFormat::JPEG;
-pub const FRAME_SIZE: FrameSize = FrameSize::FramesizeQvga;
+// pub const FRAME_SIZE: FrameSize = FrameSize::FramesizeQvga;
+pub const FRAME_SIZE: FrameSize = FrameSize::FramesizeVga;
 pub const FRAMEBUFFER_LEN: usize = FRAME_SIZE.get_dimensions().0 * FRAME_SIZE.get_dimensions().1;
 pub const XCLK_FREQ: i32 = 16_000_000;
 pub const JPEG_QUALITY: i32 = 20;
-pub const CAM_HZ: u64 = 10;
+pub const CAM_HZ: u64 = 1;
 
 pub static FRAMEBUFFER_CONTROL_LOOP_CHANNEL: Watch<Cs, FrameBuffer, 1> = Watch::new();
 pub static FRAMEBUFFER_WEBSERVER_CHANNEL: Watch<Cs, FrameBuffer, 1> = Watch::new();
@@ -137,6 +138,7 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
             );
 
             log::info!("Starting FB copy for control loop");
+            let start = SystemTime::now();
             // Copy framebuffer, continue if this fails
             if let Some(fb_copy) = FrameBuffer::try_from_esp(&frame) {
                 // Send to ControlLoop task
@@ -144,13 +146,20 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
             } else {
                 log::error!("unable to make FB copy for control loop");
             }
-            log::info!("Finished FB copy for control loop");
+            log::info!(
+                "Finished FB copy for control loop in {}ms",
+                SystemTime::now()
+                    .duration_since(start)
+                    .unwrap_or_default()
+                    .as_millis(),
+            );
 
             // If webserver is enabled, copy the framebuffer for consumption there
             // Note: each FB copy takes ~30ms, this directly impacts control loop perf
             #[cfg(feature = "webserver")]
             {
                 log::info!("Starting FB copy for Webserver usage");
+                let start = SystemTime::now();
                 // Copy framebuffer, continue if this fails
                 if let Some(fb_copy) = FrameBuffer::try_from_esp(&frame) {
                     // Send to Webserver task
@@ -158,7 +167,13 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
                 } else {
                     log::warn!("unable to make FB copy for webserver usage");
                 }
-                log::info!("Finished FB copy for webserver");
+                log::info!(
+                    "Finished FB copy for webserver in {}ms",
+                    SystemTime::now()
+                        .duration_since(start)
+                        .unwrap_or_default()
+                        .as_millis(),
+                );
             }
 
             // If SD logging is enabled, copy the framebuffer for consumption there
@@ -167,6 +182,8 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
             {
                 // Throttle logging
                 if frame.generation % CAM_HZ == 0 {
+                    let start = SystemTime::now();
+
                     log::info!("Starting FB copy for SD logging usage");
                     // Copy framebuffer, continue if this fails
                     if let Some(fb_copy) = FrameBuffer::try_from_esp(&frame) {
@@ -175,7 +192,13 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
                     } else {
                         log::warn!("unable to make FB copy for SD logging usage");
                     }
-                    log::info!("Finished FB copy for SD logging");
+                    log::info!(
+                        "Finished FB copy for SD logging in {}ms",
+                        SystemTime::now()
+                            .duration_since(start)
+                            .unwrap_or_default()
+                            .as_millis(),
+                    );
                 }
             }
 

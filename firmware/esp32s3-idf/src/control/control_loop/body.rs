@@ -8,13 +8,13 @@ use messenger_mouse::{Setpoint, VisionAlgorithmOutput};
 
 use crate::{
     camera::{camera_freertos_task::FRAMEBUFFER_CONTROL_LOOP_CHANNEL, framebuffer::FrameBuffer},
-    control::actuation::{
-        l9110::KNIFE_MOTOR_SETPOINT,
-        MotorCommand,
+    control::{
+        actuation::{l9110::KNIFE_MOTOR_SETPOINT, MotorCommand},
+        vision::algo::calculate_control_effort,
     },
 };
 
-const CONTROL_LOOP_FREQUENCY: Duration = Duration::from_hz(10);
+// const CONTROL_LOOP_FREQUENCY: Duration = Duration::from_hz(10);
 
 #[embassy_executor::task]
 pub async fn control_loop(
@@ -27,7 +27,7 @@ pub async fn control_loop(
     let mut latest_setpoint = messenger_mouse::Setpoint::default();
 
     // Task timekeeper
-    let mut ticker = Ticker::every(CONTROL_LOOP_FREQUENCY);
+    // let mut ticker = Ticker::every(CONTROL_LOOP_FREQUENCY);
 
     // Latest framebuffer signal
     let mut framebuffer_rx = FRAMEBUFFER_CONTROL_LOOP_CHANNEL
@@ -43,18 +43,29 @@ pub async fn control_loop(
         }
 
         // Act on latest setpoint
-        if latest_setpoint.enable {
+        // if latest_setpoint.enable {
+        if true {
             // Get latest framebuffer from camera
-            let Some(frame) = framebuffer_rx.try_get() else {
-                log::error!("CONTROL: unable to get latest framebuffer, we are in deep shit...");
-                // nothing to do but continue and hope for greener pastures
-                continue;
-            };
+            let frame = framebuffer_rx.changed().await;
+            // let Some(frame) = framebuffer_rx.try_get() else {
+            //     log::error!("CONTROL: unable to get latest framebuffer, either we just started or we are in deep shit...");
+            //     // nothing to do but continue and hope for greener pastures
+            //     ticker.next().await;
+            //     continue;
+            // };
+            let gen = frame.generation;
 
             // Calculate control effort
             let vision_output = get_control_effort(frame).await;
             // Convert into motor command
-            let motor_cmd = MotorCommand::from_vision_output(vision_output);
+            let motor_cmd = MotorCommand::from_vision_output(vision_output.clone());
+
+            log::info!(
+                "CONTROL: frame {} -> vision alg: {:?} -> control effort: {:?}",
+                gen,
+                vision_output,
+                motor_cmd,
+            );
 
             // Actuate Knife adjustment motor
             motor_tx.send(motor_cmd);
@@ -68,7 +79,7 @@ pub async fn control_loop(
             }
         }
 
-        ticker.next().await;
+        // ticker.next().await;
     }
 }
 
@@ -86,11 +97,4 @@ async fn get_control_effort(frame: FrameBuffer) -> VisionAlgorithmOutput {
     );
 
     out
-}
-
-// Placeholder for vision algo
-async fn calculate_control_effort(frame: FrameBuffer) -> VisionAlgorithmOutput {
-    // frame.data.into_iter().map_windows(|w: &[u8; 3]| {});
-
-    VisionAlgorithmOutput::Hold
 }

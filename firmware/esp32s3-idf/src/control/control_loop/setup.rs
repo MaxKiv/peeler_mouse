@@ -11,10 +11,7 @@ use l9110::L9110;
 
 use crate::{
     comms::comms_task::SETPOINT_WATCH,
-    control::{
-        actuation::l9110::manage_knife_motor,
-        control_loop::body::control_loop,
-    },
+    control::{actuation::l9110::manage_knife_motor, control_loop::body::control_loop},
 };
 
 pub struct ControlPeripherals {

@@ -9,7 +9,8 @@ path = "src/main.rs"
 harness = false # do not use the built in cargo test harness -> resolve rust-analyzer errors
 
 [features]
-default = ["sd", "webserver"]
+# default = ["sd", "webserver"]
+default = []
 sd = []
 webserver = []
 experimental = ["esp-idf-svc/experimental"]

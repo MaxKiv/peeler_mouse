@@ -19,6 +19,7 @@ use esp_idf_svc::{
     eventloop::EspSystemEventLoop, nvs::EspDefaultNvsPartition, timer::EspTaskTimerService,
 };
 use std::ffi::CStr;
+use std::future;
 
 #[cfg(feature = "sd")]
 use crate::sd::periperhals::SDPeripherals;
@@ -81,9 +82,8 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     };
 
     camera::camera_freertos_task::setup_freertos(camera_peripherals);
-    comms::comms_task::run(spawner, comms_peri)?;
 
-    log::info!("Initialize Controller task");
+    comms::comms_task::run(spawner, comms_peri)?;
 
     let control_peri = ControlPeripherals {
         led_timer: peripherals.ledc.timer0,
@@ -95,9 +95,6 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
         motor_ch_b: peripherals.ledc.channel2,
         motor_pin_b: peripherals.pins.gpio21,
     };
-
-    // Attempt to start up the control loop + dependencies
-    control::control_loop::setup::run(spawner, control_peri)?;
 
     // Spawn auxilary SD writing task, when enabled
     #[cfg(feature = "sd")]
@@ -115,7 +112,7 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     }
 
     // Spawn auxilary Webserver task and wifi stack, when enabled
-    // #[cfg(feature = "Webserver")]
+    #[cfg(feature = "Webserver")]
     {
         log::info!("Initialize Wifi task");
         if let Err(err) = spawner.spawn(wifi::wifi_task(
@@ -137,6 +134,11 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
             log::error!("Unable to Initialize Webserver task: {err}");
         }
     }
+
+    // Attempt to start up the control loop + dependencies
+    control::control_loop::setup::run(spawner, control_peri)?;
+
+    future::pending::<()>().await;
 
     Ok(())
 }
