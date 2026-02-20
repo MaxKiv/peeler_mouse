@@ -1,11 +1,11 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
 
 use crate::camera::{
     esp_cam_wrapper::Camera, framebuffer::FrameBuffer, framesize::FrameSize,
     peripherals::CameraPeripherals, pixelformat::PixelFormat,
 };
 
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, signal::*, watch::Watch};
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Watch};
 
 use esp_idf_sys::*;
 use log::*;

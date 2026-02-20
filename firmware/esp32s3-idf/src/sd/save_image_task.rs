@@ -1,5 +1,4 @@
 use embassy_executor::Spawner;
-use embassy_sync::watch::{Receiver, Sender};
 use embassy_time::{Duration, Ticker};
 use esp_idf_hal::{
     gpio,
@@ -11,14 +10,13 @@ use esp_idf_hal::{
 use esp_idf_svc::fs::fatfs::Fatfs;
 use esp_idf_svc::io::vfs::MountedFatfs;
 
-use esp_idf_hal::{gpio::*, sd::mmc::SDMMC1};
 use log::*;
 use std::{
     fs::{read_dir, File},
     time::SystemTime,
 };
 use std::{
-    io::{Read, Seek, Write},
+    io::Write,
     time::UNIX_EPOCH,
 };
 
@@ -126,7 +124,7 @@ fn try_save_frame(frame: FrameBuffer) -> std::io::Result<()> {
 
     // Write PGM header for grayscale pixelformat
     if PIXEL_FORMAT == PixelFormat::GRAYSCALE {
-        let pgm_header = format!("P5\n{} {}\n255\n", width, height);
+        let pgm_header = format!("P5\n{width} {height}\n255\n");
         file.write_all(pgm_header.as_bytes())?
     }
 

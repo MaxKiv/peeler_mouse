@@ -1,12 +1,5 @@
-use embassy_sync::{
-    blocking_mutex::raw::CriticalSectionRawMutex as Cs,
-    watch::{Receiver, Sender},
-};
 use esp_idf_hal::io::Write;
-use esp_idf_svc::http::{
-    server::{EspHttpConnection, EspHttpServer, Request},
-    Method,
-};
+use esp_idf_svc::http::server::{EspHttpConnection, Request};
 use log::*;
 
 pub fn handle_root(request: Request<&mut EspHttpConnection<'_>>) -> anyhow::Result<()> {

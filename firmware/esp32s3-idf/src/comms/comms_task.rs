@@ -155,28 +155,24 @@ pub async fn deserialise_task(
                     match messenger_mouse::deserialize_setpoint(&mut framing_buf) {
                         Ok(setpoint) => {
                             info!(
-                                "FRAMING - frame_setpoints: COBS delimiter detected & Deserialise succes: {:?}",
-                                setpoint
+                                "FRAMING - frame_setpoints: COBS delimiter detected & Deserialise succes: {setpoint:?}"
                             );
                             // Happy path - Send deserialised setpoint to control task
                             setpoint_sender.send(setpoint);
                         }
                         Err(err) => {
                             error!(
-                                "FRAMING - frame_setpoints: Unable to deserialise framing buffer into a setpoint. Err: {} - buffer: {:?}",
-                                err, framing_buf
+                                "FRAMING - frame_setpoints: Unable to deserialise framing buffer into a setpoint. Err: {err} - buffer: {framing_buf:?}"
                             );
                         }
                     }
-                } else {
-                    if let Err(_) = framing_buf.push(byte) {
-                        error!(
-                            "FRAMING - Royally fucked: we somehow managed to push SETPOINT_BYTES * 2 bytes into the framing buffer and failed to serialise a single setpoint, restart framing"
-                        );
+                } else if framing_buf.push(byte).is_err() {
+                    error!(
+                        "FRAMING - Royally fucked: we somehow managed to push SETPOINT_BYTES * 2 bytes into the framing buffer and failed to serialise a single setpoint, restart framing"
+                    );
 
-                        // Best we can do here
-                        framing_buf.clear();
-                    }
+                    // Best we can do here
+                    framing_buf.clear();
                 }
             }
 

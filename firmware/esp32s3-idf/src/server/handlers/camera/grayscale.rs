@@ -1,13 +1,6 @@
 use crate::camera::camera_freertos_task::FRAMEBUFFER_WEBSERVER_CHANNEL;
-use embassy_sync::{
-    blocking_mutex::raw::CriticalSectionRawMutex as Cs,
-    watch::{Receiver, Sender},
-};
 use esp_idf_hal::io::Write;
-use esp_idf_svc::http::{
-    server::{EspHttpConnection, EspHttpServer, Request},
-    Method,
-};
+use esp_idf_svc::http::server::{EspHttpConnection, Request};
 use log::*;
 
 pub fn handle_camera_grayscale(request: Request<&mut EspHttpConnection<'_>>) -> anyhow::Result<()> {

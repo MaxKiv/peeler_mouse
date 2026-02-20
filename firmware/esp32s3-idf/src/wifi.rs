@@ -9,9 +9,8 @@ use esp_idf_hal::modem::Modem;
 use esp_idf_svc::{
     eventloop::{EspEventLoop, System},
     nvs::{EspNvsPartition, NvsDefault},
-    sntp,
     timer::{EspTimerService, Task},
-    wifi::{AccessPointConfiguration, AsyncWifi, ClientConfiguration, Configuration, EspWifi},
+    wifi::{AccessPointConfiguration, AsyncWifi, Configuration, EspWifi},
 };
 
 use dotenvy_macro::dotenv;

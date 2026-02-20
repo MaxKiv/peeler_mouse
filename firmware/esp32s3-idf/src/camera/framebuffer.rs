@@ -1,9 +1,5 @@
 use crate::camera::esp_cam_wrapper::EspCamFrameBuffer;
-use crate::camera::framesize::FrameSize;
-use crate::camera::pixelformat::PixelFormat;
 
-use esp_idf_hal::gpio::*;
-use esp_idf_hal::peripheral::Peripheral;
 use esp_idf_sys::*;
 
 #[derive(Debug)]
@@ -24,7 +20,7 @@ impl Clone for FrameBuffer {
 
 impl FrameBuffer {
     pub unsafe fn try_from_esp(fb: &EspCamFrameBuffer) -> Option<FrameBuffer> {
-        let len = fb.len() as usize;
+        let len = fb.len();
 
         let ptr = heap_caps_malloc(len, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA) as *mut u8;
 
@@ -43,8 +39,8 @@ impl FrameBuffer {
 
         Some(FrameBuffer {
             data,
-            width: fb.width() as usize,
-            height: fb.height() as usize,
+            width: fb.width(),
+            height: fb.height(),
             format: fb.format(),
             generation: fb.generation,
         })

@@ -1,6 +1,3 @@
-/// Defines a ['ReadableRequest'] type that implments [std::io::Read] to easily deserialize http
-/// requests using [serde_json::from_reader]
-use std::io::ErrorKind;
 
 use esp_idf_hal::io::EspIOError;
 use esp_idf_svc::http::server::EspHttpConnection;
@@ -8,9 +5,9 @@ use serde::de::DeserializeOwned;
 
 pub struct EspIOReaderError(EspIOError);
 
-impl Into<std::io::Error> for EspIOReaderError {
-    fn into(self) -> std::io::Error {
-        std::io::Error::new(ErrorKind::Other, self.0)
+impl From<EspIOReaderError> for std::io::Error {
+    fn from(val: EspIOReaderError) -> Self {
+        std::io::Error::other(val.0)
     }
 }
 

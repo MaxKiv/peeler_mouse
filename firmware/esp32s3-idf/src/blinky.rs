@@ -1,5 +1,5 @@
 use embassy_time::{Duration, Ticker};
-use esp_idf_hal::ledc::{config::TimerConfig, LedcDriver, LedcTimerDriver};
+use esp_idf_hal::ledc::LedcDriver;
 use log::*;
 
 /// Period at which this task is ticked

@@ -18,7 +18,7 @@ pub enum PixelFormat {
 
 impl From<camera::pixformat_t> for PixelFormat {
     fn from(other: camera::pixformat_t) -> Self {
-        use esp_idf_sys::camera;
+        
         #[allow(clippy::non_snake_case)]
         match other {
             pixformat_t_PIXFORMAT_RGB565 => PixelFormat::RGB565, // 2BPP/RGB565
@@ -38,7 +38,7 @@ impl From<camera::pixformat_t> for PixelFormat {
 
 impl From<PixelFormat> for camera::pixformat_t {
     fn from(pf: PixelFormat) -> Self {
-        use esp_idf_sys::camera;
+        
         match pf {
             PixelFormat::RGB565 => pixformat_t_PIXFORMAT_RGB565,
             PixelFormat::YUV422 => pixformat_t_PIXFORMAT_YUV422,

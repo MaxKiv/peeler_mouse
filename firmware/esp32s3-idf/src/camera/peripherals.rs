@@ -1,4 +1,4 @@
-use esp_idf_hal::{gpio::*, sd::mmc::SDMMC1};
+use esp_idf_hal::gpio::*;
 
 // Define the CameraPeripherals struct with concrete GPIO pin types
 pub struct CameraPeripherals {

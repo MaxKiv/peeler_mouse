@@ -1,22 +1,18 @@
 use embassy_executor::Spawner;
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Receiver};
-use embassy_time::{Delay, Duration, Ticker, Timer};
+use embassy_time::Delay;
 use esp_idf_hal::{
-    gpio::{Gpio2, Gpio21, Gpio3, Gpio47},
+    gpio::{Gpio2, Gpio21, Gpio47},
     ledc::{
         config::TimerConfig, LedcDriver, LedcTimerDriver, CHANNEL0, CHANNEL1, CHANNEL2, TIMER0,
         TIMER1,
     },
 };
 use l9110::L9110;
-use log::*;
-use messenger_mouse::{Setpoint, VisionAlgorithmOutput};
 
 use crate::{
-    camera::{camera_freertos_task::FRAMEBUFFER_CONTROL_LOOP_CHANNEL, framebuffer::FrameBuffer},
     comms::comms_task::SETPOINT_WATCH,
     control::{
-        actuation::{l9110::manage_knife_motor, MotorCommand},
+        actuation::l9110::manage_knife_motor,
         control_loop::body::control_loop,
     },
 };

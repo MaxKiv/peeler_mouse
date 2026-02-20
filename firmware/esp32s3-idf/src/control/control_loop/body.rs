@@ -1,22 +1,15 @@
 use std::time::SystemTime;
 
-use embassy_executor::Spawner;
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Receiver};
-use embassy_time::{Delay, Duration, Ticker, Timer};
-use esp_idf_hal::{
-    gpio::Gpio2,
-    ledc::{
-        config::TimerConfig, LedcDriver, LedcTimerDriver, CHANNEL0, CHANNEL1, CHANNEL2, TIMER0,
-    },
-};
+use embassy_time::{Duration, Ticker};
+use esp_idf_hal::ledc::LedcDriver;
 use log::*;
 use messenger_mouse::{Setpoint, VisionAlgorithmOutput};
 
 use crate::{
     camera::{camera_freertos_task::FRAMEBUFFER_CONTROL_LOOP_CHANNEL, framebuffer::FrameBuffer},
-    comms::comms_task::SETPOINT_WATCH,
     control::actuation::{
-        l9110::{manage_knife_motor, KNIFE_MOTOR_SETPOINT},
+        l9110::KNIFE_MOTOR_SETPOINT,
         MotorCommand,
     },
 };

@@ -4,11 +4,10 @@ pub mod handlers;
 
 use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex as Cs,
-    watch::{Receiver, Sender},
+    watch::Receiver,
 };
-use esp_idf_hal::io::Write;
 use esp_idf_svc::http::{
-    server::{EspHttpConnection, EspHttpServer, Request},
+    server::EspHttpServer,
     Method,
 };
 use log::*;
@@ -19,7 +18,6 @@ use crate::{
         camera::{grayscale::handle_camera_grayscale, jpeg::handle_camera_jpeg},
         error::handle_error,
         root::handle_root,
-        setpoint::handle_setpoint,
     },
     wifi::WifiState,
 };
@@ -41,7 +39,7 @@ pub async fn server_task(mut wifi_state_receiver: Receiver<'static, Cs, WifiStat
                             error!("Unable to set up HTTP Server root handler: {err}, retrying...");
                         }
 
-                        match server.fn_handler("/camera", Method::Get, move |request| {
+                        if let Err(err) = server.fn_handler("/camera", Method::Get, move |request| {
                             use PixelFormat::*;
                             match PIXEL_FORMAT {
                                 GRAYSCALE => handle_camera_grayscale(request),
@@ -49,12 +47,9 @@ pub async fn server_task(mut wifi_state_receiver: Receiver<'static, Cs, WifiStat
                                 _ => handle_error(request),
                             }
                         }) {
-                            Err(err) => {
-                                error!(
-                                    "Unable to set up HTTP Server root handler: {err}, retrying..."
-                                );
-                            }
-                            _ => (),
+                            error!(
+                                "Unable to set up HTTP Server root handler: {err}, retrying..."
+                            );
                         }
 
                         // let sender = setpoint_sender.clone();
