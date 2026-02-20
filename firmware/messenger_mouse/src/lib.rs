@@ -49,17 +49,17 @@ pub struct LedSetpoint {
     pub brightness: f32, // Percentage brightness [0.0, 1.0]
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
-pub enum VisionAlgorithmOutput {
-    Up,
-    Hold,
-    Down,
-}
-
 #[derive(PartialEq, Clone, Copy, Deserialize, Serialize, Default, Debug)]
 pub enum AppState {
     #[default]
     StandBy,
     Active,
     Fault,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub enum VisionAlgorithmOutput {
+    Up,
+    Hold,
+    Down,
 }
