@@ -138,7 +138,7 @@ pub async fn deserialise_task(
     setpoint_pipe_rx: pipe::Reader<'static, Cs, { messenger_mouse::SETPOINT_BYTES * 4 }>,
     setpoint_sender: watch::Sender<'static, Cs, messenger_mouse::Setpoint, 1>,
 ) {
-    info!("COMMS: Starting TX task");
+    info!("COMMS: Starting deserialise task");
     let mut framing_buf = heapless::Vec::<u8, { messenger_mouse::SETPOINT_BYTES * 2 }>::new();
     let mut buf = [0u8; 1];
 

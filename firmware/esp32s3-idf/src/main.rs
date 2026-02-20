@@ -8,13 +8,11 @@ pub mod server;
 pub mod wifi;
 
 use crate::camera::peripherals::CameraPeripherals;
-use crate::comms::comms_task::SETPOINT_WATCH;
 use crate::comms::periperhals::CommsPeripherals;
+use crate::control::control_loop::setup::ControlPeripherals;
 use anyhow::Result;
 use embassy_executor::Spawner;
 use esp_idf_hal::cpu::Core;
-use esp_idf_hal::ledc::config::TimerConfig;
-use esp_idf_hal::ledc::LedcTimerDriver;
 use esp_idf_hal::prelude::Peripherals;
 use esp_idf_hal::task::watchdog::{TWDTConfig, TWDTDriver};
 use esp_idf_svc::{
@@ -57,16 +55,6 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     disable_watchdog(peripherals.twdt);
     log::info!("Watchdog disabled");
 
-    let timer = LedcTimerDriver::new(peripherals.ledc.timer0, &TimerConfig::default())
-        .expect("Unable to construct LedcTimerDriver");
-
-    log::info!("Initialize LED task");
-    spawner.spawn(blinky::blink_led(
-        timer,
-        peripherals.ledc.channel0,
-        peripherals.pins.gpio2,
-    ))?;
-
     log::info!("Initialize Camera freertos task");
 
     let camera_peripherals = CameraPeripherals {
@@ -96,13 +84,20 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     comms::comms_task::run(spawner, comms_peri)?;
 
     log::info!("Initialize Controller task");
-    spawner.spawn(control::controller::control_loop(
-        SETPOINT_WATCH
-            .receiver()
-            .expect("Increase SETPOINT_WATCH N"),
-    ))?;
 
-    // spawner.spawn(control::actuation::actuation_task())?;
+    let control_peri = ControlPeripherals {
+        led_timer: peripherals.ledc.timer0,
+        led_ch: peripherals.ledc.channel0,
+        led_pin: peripherals.pins.gpio2,
+        motor_timer: peripherals.ledc.timer1,
+        motor_ch_a: peripherals.ledc.channel1,
+        motor_pin_a: peripherals.pins.gpio47,
+        motor_ch_b: peripherals.ledc.channel2,
+        motor_pin_b: peripherals.pins.gpio21,
+    };
+
+    // Attempt to start up the control loop + dependencies
+    control::control_loop::setup::run(spawner, control_peri)?;
 
     // Spawn auxilary SD writing task, when enabled
     #[cfg(feature = "sd")]

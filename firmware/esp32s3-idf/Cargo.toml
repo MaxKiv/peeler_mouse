@@ -36,6 +36,7 @@ uom = { version = "0.37.0", features = ["serde", "si", "f32"] }
 static_cell = "2.1.1"
 
 messenger-mouse = { path = "../messenger_mouse" }
+l9110 = { path = "../l9110" }
 
 [build-dependencies]
 embuild = "0.33"

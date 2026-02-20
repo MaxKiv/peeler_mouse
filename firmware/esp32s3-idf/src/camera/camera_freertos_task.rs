@@ -18,12 +18,14 @@ pub const XCLK_FREQ: i32 = 16_000_000;
 pub const JPEG_QUALITY: i32 = 20;
 pub const CAM_HZ: u64 = 10;
 
+pub static FRAMEBUFFER_CONTROL_LOOP_CHANNEL: Watch<Cs, FrameBuffer, 1> = Watch::new();
 pub static FRAMEBUFFER_WEBSERVER_CHANNEL: Watch<Cs, FrameBuffer, 1> = Watch::new();
 pub static FRAMEBUFFER_SD_CHANNEL: Watch<Cs, FrameBuffer, 1> = Watch::new();
 static mut CAMERA_TASK_ARGS: Option<CameraTaskArgs> = None;
 
 pub struct CameraTaskArgs {
     camera_peripherals: Option<CameraPeripherals>,
+    control_loop_signal: &'static Watch<Cs, FrameBuffer, 1>,
     webserver_signal: &'static Watch<Cs, FrameBuffer, 1>,
     sd_signal: &'static Watch<Cs, FrameBuffer, 1>,
 }
@@ -34,6 +36,7 @@ pub fn setup_freertos(camera_peripherals: CameraPeripherals) {
     unsafe {
         CAMERA_TASK_ARGS = Some(CameraTaskArgs {
             camera_peripherals: Some(camera_peripherals),
+            control_loop_signal: &FRAMEBUFFER_CONTROL_LOOP_CHANNEL,
             webserver_signal: &FRAMEBUFFER_WEBSERVER_CHANNEL,
             sd_signal: &FRAMEBUFFER_SD_CHANNEL,
         });
@@ -59,6 +62,7 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
     // Get our camera args
     let args = &mut *(arg as *mut CameraTaskArgs);
 
+    let control_loop_signal = args.control_loop_signal;
     let webserver_signal = args.webserver_signal;
     let sd_signal = args.sd_signal;
 
@@ -132,34 +136,46 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
                 frequency_hz,
             );
 
+            log::info!("Starting FB copy for control loop");
+            // Copy framebuffer, continue if this fails
+            if let Some(fb_copy) = FrameBuffer::try_from_esp(&frame) {
+                // Send to ControlLoop task
+                control_loop_signal.sender().send(fb_copy);
+            } else {
+                log::error!("unable to make FB copy for control loop");
+            }
+            log::info!("Finished FB copy for control loop");
+
+            // If webserver is enabled, copy the framebuffer for consumption there
+            // Note: each FB copy takes ~30ms, this directly impacts control loop perf
             #[cfg(feature = "webserver")]
             {
-                // Send the copied frame buffer to embassy context
                 log::info!("Starting FB copy for Webserver usage");
+                // Copy framebuffer, continue if this fails
                 if let Some(fb_copy) = FrameBuffer::try_from_esp(&frame) {
+                    // Send to Webserver task
                     webserver_signal.sender().send(fb_copy);
                 } else {
                     log::warn!("unable to make FB copy for webserver usage");
                 }
-                log::info!("Finished FB copy");
+                log::info!("Finished FB copy for webserver");
             }
 
+            // If SD logging is enabled, copy the framebuffer for consumption there
+            // Note: each FB copy takes ~30ms, this directly impacts control loop perf
             #[cfg(feature = "sd")]
             {
                 // Throttle logging
                 if frame.generation % CAM_HZ == 0 {
-                    log::info!("Starting FB(gen-{}) copy for SD logging", frame.generation);
-
+                    log::info!("Starting FB copy for SD logging usage");
                     // Copy framebuffer, continue if this fails
-                    let Some(fb_owned) = FrameBuffer::try_from_esp(&frame) else {
-                        // Failed to alloc
-                        log::error!("unable to make FB copy for SD usage");
-                        continue;
-                    };
-                    log::info!("Finished FB copy");
-
-                    // Send to SD logging task
-                    sd_signal.sender().send(fb_owned);
+                    if let Some(fb_copy) = FrameBuffer::try_from_esp(&frame) {
+                        // Send to Sd logging task
+                        sd_signal.sender().send(fb_copy);
+                    } else {
+                        log::warn!("unable to make FB copy for SD logging usage");
+                    }
+                    log::info!("Finished FB copy for SD logging");
                 }
             }
 

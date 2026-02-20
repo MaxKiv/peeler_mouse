@@ -1,0 +1,103 @@
+use std::time::SystemTime;
+
+use embassy_executor::Spawner;
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Receiver};
+use embassy_time::{Delay, Duration, Ticker, Timer};
+use esp_idf_hal::{
+    gpio::Gpio2,
+    ledc::{
+        config::TimerConfig, LedcDriver, LedcTimerDriver, CHANNEL0, CHANNEL1, CHANNEL2, TIMER0,
+    },
+};
+use log::*;
+use messenger_mouse::{Setpoint, VisionAlgorithmOutput};
+
+use crate::{
+    camera::{camera_freertos_task::FRAMEBUFFER_CONTROL_LOOP_CHANNEL, framebuffer::FrameBuffer},
+    comms::comms_task::SETPOINT_WATCH,
+    control::actuation::{
+        l9110::{manage_knife_motor, KNIFE_MOTOR_SETPOINT},
+        MotorCommand,
+    },
+};
+
+const CONTROL_LOOP_FREQUENCY: Duration = Duration::from_hz(10);
+
+#[embassy_executor::task]
+pub async fn control_loop(
+    mut setpoint_receiver: Receiver<'static, Cs, Setpoint, 1>,
+    mut led: LedcDriver<'static>,
+) {
+    info!("starting control task");
+
+    // Track latest setpoint
+    let mut latest_setpoint = messenger_mouse::Setpoint::default();
+
+    // Task timekeeper
+    let mut ticker = Ticker::every(CONTROL_LOOP_FREQUENCY);
+
+    // Latest framebuffer signal
+    let mut framebuffer_rx = FRAMEBUFFER_CONTROL_LOOP_CHANNEL
+        .receiver()
+        .expect("not enough FRAMEBUFFER_CONTROL_LOOP_CHANNEL rx N");
+
+    let motor_tx = KNIFE_MOTOR_SETPOINT.sender();
+
+    loop {
+        // Update to latest setpoint, if any
+        if let Some(new_setpoint) = setpoint_receiver.try_get() {
+            latest_setpoint = new_setpoint;
+        }
+
+        // Act on latest setpoint
+        if latest_setpoint.enable {
+            // Get latest framebuffer from camera
+            let Some(frame) = framebuffer_rx.try_get() else {
+                log::error!("CONTROL: unable to get latest framebuffer, we are in deep shit...");
+                // nothing to do but continue and hope for greener pastures
+                continue;
+            };
+
+            // Calculate control effort
+            let vision_output = get_control_effort(frame).await;
+            // Convert into motor command
+            let motor_cmd = MotorCommand::from_vision_output(vision_output);
+
+            // Actuate Knife adjustment motor
+            motor_tx.send(motor_cmd);
+
+            // Actuate LED
+            // Note: Esp driver clamps DC value
+            if let Err(err) = led.set_duty(
+                (latest_setpoint.led_setpoint.brightness * (led.get_max_duty() as f32)) as u32,
+            ) {
+                log::error!("CONTROL: unable to set LED duty cycle: {err}");
+            }
+        }
+
+        ticker.next().await;
+    }
+}
+
+// Calculate control effort + telemetry
+async fn get_control_effort(frame: FrameBuffer) -> VisionAlgorithmOutput {
+    let start = SystemTime::now();
+
+    let out = calculate_control_effort(frame).await;
+
+    let dur = SystemTime::now().duration_since(start).unwrap_or_default();
+    log::info!(
+        "CONTROL: took {}ms to find new output: {:?}",
+        dur.as_millis(),
+        out,
+    );
+
+    out
+}
+
+// Placeholder for vision algo
+async fn calculate_control_effort(frame: FrameBuffer) -> VisionAlgorithmOutput {
+    // frame.data.into_iter().map_windows(|w: &[u8; 3]| {});
+
+    VisionAlgorithmOutput::Hold
+}
