@@ -4,11 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-embedded-hal = { version = "1.0.0", features = ["defmt-03"] }
-embedded-hal-async = { version = "1.0.0", features = ["defmt-03"] }
+embedded-hal = { version = "1.0.0" }
+embedded-hal-async = { version = "1.0.0"}
 uom = { version = "0.37.0", default-features = false, features = ["f32", "si"] }
 static_cell = "2"
-embassy-sync = { version = "0.7.2", features = ["defmt"] }
+embassy-sync = { version = "0.7.2"}
 
 esp-idf-hal = "0.45.2"
 log = "0.4"
