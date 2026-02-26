@@ -4,10 +4,9 @@ use embassy_stm32::gpio::{Level, Output, Speed};
 use embassy_stm32::timer::simple_pwm::SimplePwm;
 use embassy_stm32::{Peri, peripherals::*};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::watch::{self, Watch};
+use embassy_sync::watch::Watch;
 use embassy_time::Delay;
-use tb6600::{Direction, Tb6600};
-use uom::si::velocity::millimeter_per_second;
+use tb6600::Tb6600;
 
 use crate::hmi::button::BUTTON_WATCH_SIZE;
 use crate::motor::{MotorCommand, MotorState};
@@ -51,9 +50,9 @@ pub async fn manage_rotational_motor(mut tb: Tb6600<TIM4, Output<'static>, Delay
 
         match &cmd.state {
             MotorState::Enabled => {
-                if let Err(_) = tb.run(cmd.speed).await {
-                    error!("unable to run Rotational motor");
-                }
+                if tb.run_with_dir(cmd.speed, cmd.dir.into()).await.is_err() {
+                    error!("Unable to drive rotation motor!");
+                };
             }
             _ => tb.stop(),
         };

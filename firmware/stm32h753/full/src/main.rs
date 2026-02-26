@@ -2,32 +2,34 @@
 #![no_main]
 
 pub mod clocks;
-// pub mod encoder;
+pub mod comms;
 pub mod hmi;
 pub mod motor;
 pub mod supervisor;
 
 use defmt::*;
 use embassy_executor::Spawner;
-use embassy_stm32::{
-    Config,
-    gpio::OutputType,
-    time::{hz, khz},
-    timer::simple_pwm::{PwmPin, SimplePwm},
-};
+use embassy_stm32::gpio::OutputType;
+use embassy_stm32::peripherals::I2C2;
+use embassy_stm32::peripherals::USART3;
+use embassy_stm32::time::{hz, khz};
+use embassy_stm32::timer::simple_pwm::{PwmPin, SimplePwm};
+use embassy_stm32::{Config, bind_interrupts, i2c, usart};
 
-use crate::{
-    hmi::{
-        button::{ButtonMode, ButtonPeripherals},
-        lcd::{self, LcdPeripherals},
-        pot::PotPeripherals,
-    },
-    motor::{
-        knife::{self, KnifeMotorPeripherals},
-        linear::LinearMotorPeripherals,
-        rotation::RotationMotorPeripherals,
-    },
+use crate::hmi::lcd::setup::LcdPeripherals;
+use crate::hmi::{
+    button::{ButtonMode, ButtonPeripherals},
+    encoder::QuadratureEncoderPeripherals,
 };
+use crate::motor::knife::CutMotorPeripherals;
+use crate::motor::rotation::RotationMotorPeripherals;
+use crate::motor::translation::TranslationMotorPeripherals;
+
+bind_interrupts!(struct Irqs {
+    I2C2_EV => i2c::EventInterruptHandler<I2C2>;
+    I2C2_ER => i2c::ErrorInterruptHandler<I2C2>;
+    USART3 => usart::BufferedInterruptHandler<USART3>;
+});
 
 use {defmt_rtt as _, panic_probe as _};
 
@@ -39,9 +41,9 @@ async fn main(spawner: Spawner) {
     info!("Clocks configured - Hello World!");
 
     // ---- Motor Peripheral declarations -----
-    let linear_step_pwm_pin = p.PA6;
+    let linear_step_pwm_pin = p.PC6;
     let linear_step_pwm = PwmPin::new(linear_step_pwm_pin, OutputType::PushPull);
-    let linear_step_timer = p.TIM3;
+    let linear_step_timer = p.TIM8;
     let linear_pwm = SimplePwm::new(
         linear_step_timer,
         Some(linear_step_pwm),
@@ -51,7 +53,7 @@ async fn main(spawner: Spawner) {
         khz(10),
         Default::default(),
     );
-    let linear_peri = LinearMotorPeripherals {
+    let translation_peri = TranslationMotorPeripherals {
         pwm: linear_pwm,
         dir: p.PF8,
     };
@@ -73,13 +75,14 @@ async fn main(spawner: Spawner) {
         dir: p.PF9,
     };
 
-    let knife_left_pwm_pin = p.PE9;
+    // let knife_left_pwm_pin = p.PE9;
+    let knife_left_pwm_pin = p.PA8;
     let knife_left_pwm = PwmPin::new(knife_left_pwm_pin, OutputType::PushPull);
-    let knife_right_pwm_pin = p.PE11;
+    // let knife_right_pwm_pin = p.PE11;
+    let knife_right_pwm_pin = p.PA9;
     let knife_right_pwm = PwmPin::new(knife_right_pwm_pin, OutputType::PushPull);
-    let knife_step_timer = p.TIM1;
     let knife_pwm = SimplePwm::new(
-        knife_step_timer,
+        p.TIM1,
         Some(knife_left_pwm),
         Some(knife_right_pwm),
         None,
@@ -87,16 +90,10 @@ async fn main(spawner: Spawner) {
         hz(l9110::PWM_FREQUENCY.0),
         Default::default(),
     );
-    let knife_peri = KnifeMotorPeripherals { pwm: knife_pwm };
+
+    let knife_peri = CutMotorPeripherals { pwm: knife_pwm };
 
     // ---- HMI Peripheral declarations -----
-
-    // Potentiometer
-    let pot_peri = PotPeripherals {
-        pin: p.PA3,
-        adc: p.ADC1,
-        dma: *p.DMA1_CH1,
-    };
 
     // I2C LCD screen
     let lcd_peri = LcdPeripherals {
@@ -107,101 +104,97 @@ async fn main(spawner: Spawner) {
         rx_dma: p.DMA1_CH5,
     };
 
-    // LCD input
-    let blue_button = ButtonPeripherals {
-        pin: p.PC10,
-        ch: p.EXTI10,
-    };
-
-    // Knife enable
-    let yellow_button = ButtonPeripherals {
-        pin: p.PC8,
-        ch: p.EXTI8,
-    };
-    // Knife direction
+    // LED buttons
     let green_button = ButtonPeripherals {
-        pin: p.PC9,
-        ch: p.EXTI9,
-    };
-
-    // Top button with LED
-    let button_1 = ButtonPeripherals {
         pin: p.PD7,
         ch: p.EXTI7,
     };
-    let button_2 = ButtonPeripherals {
+    let blue_button = ButtonPeripherals {
         pin: p.PD6,
         ch: p.EXTI6,
     };
-    let button_3 = ButtonPeripherals {
+    let purple_button = ButtonPeripherals {
         pin: p.PD5,
         ch: p.EXTI5,
     };
-    let button_4 = ButtonPeripherals {
+    let gray_button = ButtonPeripherals {
         pin: p.PD4,
         ch: p.EXTI4,
     };
 
+    // Encoder
+    let encoder_button = ButtonPeripherals {
+        pin: p.PD3,
+        ch: p.EXTI3,
+    };
+    let encoder_peri = QuadratureEncoderPeripherals {
+        ch1: p.PA6,
+        ch2: p.PB5,
+        timer: p.TIM3,
+    };
+
+    // Uart
+    let comms_peri = comms::peripherals::CommsPeripherals {
+        uart: p.USART3,
+        tx: p.PB10,
+        rx: p.PB11,
+    };
+
     // ---- HMI Task Construction -----
-    hmi::button::DebouncedButton::run(
-        yellow_button,
-        &supervisor::KNIFE_ENABLED,
-        "Knife EN",
-        ButtonMode::RisingEdge,
-        &spawner,
-    );
-    hmi::button::DebouncedButton::run(
-        green_button,
-        &supervisor::KNIFE_DIRECTION,
-        "Knife DIR",
-        ButtonMode::RisingEdge,
-        &spawner,
-    );
 
     hmi::button::DebouncedButton::run(
-        button_1,
-        &supervisor::LINEAR_ENABLED,
-        "Linear EN",
-        ButtonMode::RisingEdge,
-        &spawner,
-    );
-    hmi::button::DebouncedButton::run(
-        button_2,
-        &supervisor::LINEAR_DIRECTION,
-        "Linear DIR",
-        ButtonMode::RisingEdge,
-        &spawner,
-    );
-    hmi::button::DebouncedButton::run(
-        button_3,
-        &supervisor::ROTATION_ENABLED,
-        "Rotation EN",
-        ButtonMode::RisingEdge,
-        &spawner,
-    );
-    hmi::button::DebouncedButton::run(
-        button_4,
-        &supervisor::ROTATION_DIRECTION,
-        "Rotation DIR",
-        ButtonMode::RisingEdge,
+        green_button,
+        &supervisor::task::STOP_ALL_SELECTED,
+        "green",
+        ButtonMode::FallingEdge,
         &spawner,
     );
 
     hmi::button::DebouncedButton::run(
         blue_button,
-        &lcd::LCD_INPUT,
-        "LCD Input",
-        ButtonMode::RisingEdge,
+        &supervisor::task::TRANSLATION_SELECTED,
+        "blue",
+        ButtonMode::FallingEdge,
         &spawner,
     );
 
-    hmi::lcd::setup(lcd_peri, &spawner);
+    hmi::button::DebouncedButton::run(
+        purple_button,
+        &supervisor::task::CUT_SELECTED,
+        "purple",
+        ButtonMode::FallingEdge,
+        &spawner,
+    );
+
+    hmi::button::DebouncedButton::run(
+        gray_button,
+        &supervisor::task::ROTATION_SELECTED,
+        "gray",
+        ButtonMode::FallingEdge,
+        &spawner,
+    );
+
+    hmi::button::DebouncedButton::run(
+        encoder_button,
+        &supervisor::task::ENCODER_PRESSED,
+        "encoder",
+        ButtonMode::FallingEdge,
+        &spawner,
+    );
+
+    hmi::encoder::QuadratureEncoder::run(encoder_peri, &spawner);
+
+    hmi::lcd::setup::setup(lcd_peri, &spawner);
 
     // ---- Motor Task Construction -----
+    motor::controller::setup(&spawner);
     motor::knife::setup(knife_peri, &spawner);
-    motor::linear::setup(linear_peri, &spawner);
+    motor::translation::setup(translation_peri, &spawner);
     motor::rotation::setup(rotation_peri, &spawner);
 
-    // ---- Supervisor (routes HMI input to motor actions) -----
-    supervisor::setup(&spawner);
+    // ---- Supervisor (routes HMI input to HMI & Motor output) -----
+    supervisor::task::setup(&spawner);
+
+    // ---- UART Communication tasks -----
+    comms::task::setup(&spawner, comms_peri);
 }

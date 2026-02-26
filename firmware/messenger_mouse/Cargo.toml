@@ -4,7 +4,15 @@ version = "0.0.1"
 edition = "2024"
 
 [dependencies]
-postcard = { version = "1.1.3", features = ["defmt", "postcard-derive"] }
+postcard = { version = "1.1.3", features = [ "postcard-derive"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 chrono = { version = "0.4.41", features = ["serde"], default-features = false }
 # uom = { version = "0.37.0", default-features = false, features = ["serde", "si", "f32"] }
+
+defmt = { version = "0.3", optional = true }
+
+[features]
+# default = ["defmt"]
+default = []
+use-defmt = [ "defmt", "postcard/defmt", "postcard/use-defmt"]
+

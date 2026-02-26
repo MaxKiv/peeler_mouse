@@ -23,6 +23,7 @@ pub fn deserialize_setpoint(buf: &mut [u8]) -> postcard::Result<Setpoint> {
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
+#[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub struct Report {
     pub setpoint: Setpoint,
     pub app_state: AppState,
@@ -30,12 +31,14 @@ pub struct Report {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
+#[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub struct Setpoint {
     pub enable: bool,
     pub led_setpoint: LedSetpoint,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
+#[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub struct Measurements {
     /// microseconds since boot of mcu
     pub timestamp: u64,
@@ -45,11 +48,13 @@ pub struct Measurements {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
+#[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub struct LedSetpoint {
     pub brightness: f32, // Percentage brightness [0.0, 1.0]
 }
 
 #[derive(PartialEq, Clone, Copy, Deserialize, Serialize, Default, Debug)]
+#[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub enum AppState {
     #[default]
     StandBy,
@@ -58,6 +63,7 @@ pub enum AppState {
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
+#[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub enum VisionAlgorithmOutput {
     Up,
     Hold,

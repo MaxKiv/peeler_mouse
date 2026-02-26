@@ -2,9 +2,9 @@ use defmt::*;
 use embassy_executor::Spawner;
 use embassy_stm32::exti::ExtiInput;
 use embassy_stm32::gpio::{Pin, Pull};
-use embassy_stm32::{Peri, peripherals::*};
+use embassy_stm32::Peri;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex as Cs;
-use embassy_sync::watch::{self, Sender, Watch};
+use embassy_sync::watch::{self, Watch};
 use embassy_time::{Duration, Timer};
 
 /// Max Number of receivers for a single button

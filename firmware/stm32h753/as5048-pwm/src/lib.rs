@@ -1,7 +1,7 @@
 #![no_std]
 
 use defmt::error;
-use embassy_stm32::timer::GeneralInstance32bit4Channel;
+use embassy_stm32::timer::{GeneralInstance32bit4Channel, low_level::Timer};
 
 /// AS5048 PWM driver backed by a zero interrupt hardware implementation using pwm input
 pub struct AS5048Pwm<Timer>
@@ -16,9 +16,12 @@ where
     T: GeneralInstance32bit4Channel,
 {
     /// Construct a new AS5048 PWM driver
-    pub fn new(timer: T) -> Self {
+    pub fn new(timer: Timer<'static, T>) -> Self
+    where
+        T: GeneralInstance32bit4Channel,
+    {
         // let regs = T::regs();
-        let regs = self.regs_gp32_unchecked();
+        let mut regs = timer.regs_gp32();
         // ---------------------------------------------
         // 1) Configure timer clock (PSC, ARR)
         // ---------------------------------------------

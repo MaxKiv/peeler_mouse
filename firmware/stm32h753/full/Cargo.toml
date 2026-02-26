@@ -42,3 +42,5 @@ display-interface-i2c = "^ 0.5"
 tb6600 = { version = "0.1.0", path = "../tb6600" }
 l9110 = { version = "0.1.0", path = "../l9110" }
 # as5048-pwm = { version = "0.1.0", path = "../as5048-pwm" }
+
+messenger-mouse = { path = "../../messenger_mouse", features = ["use-defmt"]}

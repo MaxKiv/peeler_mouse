@@ -68,7 +68,7 @@ pub fn run(spawner: &Spawner, comms_peri: CommsPeripherals) -> anyhow::Result<()
 #[embassy_executor::task]
 pub async fn rx_task(
     rx: AsyncUartRxDriver<'static, UartRxDriver<'static>>,
-    mut report_pipe_tx: pipe::Writer<'static, Cs, { messenger_mouse::SETPOINT_BYTES * 4 }>,
+    mut setpoint_pipe_tx: pipe::Writer<'static, Cs, { messenger_mouse::SETPOINT_BYTES * 4 }>,
 ) {
     info!("COMMS: Starting RX task");
     let mut buf = [0u8; 64];
@@ -78,7 +78,7 @@ pub async fn rx_task(
         match rx.read(&mut buf).await {
             Ok(_) => {
                 // Read N bytes, send along for framing
-                if let Err(err) = report_pipe_tx.write_all(&buf).await {
+                if let Err(err) = setpoint_pipe_tx.write_all(&buf).await {
                     error!("COMMS: RX error: {err}");
                 }
             }
