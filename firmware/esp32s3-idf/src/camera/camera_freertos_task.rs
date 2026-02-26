@@ -205,9 +205,8 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
             // Note `frame` is dropped here, which releases the esp FB back to the esp32-camera
         };
 
-        // 5 Hz
-        // vTaskDelay(configTICK_RATE_HZ / CAM_HZ as u32);
-        let last_wake_ptr: *mut u32 = &mut x_last_wake_time as *mut u32;
+        // Timekeeping
+        let last_wake_ptr: *mut u32 = &mut x_last_wake_time as _;
         xTaskDelayUntil(last_wake_ptr, configTICK_RATE_HZ / CAM_HZ as u32);
     }
 }
