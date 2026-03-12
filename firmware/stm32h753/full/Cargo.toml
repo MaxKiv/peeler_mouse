@@ -39,15 +39,8 @@ uom = { version = "0.37.0", default-features = false, features = ["f32", "si"] }
 oled_async = "0.2.0"
 display-interface-i2c = "^ 0.5"
 
-# Stepper Motor Driver
 tb6600 = { version = "0.1.0", path = "../tb6600" }
-
-# H-bridge Motor Driver
 l9110 = { version = "0.1.0", path = "../l9110" }
-
-# Encoder PWM
 # as5048-pwm = { version = "0.1.0", path = "../as5048-pwm" }
-# Encoder SPI
-as5048a-async = "0.1"
 
 messenger-mouse = { path = "../../messenger_mouse", features = ["use-defmt"]}
