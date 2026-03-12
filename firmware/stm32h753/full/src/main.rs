@@ -3,6 +3,7 @@
 
 pub mod clocks;
 pub mod comms;
+pub mod encoder;
 pub mod hmi;
 pub mod motor;
 pub mod supervisor;
@@ -10,11 +11,16 @@ pub mod supervisor;
 use defmt::*;
 use embassy_executor::Spawner;
 use embassy_stm32::gpio::OutputType;
+use embassy_stm32::mode::Async;
 use embassy_stm32::peripherals::I2C2;
 use embassy_stm32::peripherals::USART3;
+use embassy_stm32::spi::Spi;
 use embassy_stm32::time::{hz, khz};
 use embassy_stm32::timer::simple_pwm::{PwmPin, SimplePwm};
 use embassy_stm32::{Config, bind_interrupts, i2c, usart};
+use embassy_sync::blocking_mutex::raw::NoopRawMutex;
+use embassy_sync::mutex::Mutex;
+use static_cell::StaticCell;
 
 use crate::hmi::lcd::setup::LcdPeripherals;
 use crate::hmi::{
@@ -25,13 +31,13 @@ use crate::motor::knife::CutMotorPeripherals;
 use crate::motor::rotation::RotationMotorPeripherals;
 use crate::motor::translation::TranslationMotorPeripherals;
 
+use {defmt_rtt as _, panic_probe as _};
+
 bind_interrupts!(struct Irqs {
     I2C2_EV => i2c::EventInterruptHandler<I2C2>;
     I2C2_ER => i2c::ErrorInterruptHandler<I2C2>;
     USART3 => usart::BufferedInterruptHandler<USART3>;
 });
-
-use {defmt_rtt as _, panic_probe as _};
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
@@ -139,6 +145,9 @@ async fn main(spawner: Spawner) {
         tx: p.PB10,
         rx: p.PB11,
     };
+
+    // Uart
+    let comms_peri = encoder::peripherals::EncoderPeripherals { spi: p.SP };
 
     // ---- HMI Task Construction -----
 

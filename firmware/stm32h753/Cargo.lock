@@ -46,6 +46,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "as5048a-async"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8644beba7c74698e3a283b98ad6adaad7dbff6a910845e4a0add6e21a48cbae3"
+dependencies = [
+ "embedded-hal 1.0.0",
+ "embedded-hal-async",
+]
+
+[[package]]
 name = "atomic-polyfill"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -776,6 +786,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 name = "full"
 version = "0.1.0"
 dependencies = [
+ "as5048a-async",
  "chrono",
  "cortex-m",
  "cortex-m-rt",
