@@ -8,7 +8,9 @@ pub struct FrameBuffer {
     pub width: usize,
     pub height: usize,
     pub format: camera::pixformat_t,
-    pub generation: u64,
+    pub generation: u64,   // Frame generation counter
+    pub fps: f64,          // Approximate FPS at time of capture
+    pub timestamp_us: i64, // microseconds_since_epoch
 }
 
 impl Clone for FrameBuffer {
@@ -19,7 +21,11 @@ impl Clone for FrameBuffer {
 }
 
 impl FrameBuffer {
-    pub unsafe fn try_from_esp(fb: &EspCamFrameBuffer) -> Option<FrameBuffer> {
+    pub unsafe fn try_from_esp(
+        fb: &EspCamFrameBuffer,
+        fps: f64,
+        timestamp_us: i64,
+    ) -> Option<FrameBuffer> {
         let len = fb.len();
 
         let ptr = heap_caps_malloc(len, MALLOC_CAP_SPIRAM | MALLOC_CAP_DMA) as *mut u8;
@@ -43,6 +49,8 @@ impl FrameBuffer {
             height: fb.height(),
             format: fb.format(),
             generation: fb.generation,
+            timestamp_us,
+            fps,
         })
     }
 
@@ -73,6 +81,8 @@ impl FrameBuffer {
                 height: self.height,
                 format: self.format,
                 generation: self.generation,
+                timestamp_us: self.timestamp_us,
+                fps: self.fps,
             })
         }
     }

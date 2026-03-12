@@ -52,7 +52,6 @@ pub async fn wifi_task(
                 wifi_state_sender.send(WifiState::Connected);
 
                 // Ghetto connectivity check
-                // TODO: await EspEventLoop for wifi disconnected events
                 loop {
                     if !wifi.is_connected().unwrap_or(false) {
                         warn!("Wifi connection dropped!");

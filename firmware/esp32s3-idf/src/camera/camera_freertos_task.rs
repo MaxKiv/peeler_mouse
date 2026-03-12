@@ -1,4 +1,4 @@
-use std::time::SystemTime;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::camera::{
     esp_cam_wrapper::Camera, framebuffer::FrameBuffer, framesize::FrameSize,
@@ -121,12 +121,15 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
             // Convert the duration to seconds as an f64
             let secs = time_since_last_fb.as_secs_f64();
 
-            // Guard against a zero‑length interval
-            let frequency_hz = if secs > 0.0 {
+            // Guard against a zero length interval
+            let fps = if secs > 0.0 {
                 1.0 / secs
             } else {
                 f64::INFINITY
             };
+
+            // Get timestamp in micros since boot
+            let timestamp_us = unsafe { esp_timer_get_time() };
 
             log::info!(
                 "Camera got {}x{} framebuffer gen {} @ {:p}\nFPS: {:.3}\n\n",
@@ -134,13 +137,13 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
                 frame.height(),
                 frame.generation,
                 &frame.data(),
-                frequency_hz,
+                fps,
             );
 
             log::info!("Starting FB copy for control loop");
             let start = SystemTime::now();
             // Copy framebuffer, continue if this fails
-            if let Some(fb_copy) = FrameBuffer::try_from_esp(&frame) {
+            if let Some(fb_copy) = FrameBuffer::try_from_esp(&frame, fps, timestamp_us) {
                 // Send to ControlLoop task
                 control_loop_signal.sender().send(fb_copy);
             } else {

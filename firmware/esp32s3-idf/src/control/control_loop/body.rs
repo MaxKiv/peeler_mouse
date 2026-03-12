@@ -4,10 +4,11 @@ use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Re
 use embassy_time::{Duration, Ticker};
 use esp_idf_hal::ledc::LedcDriver;
 use log::*;
-use messenger_mouse::{Setpoint, VisionAlgorithmOutput};
+use messenger_mouse::{AppState, Report, Setpoint, VisionAlgorithmOutput};
 
 use crate::{
     camera::{camera_freertos_task::FRAMEBUFFER_CONTROL_LOOP_CHANNEL, framebuffer::FrameBuffer},
+    comms::comms_task::REPORT_WATCH,
     control::{
         actuation::{l9110::KNIFE_MOTOR_SETPOINT, MotorCommand},
         vision::algo::calculate_control_effort,
@@ -35,12 +36,20 @@ pub async fn control_loop(
         .expect("not enough FRAMEBUFFER_CONTROL_LOOP_CHANNEL rx N");
 
     let motor_tx = KNIFE_MOTOR_SETPOINT.sender();
+    let report_tx = REPORT_WATCH.sender();
 
+    // Control loop
     loop {
         // Update to latest setpoint, if any
         if let Some(new_setpoint) = setpoint_receiver.try_get() {
             latest_setpoint = new_setpoint;
         }
+
+        // update appstate
+        let mut current_appstate = match latest_setpoint.enable {
+            true => AppState::Active,
+            false => AppState::StandBy,
+        };
 
         // Act on latest setpoint
         // if latest_setpoint.enable {
@@ -53,10 +62,18 @@ pub async fn control_loop(
             //     ticker.next().await;
             //     continue;
             // };
+
             let gen = frame.generation;
+            let timestamp_us = frame.timestamp_us;
+            let camera_fps = frame.fps;
+            let led_brightness = latest_setpoint.led_setpoint.brightness;
+
+            // Get latest encoder value
+            // TODO
 
             // Calculate control effort
             let vision_output = get_control_effort(frame).await;
+
             // Convert into motor command
             let motor_cmd = MotorCommand::from_vision_output(vision_output.clone());
 
@@ -72,11 +89,25 @@ pub async fn control_loop(
 
             // Actuate LED
             // Note: Esp driver clamps DC value
-            if let Err(err) = led.set_duty(
-                (latest_setpoint.led_setpoint.brightness * (led.get_max_duty() as f32)) as u32,
-            ) {
+            if let Err(err) = led.set_duty((led_brightness * (led.get_max_duty() as f32)) as u32) {
                 log::error!("CONTROL: unable to set LED duty cycle: {err}");
+                current_appstate = AppState::Fault;
             }
+
+            // Collect & Send Report to stm32
+            let measurements = messenger_mouse::Measurements {
+                timestamp_us,
+                camera_fps,
+                controller_output: vision_output,
+            };
+
+            let report = messenger_mouse::Report {
+                setpoint: latest_setpoint.clone(),
+                app_state: current_appstate,
+                measurements,
+            };
+
+            report_tx.send(report);
         }
 
         // ticker.next().await;
