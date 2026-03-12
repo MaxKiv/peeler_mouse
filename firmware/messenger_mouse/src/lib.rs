@@ -40,9 +40,9 @@ pub struct Setpoint {
 #[derive(Deserialize, Serialize, Clone, Debug)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub struct Measurements {
-    /// microseconds since boot of mcu
-    pub timestamp: u64,
-    pub camera_fps: f32,
+    /// microseconds since boot
+    pub timestamp_us: i64,
+    pub camera_fps: f64,
     pub controller_output: VisionAlgorithmOutput,
     // pub current_knife_depth: Length,
 }
