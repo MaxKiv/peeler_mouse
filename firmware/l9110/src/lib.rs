@@ -48,9 +48,9 @@ where
         name: &'static str,
         mut timer: esp_idf_hal::ledc::LedcTimerDriver<'static, esp_idf_hal::ledc::TIMER1>,
         ch_a: esp_idf_hal::ledc::CHANNEL1,
-        pin_a: esp_idf_hal::gpio::Gpio47,
+        pin_a: esp_idf_hal::gpio::Gpio42,
         ch_b: esp_idf_hal::ledc::CHANNEL2,
-        pin_b: esp_idf_hal::gpio::Gpio21,
+        pin_b: esp_idf_hal::gpio::Gpio41,
         delay: Delay,
     ) -> anyhow::Result<Self> {
         // Set desired pwm frequency

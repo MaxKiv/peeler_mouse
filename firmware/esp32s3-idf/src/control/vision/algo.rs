@@ -3,29 +3,47 @@ use messenger_mouse::VisionAlgorithmOutput;
 use crate::{camera::framebuffer::FrameBuffer, control::vision::HORIZONTAL_SOBEL_KERNEL};
 
 enum Algo {
+    PeriodicEncoderTest,
     SimpleAverage,
     Complex,
 }
 
-const ALGO: Algo = Algo::SimpleAverage;
-const HIGH_THRESHHOLD: u64 = 200;
+const ALGO: Algo = Algo::PeriodicEncoderTest;
+const HIGH_THRESHOLD: u64 = 200;
 const LOW_THRESHOLD: u64 = 100;
 
 pub async fn calculate_control_effort(frame: FrameBuffer) -> VisionAlgorithmOutput {
     let out = match ALGO {
         Algo::SimpleAverage => simple_average(frame),
         Algo::Complex => complex_algo(frame),
+        Algo::PeriodicEncoderTest => periodic_encoder_test(frame),
     };
 
     log::info!("\n\nVISION: {}\n\n", out);
 
-    if out > HIGH_THRESHHOLD {
+    if out > HIGH_THRESHOLD {
         VisionAlgorithmOutput::Up
     } else if out < LOW_THRESHOLD {
         VisionAlgorithmOutput::Down
     } else {
         VisionAlgorithmOutput::Hold
     }
+}
+
+// Switches between moving up and down periodically
+pub fn periodic_encoder_test(_: FrameBuffer) -> u64 {
+    const HI: u64 = HIGH_THRESHOLD + 1;
+    const LO: u64 = LOW_THRESHOLD - 1;
+    static mut STATE: u64 = 0;
+    static mut OUT: u64 = (LOW_THRESHOLD - 1) as u64;
+
+    if unsafe { STATE } % 10 == 0 {
+        unsafe { OUT = if OUT == LO { HI } else { LO } }
+    }
+
+    unsafe { STATE += 1 };
+
+    unsafe { OUT }
 }
 
 // Simple average

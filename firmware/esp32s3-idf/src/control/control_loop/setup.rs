@@ -1,7 +1,7 @@
 use embassy_executor::Spawner;
 use embassy_time::Delay;
 use esp_idf_hal::{
-    gpio::{Gpio2, Gpio21, Gpio47},
+    gpio::*,
     ledc::{
         config::TimerConfig, LedcDriver, LedcTimerDriver, CHANNEL0, CHANNEL1, CHANNEL2, TIMER0,
         TIMER1,
@@ -17,12 +17,12 @@ use crate::{
 pub struct ControlPeripherals {
     pub led_timer: TIMER0,
     pub led_ch: CHANNEL0,
-    pub led_pin: Gpio2,
+    pub led_pin: Gpio48,
     pub motor_timer: TIMER1,
     pub motor_ch_a: CHANNEL1,
-    pub motor_pin_a: Gpio47,
+    pub motor_pin_a: Gpio42,
     pub motor_ch_b: CHANNEL2,
-    pub motor_pin_b: Gpio21,
+    pub motor_pin_b: Gpio41,
 }
 
 pub fn run(spawner: &Spawner, p: ControlPeripherals) -> anyhow::Result<()> {

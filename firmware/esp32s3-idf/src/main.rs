@@ -2,6 +2,7 @@ pub mod blinky;
 pub mod camera;
 pub mod comms;
 pub mod control;
+pub mod encoder;
 pub mod request;
 pub mod sd;
 pub mod server;
@@ -10,6 +11,7 @@ pub mod wifi;
 use crate::camera::peripherals::CameraPeripherals;
 use crate::comms::periperhals::CommsPeripherals;
 use crate::control::control_loop::setup::ControlPeripherals;
+use crate::encoder::peripherals::EncoderPeripherals;
 use anyhow::Result;
 use embassy_executor::Spawner;
 use esp_idf_hal::cpu::Core;
@@ -72,26 +74,15 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
         pin_scl: peripherals.pins.gpio5,
     };
 
+    camera::camera_freertos_task::setup_freertos(camera_peripherals);
+
     let comms_peri = CommsPeripherals {
         uart: peripherals.uart0,
         tx: peripherals.pins.gpio43,
         rx: peripherals.pins.gpio44,
     };
 
-    camera::camera_freertos_task::setup_freertos(camera_peripherals);
-
     comms::comms_task::run(spawner, comms_peri)?;
-
-    let control_peri = ControlPeripherals {
-        led_timer: peripherals.ledc.timer0,
-        led_ch: peripherals.ledc.channel0,
-        led_pin: peripherals.pins.gpio2,
-        motor_timer: peripherals.ledc.timer1,
-        motor_ch_a: peripherals.ledc.channel1,
-        motor_pin_a: peripherals.pins.gpio47,
-        motor_ch_b: peripherals.ledc.channel2,
-        motor_pin_b: peripherals.pins.gpio21,
-    };
 
     // Spawn auxilary SD writing task, when enabled
     #[cfg(feature = "sd")]
@@ -132,8 +123,32 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
         }
     }
 
+    let encoder_peri = EncoderPeripherals {
+        spi: peripherals.spi3,
+        sclk: peripherals.pins.gpio1,
+        serial_out: peripherals.pins.gpio2,
+        serial_in: peripherals.pins.gpio21,
+        cs: peripherals.pins.gpio47,
+    };
+
+    log::info!("Initialize encoder task");
+    // Attempt to start up the control loop + dependencies
+    encoder::encoder_task::run(spawner, encoder_peri)?;
+
+    let control_peri = ControlPeripherals {
+        led_timer: peripherals.ledc.timer0,
+        led_ch: peripherals.ledc.channel0,
+        led_pin: peripherals.pins.gpio48,
+        motor_timer: peripherals.ledc.timer1,
+        motor_ch_a: peripherals.ledc.channel1,
+        motor_pin_a: peripherals.pins.gpio42,
+        motor_ch_b: peripherals.ledc.channel2,
+        motor_pin_b: peripherals.pins.gpio41,
+    };
+
     #[cfg(not(feature = "streaming"))]
     {
+        log::info!("Initialize control task");
         // Attempt to start up the control loop + dependencies
         control::control_loop::setup::run(spawner, control_peri)?;
     }
