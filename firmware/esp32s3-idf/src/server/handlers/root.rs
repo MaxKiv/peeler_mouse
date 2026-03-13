@@ -2,6 +2,7 @@ use esp_idf_hal::io::Write;
 use esp_idf_svc::http::server::{EspHttpConnection, Request};
 use log::*;
 
+#[cfg(not(feature = "streaming"))]
 pub fn handle_root(request: Request<&mut EspHttpConnection<'_>>) -> anyhow::Result<()> {
     // A cursed html + javascript static webpage :)
     let data = r#"
@@ -113,6 +114,53 @@ pub fn handle_root(request: Request<&mut EspHttpConnection<'_>>) -> anyhow::Resu
               }
             </script>
           </body>
+        </html>
+    "#;
+
+    let content_length = data.len().to_string();
+    let headers = [
+        ("Content-Type", "text/html"),
+        ("Content-Length", content_length.as_str()),
+        ("Connection", "close"),
+    ];
+
+    let mut response = request.into_response(200, Some("OK"), &headers)?;
+    response.write_all(data.as_bytes())?;
+    response.flush()?;
+    Ok(())
+}
+
+#[cfg(feature = "streaming")]
+pub fn handle_root(request: Request<&mut EspHttpConnection<'_>>) -> anyhow::Result<()> {
+    // A cursed html + javascript static webpage :)
+    let data = r#"
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <title>ESP32 Camera</title>
+        <style>
+        body {
+            background: #111;
+            color: white;
+            text-align: center;
+            font-family: sans-serif;
+        }
+
+        img {
+            max-width: 90%;
+            border: 3px solid #444;
+            border-radius: 10px;
+        }
+        </style>
+        </head>
+
+        <body>
+
+        <h1>ESP32 Camera Stream</h1>
+
+        <img src="/camera" />
+
+        </body>
         </html>
     "#;
 

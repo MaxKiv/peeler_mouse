@@ -125,7 +125,8 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
             let timestamp_us = unsafe { esp_timer_get_time() };
 
             log::info!(
-                "Camera got {}x{} framebuffer gen {} @ {:p}\nFPS: {:.3}\n\n",
+                "Camera got {} [{}x{}] framebuffer gen {} @ {:p}\nFPS: {:.3}\n\n",
+                frame.len(),
                 frame.width(),
                 frame.height(),
                 frame.generation,

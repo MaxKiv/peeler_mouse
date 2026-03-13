@@ -23,13 +23,13 @@ pub const PIXEL_FORMAT: PixelFormat = PixelFormat::JPEG;
 pub const CAMERA_TARGET_FPS: u64 = 5;
 #[cfg(feature = "streaming")]
 /// Large effect on driver behavior: When jpeg mode is used, if fb_count more than one, the driver will work in continuous mode.
-pub const FB_COUNT: usize = 1;
+pub const FB_COUNT: usize = 2;
 #[cfg(feature = "streaming")]
-pub const XCLK_FREQ: i32 = 16_000_000;
+pub const XCLK_FREQ: i32 = 10_000_000;
 
-pub const FRAME_SIZE: FrameSize = FrameSize::FramesizeVga;
+pub const FRAME_SIZE: FrameSize = FrameSize::FramesizeQvga;
 pub const FRAMEBUFFER_LEN: usize = FRAME_SIZE.get_dimensions().0 * FRAME_SIZE.get_dimensions().1;
-pub const JPEG_QUALITY: i32 = 5;
+pub const JPEG_QUALITY: i32 = 30;
 
 pub struct CameraConfig {
     pub pixel_format: PixelFormat,
