@@ -2,22 +2,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::camera::{
     esp_cam_wrapper::Camera, framebuffer::FrameBuffer, framesize::FrameSize,
-    peripherals::CameraPeripherals, pixelformat::PixelFormat,
+    peripherals::CameraPeripherals, pixelformat::PixelFormat, CameraConfig,
 };
 
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Watch};
 
 use esp_idf_sys::*;
 use log::*;
-
-pub const PIXEL_FORMAT: PixelFormat = PixelFormat::GRAYSCALE;
-// pub const PIXEL_FORMAT: PixelFormat = PixelFormat::JPEG;
-// pub const FRAME_SIZE: FrameSize = FrameSize::FramesizeQvga;
-pub const FRAME_SIZE: FrameSize = FrameSize::FramesizeVga;
-pub const FRAMEBUFFER_LEN: usize = FRAME_SIZE.get_dimensions().0 * FRAME_SIZE.get_dimensions().1;
-pub const XCLK_FREQ: i32 = 16_000_000;
-pub const JPEG_QUALITY: i32 = 20;
-pub const CAM_HZ: u64 = 1;
 
 pub static FRAMEBUFFER_CONTROL_LOOP_CHANNEL: Watch<Cs, FrameBuffer, 1> = Watch::new();
 pub static FRAMEBUFFER_WEBSERVER_CHANNEL: Watch<Cs, FrameBuffer, 1> = Watch::new();
@@ -75,6 +66,8 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
     log::info!("Initialising framebuffer sender");
 
     // Init camera
+    let cfg = CameraConfig::new();
+
     // Note: Camera is !Send !Sync, although this is not captured in the C++ driver
     // -> init & usage should be done on the same freertos task!
     log::info!("Initialising camera");
@@ -93,11 +86,11 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
         camera_peripherals.pin_pclk,
         camera_peripherals.pin_sda,
         camera_peripherals.pin_scl,
-        PIXEL_FORMAT,
-        FRAME_SIZE,
-        XCLK_FREQ,
-        JPEG_QUALITY,
-        1, // Large effect on driver behavior: When jpeg mode is used, if fb_count more than one, the driver will work in continuous mode.
+        cfg.pixel_format,
+        cfg.frame_size,
+        cfg.xclk_freq,
+        cfg.jpeg_quality,
+        cfg.fb_count, // Large effect on driver behavior: When jpeg mode is used, if fb_count more than one, the driver will work in continuous mode.
     ) {
         Ok(cam) => cam,
         Err(err) => {
@@ -164,7 +157,7 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
                 log::info!("Starting FB copy for Webserver usage");
                 let start = SystemTime::now();
                 // Copy framebuffer, continue if this fails
-                if let Some(fb_copy) = FrameBuffer::try_from_esp(&frame) {
+                if let Some(fb_copy) = FrameBuffer::try_from_esp(&frame, fps, timestamp_us) {
                     // Send to Webserver task
                     webserver_signal.sender().send(fb_copy);
                 } else {
@@ -184,12 +177,12 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
             #[cfg(feature = "sd")]
             {
                 // Throttle logging
-                if frame.generation % CAM_HZ == 0 {
+                if frame.generation % CAMERA_TARGET_FPS == 0 {
                     let start = SystemTime::now();
 
                     log::info!("Starting FB copy for SD logging usage");
                     // Copy framebuffer, continue if this fails
-                    if let Some(fb_copy) = FrameBuffer::try_from_esp(&frame) {
+                    if let Some(fb_copy) = FrameBuffer::try_from_esp(&frame, fps, timestamp_us) {
                         // Send to Sd logging task
                         sd_signal.sender().send(fb_copy);
                     } else {
@@ -210,6 +203,9 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
 
         // Timekeeping
         let last_wake_ptr: *mut u32 = &mut x_last_wake_time as _;
-        xTaskDelayUntil(last_wake_ptr, configTICK_RATE_HZ / CAM_HZ as u32);
+        xTaskDelayUntil(
+            last_wake_ptr,
+            configTICK_RATE_HZ / cfg.camera_target_fps as u32,
+        );
     }
 }

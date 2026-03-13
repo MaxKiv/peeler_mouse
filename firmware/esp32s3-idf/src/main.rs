@@ -27,8 +27,6 @@ use crate::sd::periperhals::SDPeripherals;
 #[cfg(feature = "webserver")]
 use crate::wifi::WIFI_STATE;
 
-static mut WATCHDOG: Option<TWDTDriver> = None;
-
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     if let Err(err) = main_fallible(&spawner).await {
@@ -46,14 +44,13 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     let version = version.to_str()?;
     log::info!("ESP-IDF version: {version}");
 
-    log::info!("Setting up peripherals, esp event loop, nvs partition and timer service");
+    log::info!("Setting up peripherals, esp event loop, nvs partition, timer service and disabling watchdog");
+    // Note: these live on the stack forever since main_fallible diverges, this is intended
     let peripherals = Peripherals::take()?;
     let sys_loop = EspSystemEventLoop::take()?;
     let nvs = EspDefaultNvsPartition::take()?;
     let timer_service = EspTaskTimerService::new()?;
-
-    log::info!("Disabling watchdog");
-    disable_watchdog(peripherals.twdt);
+    let watchdog = disable_watchdog(peripherals.twdt)?;
     log::info!("Watchdog disabled");
 
     log::info!("Initialize Camera freertos task");
@@ -112,7 +109,7 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     }
 
     // Spawn auxilary Webserver task and wifi stack, when enabled
-    #[cfg(feature = "Webserver")]
+    #[cfg(feature = "webserver")]
     {
         log::info!("Initialize Wifi task");
         if let Err(err) = spawner.spawn(wifi::wifi_task(
@@ -135,8 +132,11 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
         }
     }
 
-    // Attempt to start up the control loop + dependencies
-    control::control_loop::setup::run(spawner, control_peri)?;
+    #[cfg(not(feature = "streaming"))]
+    {
+        // Attempt to start up the control loop + dependencies
+        control::control_loop::setup::run(spawner, control_peri)?;
+    }
 
     future::pending::<()>().await;
 
@@ -144,17 +144,15 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
 }
 
 // Quick! Nobody is watching
-fn disable_watchdog(twdt: esp_idf_hal::task::watchdog::TWDT) -> Result<(), esp_idf_sys::EspError> {
+fn disable_watchdog(
+    twdt: esp_idf_hal::task::watchdog::TWDT,
+) -> Result<TWDTDriver<'static>, esp_idf_sys::EspError> {
     let config = TWDTConfig {
         duration: std::time::Duration::MAX,
         panic_on_trigger: true,
         subscribed_idle_tasks: Core::Core0.into(),
     };
     let driver = esp_idf_hal::task::watchdog::TWDTDriver::new(twdt, &config)?;
-    // Save the WD
-    unsafe {
-        WATCHDOG = Some(driver);
-    }
-
-    Ok(())
+    // Return the WD
+    Ok(driver)
 }

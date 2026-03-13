@@ -1,7 +1,7 @@
 use crate::camera::framesize::camera::*;
 use esp_idf_sys::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum FrameSize {
     Framesize96x96,   // 96x96
     FramesizeQqvga,   // 160x120
@@ -35,7 +35,6 @@ pub enum FrameSize {
 
 impl From<camera::framesize_t> for FrameSize {
     fn from(other: camera::framesize_t) -> Self {
-        
         #[allow(clippy::non_snake_case)]
         match other {
             framesize_t_FRAMESIZE_96X96 => FrameSize::Framesize96x96, // 96x96
@@ -107,7 +106,6 @@ impl FrameSize {
 
 impl From<FrameSize> for camera::framesize_t {
     fn from(framesize: FrameSize) -> Self {
-        
         match framesize {
             FrameSize::Framesize96x96 => framesize_t_FRAMESIZE_96X96, // 96x96
             FrameSize::FramesizeQqvga => framesize_t_FRAMESIZE_QQVGA, // 160x120

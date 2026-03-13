@@ -1,5 +1,5 @@
 [package]
-name = "esp32s3"
+name = "peeler_mouse"
 version = "0.1.0"
 edition = "2021"
 
@@ -13,6 +13,7 @@ harness = false # do not use the built in cargo test harness -> resolve rust-ana
 default = []
 sd = []
 webserver = []
+streaming = ["webserver"]
 experimental = ["esp-idf-svc/experimental"]
 
 [dependencies]

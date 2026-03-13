@@ -18,7 +18,7 @@ pub fn handle_camera_jpeg(request: Request<&mut EspHttpConnection<'_>>) -> anyho
         return Ok(());
     };
 
-    let part_boundary = "123456789000000000000987654321";
+    let part_boundary = "peeler-mouse";
     let frame_boundary = format!("\r\n--{part_boundary}\r\n");
 
     let content_type = format!("multipart/x-mixed-replace;boundary={part_boundary}");

@@ -2,18 +2,12 @@
 
 pub mod handlers;
 
-use embassy_sync::{
-    blocking_mutex::raw::CriticalSectionRawMutex as Cs,
-    watch::Receiver,
-};
-use esp_idf_svc::http::{
-    server::EspHttpServer,
-    Method,
-};
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Receiver};
+use esp_idf_svc::http::{server::EspHttpServer, Method};
 use log::*;
 
 use crate::{
-    camera::{camera_freertos_task::PIXEL_FORMAT, pixelformat::PixelFormat},
+    camera::{pixelformat::PixelFormat, PIXEL_FORMAT},
     server::handlers::{
         camera::{grayscale::handle_camera_grayscale, jpeg::handle_camera_jpeg},
         error::handle_error,
@@ -39,17 +33,17 @@ pub async fn server_task(mut wifi_state_receiver: Receiver<'static, Cs, WifiStat
                             error!("Unable to set up HTTP Server root handler: {err}, retrying...");
                         }
 
-                        if let Err(err) = server.fn_handler("/camera", Method::Get, move |request| {
-                            use PixelFormat::*;
-                            match PIXEL_FORMAT {
-                                GRAYSCALE => handle_camera_grayscale(request),
-                                JPEG => handle_camera_jpeg(request),
-                                _ => handle_error(request),
-                            }
-                        }) {
-                            error!(
-                                "Unable to set up HTTP Server root handler: {err}, retrying..."
-                            );
+                        if let Err(err) =
+                            server.fn_handler("/camera", Method::Get, move |request| {
+                                use PixelFormat::*;
+                                match PIXEL_FORMAT {
+                                    GRAYSCALE => handle_camera_grayscale(request),
+                                    JPEG => handle_camera_jpeg(request),
+                                    _ => handle_error(request),
+                                }
+                            })
+                        {
+                            error!("Unable to set up HTTP Server root handler: {err}, retrying...");
                         }
 
                         // let sender = setpoint_sender.clone();
