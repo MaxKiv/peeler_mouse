@@ -119,20 +119,10 @@ where
         }
     }
 
-    pub fn run(&mut self, mut speed: Velocity) {
-        let mm_ps = speed.get::<millimeter_per_second>();
-        if mm_ps.abs() > CUT_MAX_SPEED_MS_PS {
-            warn!(
-                "{} attempting to set speed to {}mm/s, exceeding max speed ({}mm/s) - clipping to max",
-                self.name, mm_ps, CUT_MAX_SPEED_MS_PS
-            );
-            speed = Velocity::new::<millimeter_per_second>(CUT_MAX_SPEED_MS_PS);
-        }
-
-        if mm_ps > 0.0 {
-            self.forward(speed);
-        } else {
-            self.reverse(speed);
+    pub fn move_in_direction(&mut self, speed: Velocity, direction: Direction) {
+        match direction {
+            Direction::Forward => self.forward(speed),
+            Direction::Reverse => self.reverse(speed),
         }
     }
 
