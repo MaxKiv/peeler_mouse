@@ -1,6 +1,10 @@
 #![no_std]
 
+pub mod encoder;
+
 use serde::{Deserialize, Serialize};
+
+use crate::encoder::KnifeState;
 
 pub const REPORT_BYTES: usize = core::mem::size_of::<Report>();
 pub const SETPOINT_BYTES: usize = core::mem::size_of::<Setpoint>();
@@ -44,7 +48,7 @@ pub struct Measurements {
     pub timestamp_us: i64,
     pub camera_fps: f64,
     pub controller_output: VisionAlgorithmOutput,
-    // pub current_knife_depth: Length,
+    pub current_knife_state: KnifeState,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]

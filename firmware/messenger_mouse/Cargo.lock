@@ -129,7 +129,7 @@ dependencies = [
 
 [[package]]
 name = "messenger-mouse"
-version = "0.0.2"
+version = "0.1.0"
 dependencies = [
  "chrono",
  "defmt 0.3.100",
