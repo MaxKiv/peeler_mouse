@@ -2,7 +2,7 @@ use messenger_mouse::VisionAlgorithmOutput;
 use uom::si::{f32::Velocity, velocity::millimeter_per_second};
 
 pub mod motor_controller;
-pub mod motor_controller;
+pub mod motor_task;
 
 /// Operational states a motor can be in
 #[derive(Debug, Clone, Default)]
@@ -27,6 +27,15 @@ impl MotorDirection {
             Forward => Backward,
             Backward => Forward,
         };
+    }
+}
+
+impl Into<l9110::Direction> for MotorDirection {
+    fn into(self) -> l9110::Direction {
+        match self {
+            Self::Forward => l9110::Direction::Forward,
+            Self::Backward => l9110::Direction::Reverse,
+        }
     }
 }
 

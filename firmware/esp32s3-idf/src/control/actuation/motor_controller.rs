@@ -1,40 +1,63 @@
-// The L9110 is a simple H-bridge DC motor driver
-// The control delegates the motor actuation to anything that can take a [`MotorCommand`]
-// This file implements a task that translates from MotorCommand -> L9110 API
-
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, watch::Watch};
-use embassy_time::Delay;
+use embassy_time::{Delay, Duration, Timer};
+use esp_idf_hal::gpio::{Gpio40, Input, PinDriver};
 use l9110::L9110;
-use log::info;
+use uom::si::{f32::Velocity, velocity::millimeter_per_second};
 
-use crate::control::actuation::{MotorCommand, MotorDirection, MotorState};
+use crate::control::actuation::MotorDirection;
 
-pub static KNIFE_MOTOR_SETPOINT: Watch<CriticalSectionRawMutex, MotorCommand, 2> = Watch::new();
+/// Homing speed in mm/s
+pub const HOMING_SPEED_MM_PS: f32 = 1.0;
+pub const HOMING_DIRECTION: MotorDirection = MotorDirection::Forward;
+/// TODO: Motor speed for 1 revolution per second
+pub const SPEED_REV_PS: f32 = 1.0;
+pub const DEBOUNCE_DURATION: Duration = Duration::from_millis(5);
 
-#[embassy_executor::task]
-pub async fn manage_knife_motor(mut l9110: L9110<Delay>) {
-    info!("Starting to manage knife motor");
+pub struct MotorController {
+    motor: L9110<Delay>,
+    limit_switch: PinDriver<'static, Gpio40, Input>,
+    homed: bool,
+}
 
-    // start disabled
-    l9110.coast();
-    let mut rx = KNIFE_MOTOR_SETPOINT
-        .receiver()
-        .expect("increase KNIFE_SETPOINT N");
+impl MotorController {
+    pub fn new(motor: L9110<Delay>, limit_switch: PinDriver<'static, Gpio40, Input>) -> Self {
+        Self {
+            motor,
+            limit_switch,
+            homed: false,
+        }
+    }
 
-    loop {
-        let cmd = rx.changed().await;
+    pub async fn halt(&mut self) {
+        self.motor.short_break().await;
+    }
 
-        // Parse MotorCommand onto the L9110 motor driver specific API
-        match &cmd.state {
-            MotorState::Braking => l9110.short_break().await,
-            MotorState::Coasting => l9110.coast(),
-            MotorState::Enabled => {
-                if cmd.dir == MotorDirection::Forward {
-                    l9110.forward(cmd.speed)
-                } else {
-                    l9110.reverse(cmd.speed)
-                }
+    pub async fn home(&mut self) {
+        // Move in homing direction
+        self.motor.move_in_direction(
+            Velocity::new::<millimeter_per_second>(
+                SPEED_REV_PS
+                    * HOMING_SPEED_MM_PS
+                    * (1.0 / messenger_mouse::encoder::KNIFE_AXIS_LEAD),
+            ),
+            HOMING_DIRECTION.into(),
+        );
+
+        // Wait for limit_switch to indicate home reached
+        loop {
+            self.limit_switch.wait_for_falling_edge().await;
+
+            // debounce
+            Timer::after(DEBOUNCE_DURATION).await;
+            if self.limit_switch.is_low() {
+                // valid home position, stop motor
+                self.motor.coast();
+
+                return;
             }
-        };
+        }
+    }
+
+    pub async fn run(&mut self, direction: MotorDirection, speed: Velocity) {
+        self.motor.short_break().await;
     }
 }
