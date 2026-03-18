@@ -33,19 +33,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "as5048-pwm"
-version = "0.1.0"
-dependencies = [
- "defmt 1.0.1",
- "embassy-stm32",
- "embedded-hal 1.0.0",
- "embedded-hal-async",
- "static_cell",
- "thiserror",
- "uom",
-]
-
-[[package]]
 name = "atomic-polyfill"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1077,7 +1064,7 @@ dependencies = [
 
 [[package]]
 name = "messenger-mouse"
-version = "0.0.2"
+version = "0.1.0"
 dependencies = [
  "chrono",
  "defmt 0.3.100",

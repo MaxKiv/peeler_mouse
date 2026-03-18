@@ -11,7 +11,7 @@ use l9110::L9110;
 
 use crate::{
     comms::comms_task::SETPOINT_WATCH,
-    control::{actuation::l9110::manage_knife_motor, control_loop::body::control_loop},
+    control::{actuation::motor_controller::manage_knife_motor, control_loop::body::control_loop},
 };
 
 pub struct ControlPeripherals {
@@ -23,6 +23,7 @@ pub struct ControlPeripherals {
     pub motor_pin_a: Gpio42,
     pub motor_ch_b: CHANNEL2,
     pub motor_pin_b: Gpio41,
+    pub limit_switch: Gpio40,
 }
 
 pub fn run(spawner: &Spawner, p: ControlPeripherals) -> anyhow::Result<()> {
@@ -48,6 +49,8 @@ pub fn run(spawner: &Spawner, p: ControlPeripherals) -> anyhow::Result<()> {
         p.motor_pin_b,
         Delay,
     )?;
+
+    // Setup motor controller
 
     log::info!("initialising Control Loop - Knife Motor Task");
     spawner.spawn(manage_knife_motor(l9110))?;

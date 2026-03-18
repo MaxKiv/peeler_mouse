@@ -1,21 +1,19 @@
 use std::time::SystemTime;
 
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Receiver};
-use embassy_time::{Duration, Ticker};
 use esp_idf_hal::ledc::LedcDriver;
 use log::*;
-use messenger_mouse::{AppState, Report, Setpoint, VisionAlgorithmOutput};
+use messenger_mouse::{encoder::KnifeState, AppState, Report, Setpoint, VisionAlgorithmOutput};
 
 use crate::{
     camera::{camera_freertos_task::FRAMEBUFFER_CONTROL_LOOP_CHANNEL, framebuffer::FrameBuffer},
     comms::comms_task::REPORT_WATCH,
     control::{
-        actuation::{l9110::KNIFE_MOTOR_SETPOINT, MotorCommand},
+        actuation::{motor_controller::KNIFE_MOTOR_SETPOINT, MotorCommand},
         vision::algo::calculate_control_effort,
     },
+    encoder::encoder_task::KNIFE_STATE,
 };
-
-// const CONTROL_LOOP_FREQUENCY: Duration = Duration::from_hz(10);
 
 #[embassy_executor::task]
 pub async fn control_loop(
@@ -34,6 +32,8 @@ pub async fn control_loop(
     let mut framebuffer_rx = FRAMEBUFFER_CONTROL_LOOP_CHANNEL
         .receiver()
         .expect("not enough FRAMEBUFFER_CONTROL_LOOP_CHANNEL rx N");
+
+    let mut encoder_rx = KNIFE_STATE.receiver().expect("not enough KNIFE_STATE rx N");
 
     let motor_tx = KNIFE_MOTOR_SETPOINT.sender();
     let report_tx = REPORT_WATCH.sender();
@@ -56,12 +56,6 @@ pub async fn control_loop(
         if true {
             // Get latest framebuffer from camera
             let frame = framebuffer_rx.changed().await;
-            // let Some(frame) = framebuffer_rx.try_get() else {
-            //     log::error!("CONTROL: unable to get latest framebuffer, either we just started or we are in deep shit...");
-            //     // nothing to do but continue and hope for greener pastures
-            //     ticker.next().await;
-            //     continue;
-            // };
 
             let gen = frame.generation;
             let timestamp_us = frame.timestamp_us;
@@ -69,7 +63,10 @@ pub async fn control_loop(
             let led_brightness = latest_setpoint.led_setpoint.brightness;
 
             // Get latest encoder value
-            // TODO
+            let current_knife_state = encoder_rx.try_get().unwrap_or_else(|| {
+                log::error!("CONTROL: unable to get valid knife state, using default...");
+                KnifeState::new()
+            });
 
             // Calculate control effort
             let vision_output = get_control_effort(frame).await;
@@ -99,6 +96,7 @@ pub async fn control_loop(
                 timestamp_us,
                 camera_fps,
                 controller_output: vision_output,
+                current_knife_state,
             };
 
             let report = messenger_mouse::Report {

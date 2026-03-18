@@ -1,7 +1,8 @@
 use messenger_mouse::VisionAlgorithmOutput;
 use uom::si::{f32::Velocity, velocity::millimeter_per_second};
 
-pub mod l9110;
+pub mod motor_controller;
+pub mod motor_controller;
 
 /// Operational states a motor can be in
 #[derive(Debug, Clone, Default)]

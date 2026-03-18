@@ -1,27 +1,26 @@
-use as5048a_async::{As5048a, ANGLE_MAX};
+use as5048a_async::{As5048a, Error};
 use embassy_executor::Spawner;
-use embassy_sync::blocking_mutex::raw::NoopRawMutex;
-use embassy_sync::mutex::Mutex;
+use embassy_futures::select::Either;
 use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex as Cs,
+    signal::Signal,
     watch::{self, Watch},
 };
 use embassy_time::{Duration, Ticker};
 use embedded_hal_async::spi::{self, SpiDevice};
-use esp_idf_hal::gpio::Output;
 use esp_idf_hal::spi::{config, Spi, SpiDeviceDriver};
+use esp_idf_hal::spi::{SpiDriver, SpiDriverConfig, SPI3};
 use esp_idf_hal::units::*;
-use esp_idf_hal::{
-    gpio,
-    io::asynch::Write,
-    spi::{SpiDriver, SpiDriverConfig, SPI3},
-};
 use log::*;
-use static_cell::StaticCell;
+use messenger_mouse::encoder::{EncoderError, EncoderValidity};
 
 use crate::encoder::peripherals::EncoderPeripherals;
+use messenger_mouse::encoder::KnifeState;
 
 const DURATION: Duration = Duration::from_hz(10);
+
+pub static KNIFE_STATE: Watch<Cs, KnifeState, 2> = Watch::new();
+pub static ENCODER_RESET: Signal<Cs, bool> = Signal::new();
 
 // Spawn all COMMS & FRAMING tasks required for external communications
 pub fn run(spawner: &Spawner, p: EncoderPeripherals) -> anyhow::Result<()> {
@@ -32,7 +31,7 @@ pub fn run(spawner: &Spawner, p: EncoderPeripherals) -> anyhow::Result<()> {
     Ok(())
 }
 
-// UART RX COMMS task, pushes serialised setpoints over the wire
+// Track encoder position for consumption in other tasks
 #[embassy_executor::task]
 pub async fn encoder_task(p: EncoderPeripherals) {
     info!("ENCODER: Starting task");
@@ -60,47 +59,64 @@ pub async fn encoder_task(p: EncoderPeripherals) {
 
     let mut sensor = As5048a::new(&mut spi_device);
 
+    // Initialize encoder state
+    let mut knife_state = KnifeState::new();
+    let tx = KNIFE_STATE.sender();
+
+    log::info!("Encoder: Initialisation done, starting loop");
     loop {
-        ticker.next().await;
+        // Continously wait for either the sampling tick or a reset signal
+        let event = embassy_futures::select::select(ticker.next(), ENCODER_RESET.wait()).await;
 
-        let diag = sensor.diagnostics().await;
-        match diag {
-            Ok(diag) => {
-                if diag.is_valid() {
-                    info!("ENCODER: Diagnostics are valid!");
+        match event {
+            // Sampling tick
+            Either::First(_) => {
+                match sensor.angle().await {
+                    // Happy path
+                    Ok(angle) => {
+                        debug!("ENCODER: got angle {}", angle);
 
-                    let angle = sensor.angle().await;
-                    match angle {
-                        Ok(angle) => {
-                            info!("ENCODER: ANGLE => {}", angle);
-                            // angle as f32 / ANGLE_MAX as f32
-                        }
-                        Err(err) => {
-                            error!("ENCODER: sensor angle err: {:?}", err);
-                        }
-                    };
+                        knife_state.encoder_state.update(angle);
+                    }
 
-                    let magnitude = sensor.magnitude().await;
-                    match magnitude {
-                        Ok(magnitude) => {
-                            info!("ENCODER: MAGNITUDE => {}", magnitude);
+                    // Shit hit the fan
+                    Err(err) => {
+                        error!("ENCODER: Error {:?}", err);
+
+                        // Investigate problem, not much we can do but continue however
+                        match err {
+                            Error::Communication(_) => {
+                                // SPI error, likely unrecoverable
+                                knife_state.validity =
+                                    EncoderValidity::EncoderError(EncoderError::Communication)
+                            }
+                            Error::ParityError => {
+                                // Parity or Sensor error, likely something wrong with SPI Bus, might recover
+                                if let Err(err) = sensor.clear_error_flag().await {
+                                    knife_state.validity =
+                                        EncoderValidity::EncoderError(EncoderError::ParityError)
+                                }
+                            }
+                            Error::SensorError => {
+                                // Parity or Sensor error, likely something wrong with SPI Bus, might recover
+                                if let Err(err) = sensor.clear_error_flag().await {
+                                    knife_state.validity =
+                                        EncoderValidity::EncoderError(EncoderError::SensorError)
+                                }
+                            }
                         }
-                        Err(err) => {
-                            error!("ENCODER: sensor magnitude err: {:?}", err);
-                        }
-                    };
-                } else if diag.cordic_overflow() {
-                    error!("ENCODER: CORDIC overflow - data invalid!");
-                } else if diag.comp_high() {
-                    error!("ENCODER: Magnet too close");
-                } else if diag.comp_low() {
-                    error!("ENCODER: Magnet too far");
+                    }
                 }
+
+                // Make latest state available for consumers
+                tx.send(knife_state.clone());
             }
-            Err(err) => {
-                error!("ENCODER: SPI error: {:?}", err);
-                let _ = sensor.clear_error_flag().await;
+
+            // Reset signal received, reset the encoder state
+            Either::Second(_) => {
+                knife_state.encoder_state.reset();
+                info!("ENCODER: RESET");
             }
-        };
+        }
     }
 }
