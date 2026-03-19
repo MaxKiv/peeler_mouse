@@ -1,9 +1,11 @@
+pub mod motor_command;
+
 use embassy_time::{Delay, Duration, Timer};
 use esp_idf_hal::gpio::{Gpio40, Input, PinDriver};
 use l9110::L9110;
 use uom::si::{f32::Velocity, velocity::millimeter_per_second};
 
-use crate::control::actuation::MotorDirection;
+use crate::control::actuation::motor_controller::motor_command::MotorDirection;
 
 /// Homing speed in mm/s
 pub const HOMING_SPEED_MM_PS: f32 = 1.0;
@@ -51,6 +53,8 @@ impl MotorController {
             if self.limit_switch.is_low() {
                 // valid home position, stop motor
                 self.motor.coast();
+
+                self.homed = true;
 
                 return;
             }

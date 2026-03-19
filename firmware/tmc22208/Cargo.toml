@@ -1,0 +1,16 @@
+[package]
+name = "tmc2208"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+embedded-hal = { version = "1.0.0" }
+embedded-hal-async = { version = "1.0.0"}
+uom = { version = "0.37.0", default-features = false, features = ["f32", "si"] }
+static_cell = "2"
+embassy-sync = { version = "0.7.2"}
+thiserror = { version = "2.0.17",  default-features = false }
+
+esp-idf-hal = "0.45.2"
+log = "0.4"
+anyhow = "1.0.99"
