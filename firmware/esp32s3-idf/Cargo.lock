@@ -1278,6 +1278,7 @@ dependencies = [
  "messenger-mouse",
  "serde",
  "serde_json",
+ "simple-stepper-driver",
  "static_cell",
  "thiserror 2.0.18",
  "uom",
@@ -1565,6 +1566,21 @@ name = "shlex"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
+
+[[package]]
+name = "simple-stepper-driver"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "embassy-sync 0.7.2",
+ "embedded-hal 1.0.0",
+ "embedded-hal-async",
+ "esp-idf-hal",
+ "log",
+ "static_cell",
+ "thiserror 2.0.18",
+ "uom",
+]
 
 [[package]]
 name = "spin"

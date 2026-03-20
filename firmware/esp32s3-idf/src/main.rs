@@ -1,4 +1,4 @@
-pub mod blinky;
+pub mod actuation;
 pub mod camera;
 pub mod comms;
 pub mod control;
@@ -8,9 +8,10 @@ pub mod sd;
 pub mod server;
 pub mod wifi;
 
+use crate::actuation::stepper::peripherals::MotorPeripherals;
 use crate::camera::peripherals::CameraPeripherals;
 use crate::comms::periperhals::CommsPeripherals;
-use crate::control::control_loop::setup::ControlPeripherals;
+use crate::control::control_loop::peripherals::ControlPeripherals;
 use crate::encoder::peripherals::EncoderPeripherals;
 use anyhow::Result;
 use embassy_executor::Spawner;
@@ -135,15 +136,18 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     // Attempt to start up the control loop + dependencies
     encoder::encoder_task::run(spawner, encoder_peri)?;
 
+    let motor_peri = MotorPeripherals {
+        timer: peripherals.ledc.timer1,
+        channel: peripherals.ledc.channel1,
+        pwm_pin: peripherals.pins.gpio41,
+        dir_pin: peripherals.pins.gpio42,
+    };
+    actuation::stepper::motor_task::run(spawner, motor_peri)?;
+
     let control_peri = ControlPeripherals {
         led_timer: peripherals.ledc.timer0,
         led_ch: peripherals.ledc.channel0,
         led_pin: peripherals.pins.gpio48,
-        motor_timer: peripherals.ledc.timer1,
-        motor_ch_a: peripherals.ledc.channel1,
-        motor_pin_a: peripherals.pins.gpio42,
-        motor_ch_b: peripherals.ledc.channel2,
-        motor_pin_b: peripherals.pins.gpio41,
     };
 
     #[cfg(not(feature = "streaming"))]

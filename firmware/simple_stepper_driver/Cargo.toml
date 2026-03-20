@@ -1,5 +1,5 @@
 [package]
-name = "tmc2208"
+name = "simple-stepper-driver"
 version = "0.1.0"
 edition = "2024"
 

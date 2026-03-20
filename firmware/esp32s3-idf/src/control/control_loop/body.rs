@@ -8,10 +8,7 @@ use messenger_mouse::{encoder::KnifeState, AppState, Report, Setpoint, VisionAlg
 use crate::{
     camera::{camera_freertos_task::FRAMEBUFFER_CONTROL_LOOP_CHANNEL, framebuffer::FrameBuffer},
     comms::comms_task::REPORT_WATCH,
-    control::{
-        actuation::{motor_task::KNIFE_MOTOR_SETPOINT, MotorCommand},
-        vision::algo::calculate_control_effort,
-    },
+    control::vision::algo::calculate_control_effort,
     encoder::encoder_task::KNIFE_STATE,
 };
 

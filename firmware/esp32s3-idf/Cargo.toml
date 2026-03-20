@@ -43,6 +43,9 @@ messenger-mouse = { path = "../messenger_mouse" }
 # H-Bridge Motor Driver
 l9110 = { path = "../l9110" }
 
+# Simple stepper driver
+simple-stepper-driver = { path = "../simple_stepper_driver" }
+
 # Encoder
 as5048a-async = "0.1"
 embedded-hal-async = "1.0"

@@ -9,7 +9,7 @@ pub enum MotorCommand {
     Halt,
     Home,
     MoveVelocity(MotorVelocitySetpoint),
-    MovePosition(MotorPositionSetpoint),
+    // MovePosition(MotorPositionSetpoint),
 }
 
 impl MotorCommand {

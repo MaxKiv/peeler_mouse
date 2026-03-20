@@ -1,4 +1,4 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
 
 use crate::camera::{
     esp_cam_wrapper::Camera, framebuffer::FrameBuffer, framesize::FrameSize,
