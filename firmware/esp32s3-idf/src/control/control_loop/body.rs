@@ -1,11 +1,17 @@
 use std::time::SystemTime;
 
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Receiver};
+use embassy_time::{Duration, Timer};
 use esp_idf_hal::ledc::LedcDriver;
 use log::*;
-use messenger_mouse::{encoder::KnifeState, AppState, Report, Setpoint, VisionAlgorithmOutput};
+use messenger_mouse::{encoder::KnifeState, AppState, Setpoint, VisionAlgorithmOutput};
 
 use crate::{
+    actuation::stepper::{
+        command::MotorCommand,
+        motor_task::{KNIFE_MOTOR_HOME, KNIFE_MOTOR_SETPOINT},
+        HomeStatus,
+    },
     camera::{camera_freertos_task::FRAMEBUFFER_CONTROL_LOOP_CHANNEL, framebuffer::FrameBuffer},
     comms::comms_task::REPORT_WATCH,
     control::vision::algo::calculate_control_effort,
@@ -33,9 +39,28 @@ pub async fn control_loop(
     let mut encoder_rx = KNIFE_STATE.receiver().expect("not enough KNIFE_STATE rx N");
 
     let motor_tx = KNIFE_MOTOR_SETPOINT.sender();
+    let mut motor_rx = KNIFE_MOTOR_HOME
+        .receiver()
+        .expect("not enough KNIFE_MOTOR_HOME N");
     let report_tx = REPORT_WATCH.sender();
 
-    // Control loop
+    // Startup: Home motor
+    motor_tx.send(MotorCommand::Home);
+    loop {
+        let home_status = motor_rx.changed().await;
+        match home_status {
+            HomeStatus::Homed => {
+                info!("CONTROL: Motor indicates succesful homing, running main loop");
+                break;
+            }
+            HomeStatus::Lost => {
+                warn!("CONTROL: Knife motor not homed yet");
+                continue;
+            }
+        }
+    }
+
+    // Main Control loop
     loop {
         // Update to latest setpoint, if any
         if let Some(new_setpoint) = setpoint_receiver.try_get() {
@@ -104,8 +129,6 @@ pub async fn control_loop(
 
             report_tx.send(report);
         }
-
-        // ticker.next().await;
     }
 }
 

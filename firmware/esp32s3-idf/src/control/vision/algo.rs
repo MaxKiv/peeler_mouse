@@ -19,7 +19,7 @@ pub async fn calculate_control_effort(frame: FrameBuffer) -> VisionAlgorithmOutp
         Algo::PeriodicEncoderTest => periodic_encoder_test(frame),
     };
 
-    log::info!("\n\nVISION: {}\n\n", out);
+    // log::info!("\n\nVISION: {}\n\n", out);
 
     if out > HIGH_THRESHOLD {
         VisionAlgorithmOutput::Up

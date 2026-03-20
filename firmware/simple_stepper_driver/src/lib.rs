@@ -5,7 +5,7 @@ use embedded_hal_async::delay::DelayNs;
 use esp_idf_hal::{ledc::LedcDriver, units::Hertz};
 use thiserror::Error;
 
-pub const BASE_STEP_FREQUENCY_HZ: Hertz = Hertz(25_000);
+pub const BASE_STEP_FREQUENCY_HZ: Hertz = Hertz(1_000);
 
 use log::*;
 
@@ -56,6 +56,9 @@ where
 
         // Start disabled
         step_pwm.disable()?;
+
+        // Set duty cycle
+        step_pwm.set_duty(step_pwm.get_max_duty() / 2)?;
 
         let out = Self {
             name,

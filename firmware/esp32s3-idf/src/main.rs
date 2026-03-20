@@ -141,6 +141,7 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
         channel: peripherals.ledc.channel1,
         pwm_pin: peripherals.pins.gpio41,
         dir_pin: peripherals.pins.gpio42,
+        limit_switch: peripherals.pins.gpio45,
     };
     actuation::stepper::motor_task::run(spawner, motor_peri)?;
 
