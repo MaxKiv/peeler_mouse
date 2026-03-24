@@ -45,6 +45,7 @@ l9110 = { path = "../l9110" }
 
 # Simple stepper driver
 simple-stepper-driver = { path = "../simple_stepper_driver" }
+rmt-stepper-driver = { path = "../rmt_stepper_driver" }
 
 # Encoder
 as5048a-async = "0.1"

@@ -57,3 +57,12 @@ impl Into<simple_stepper_driver::Direction> for MotorDirection {
         }
     }
 }
+
+impl Into<rmt_stepper_driver::Direction> for MotorDirection {
+    fn into(self) -> rmt_stepper_driver::Direction {
+        match self {
+            Self::Forward => rmt_stepper_driver::Direction::Forward,
+            Self::Reverse => rmt_stepper_driver::Direction::Reverse,
+        }
+    }
+}

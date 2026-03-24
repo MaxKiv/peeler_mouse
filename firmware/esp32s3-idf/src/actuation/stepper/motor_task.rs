@@ -1,11 +1,14 @@
 use embassy_executor::Spawner;
+use embassy_futures::select::Either;
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, watch::Watch};
 use embassy_time::{Delay, Duration, Timer};
 use esp_idf_hal::{
     gpio::{PinDriver, Pull},
     ledc::{config::TimerConfig, LedcTimerDriver},
+    rmt::{TxRmtConfig, TxRmtDriver},
 };
 use log::{error, info};
+use rmt_stepper_driver::{RmtStepper, StepperError};
 use simple_stepper_driver::SimpleStepperDriver;
 
 use crate::actuation::stepper::{
@@ -38,8 +41,8 @@ pub fn run(spawner: &Spawner, p: MotorPeripherals) -> anyhow::Result<()> {
 pub async fn manage_knife_motor(p: MotorPeripherals) {
     info!("KNIFE: initialising motor driver");
 
-    let timer = LedcTimerDriver::new(p.timer, &TimerConfig::default())
-        .expect("unable to start motor timer driver");
+    // let timer = LedcTimerDriver::new(p.timer, &TimerConfig::default())
+    //     .expect("unable to start motor timer driver");
 
     let dir = PinDriver::output(p.dir_pin).expect("unable to create the DIR pin driver");
     let mut limit_switch =
@@ -48,8 +51,11 @@ pub async fn manage_knife_motor(p: MotorPeripherals) {
         .set_pull(Pull::Up)
         .expect("Unable to set limit switch to pull up");
 
-    let mut driver = SimpleStepperDriver::try_new("Knife", timer, p.channel, p.pwm_pin, dir, Delay)
-        .expect("Unable to construct knife motor driver");
+    let rmt_cfg = TxRmtConfig::new();
+    let mut rmt_driver = TxRmtDriver::new(p.rmt_channel, p.rmt_pin, &rmt_cfg)
+        .expect("Stepper: unable to construct TxRmtDriver");
+
+    let mut driver = RmtStepper::new("Knife", rmt_driver, dir, Delay);
 
     let mut rx = KNIFE_MOTOR_SETPOINT
         .receiver()
@@ -60,10 +66,7 @@ pub async fn manage_knife_motor(p: MotorPeripherals) {
     info!("Starting to manage knife motor");
 
     // start disabled & lost
-    driver
-        .stop()
-        .await
-        .expect("Unable to stop motor driver before manage_knife_motor main loop");
+    driver.stop();
     home_tx.send(HomeStatus::Lost);
 
     loop {
@@ -72,55 +75,55 @@ pub async fn manage_knife_motor(p: MotorPeripherals) {
         if let Err(err) = match cmd.clone() {
             MotorCommand::Halt => {
                 info!("KNIFE: Halting motor");
-                driver.stop().await
+                // driver.stop().await
+                Ok(driver.stop())
             }
             MotorCommand::MoveVelocity(sp) => {
                 info!("KNIFE: Moving in direction {:?}", sp.dir);
-                driver.run(sp.dir.into()).await
+                driver.set_direction(sp.dir.into());
+                driver.run().await
             }
             MotorCommand::Home => {
                 info!("KNIFE: Homing motor");
 
                 // Move in homing direction
-                if let Err(err) = driver.run(HOMING_DIRECTION.into()).await {
-                    error!(
-                        "KNIFE: homing: unable to move in HOMING_DIRECTION: {:?}, ignoring home command",
-                        err
-                    );
-                    continue;
-                }
+                driver.set_direction(HOMING_DIRECTION.into()).await;
+                let mut found = false;
 
-                // Wait for limit_switch to indicate home reached
-                loop {
-                    if let Err(err) = limit_switch.wait_for_falling_edge().await {
-                        error!(
-                            "KNIFE: Unable to wait for limit_switch edge: {:?}, retrying",
-                            err
-                        );
-                        // try again
-                        continue;
-                    }
+                for freq in 100..1000 {
+                    info!("KNIFE: Homing at freq {}hz", freq);
 
-                    // debounce limit switch
-                    Timer::after(LIMIT_SWITCH_DEBOUNCE_DURATION).await;
-                    if limit_switch.is_low() {
-                        // valid home position, stop ze motor!
-                        if let Err(err) = driver.stop().await {
-                            break Err(err);
+                    driver.set_speed_hz(freq);
+                    for _ in 1..10 {
+                        driver.step_once().await;
+
+                        if limit_switch.is_low() {
+                            // debounce limit switch
+                            Timer::after(LIMIT_SWITCH_DEBOUNCE_DURATION).await;
+                            if limit_switch.is_low() {
+                                // valid home position, stop ze motor!
+                                driver.stop();
+
+                                home_tx.send(HomeStatus::Homed);
+
+                                info!("KNIFE: Home reached");
+                                found = true;
+                                break;
+                            }
                         }
-
-                        home_tx.send(HomeStatus::Homed);
-
-                        info!("KNIFE: Home reached");
-                        break Ok(());
+                    }
+                    if found {
+                        break;
                     }
                 }
+
+                Ok(())
             }
         } {
             error!("KNIFE: error handling command {:?} => {:?}", cmd, err);
             home_tx.send(HomeStatus::Lost);
 
-            let _ = driver.stop().await;
+            let _ = driver.stop();
         }
     }
 }
