@@ -90,7 +90,7 @@ pub async fn manage_knife_motor(p: MotorPeripherals) {
                 driver.set_direction(HOMING_DIRECTION.into()).await;
                 let mut found = false;
 
-                for freq in 100..1000 {
+                for freq in 50..10000 {
                     info!("KNIFE: Homing at freq {}hz", freq);
 
                     driver.set_speed_hz(freq);
