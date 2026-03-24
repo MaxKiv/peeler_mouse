@@ -27,7 +27,7 @@ use crate::{
     supervisor::{
         MotorSetpoint, SelectedMotor,
         appstate::Appstate,
-        task::APPSTATE_WATCH,
+        task::{APPSTATE_WATCH, HmiState},
     },
 };
 
@@ -36,6 +36,7 @@ pub static LCD_INPUT: Watch<CriticalSectionRawMutex, bool, { BUTTON_WATCH_SIZE }
 const LCD_PERIOD: Duration = Duration::from_millis(100);
 
 // UI related
+const TEXT_OFFSET_WIDTH: i32 = 4;
 const TEXT_OFFSET_HEIGHT: i32 = 14;
 const NUM_SPEED_BARS: usize = 8;
 
@@ -104,7 +105,7 @@ pub async fn manage_display(
 }
 
 fn draw_ui(
-    display: &mut GraphicsMode<
+    mut display: &mut GraphicsMode<
         Ssd1309_128_64,
         I2CInterface<I2c<'static, Async, Master>>,
         { SSD1309_FRAMEBUFFER_SIZE },
@@ -112,16 +113,20 @@ fn draw_ui(
     latest_state: Appstate,
     font_styles: &FontStyles,
 ) {
-    let cut_str =
-        format!(128; "Cut | {} {:>5.1}%", get_dir_str(&latest_state.cut_setpoint), latest_state.cut_setpoint.speed_percentage)
-            .expect("Cut cmd string doesn't fit heapless string");
-    let rot_str = format!(128; "Rot | {} {:>5.1}%", get_dir_str(&latest_state.rotation_setpoint), latest_state.rotation_setpoint.speed_percentage)
+    draw_header(&latest_state, &font_styles, &mut display);
+
+    let rot_str = format!(128; "Rot  {} {:>5.1}%", get_dir_str(&latest_state.rotation_setpoint), latest_state.rotation_setpoint.speed_percentage)
         .expect("rot cmd string doesn't fit heapless string");
     let lin_str =
-        format!(128; "Lin | {} {:>5.1}%", get_dir_str(&latest_state.translation_setpoint),latest_state.translation_setpoint.speed_percentage)
+        format!(128; "Lin  {} {:>5.1}%", get_dir_str(&latest_state.translation_setpoint),latest_state.translation_setpoint.speed_percentage)
             .expect("lin cmd string doesn't fit heapless string");
+    let cut_str =
+        format!(128; "Cut  {} {:>5.1}%", get_up_down_str(&latest_state.cut_setpoint), latest_state.cut_setpoint.speed_percentage)
+            .expect("Cut cmd string doesn't fit heapless string");
+    let running_str = format!(128; "{}", get_running_str(&latest_state))
+        .expect("running state string doesn't fit heapless string");
 
-    let to_plot = [&cut_str, &lin_str, &rot_str];
+    let to_plot = [&cut_str, &lin_str, &rot_str, &running_str];
     let selected: usize = match latest_state.selected_motor {
         SelectedMotor::Cut => 0,
         SelectedMotor::Translation => 1,
@@ -131,7 +136,7 @@ fn draw_ui(
     for (idx, data) in to_plot.iter().enumerate() {
         Text::with_baseline(
             data,
-            Point::new(10, TEXT_OFFSET_HEIGHT * idx as i32),
+            Point::new(TEXT_OFFSET_WIDTH, TEXT_OFFSET_HEIGHT * (idx + 1) as i32),
             if idx == selected {
                 font_styles.selected
             } else {
@@ -148,7 +153,66 @@ fn get_dir_str(setpoint: &MotorSetpoint) -> &'static str {
     use MotorDirection::*;
 
     match setpoint.dir {
-        Forward => "->",
-        Backward => "<-",
+        Forward => ">",
+        Reverse => "<",
     }
+}
+
+fn get_up_down_str(setpoint: &MotorSetpoint) -> &'static str {
+    use MotorDirection::*;
+
+    match setpoint.dir {
+        Forward => "^",
+        Reverse => "D",
+    }
+}
+
+fn get_running_str(appstate: &Appstate) -> &'static str {
+    match appstate.enable {
+        true => "ENABLED",
+        false => "DISABLED",
+    }
+}
+
+fn draw_header(
+    latest_state: &Appstate,
+    font_styles: &FontStyles,
+    display: &mut GraphicsMode<
+        Ssd1309_128_64,
+        I2CInterface<I2c<'static, Async, Master>>,
+        { SSD1309_FRAMEBUFFER_SIZE },
+    >,
+) {
+    Text::with_baseline(
+        " 1 ",
+        Point::new(TEXT_OFFSET_WIDTH, 0),
+        if latest_state.hmi_state == HmiState::NoSelection {
+            font_styles.selected
+        } else {
+            font_styles.unselected
+        },
+        Baseline::Top,
+    )
+    .draw(display)
+    .unwrap();
+    Text::with_baseline(
+        "|",
+        Point::new(TEXT_OFFSET_WIDTH + 3 * 6, 0),
+        font_styles.unselected,
+        Baseline::Top,
+    )
+    .draw(display)
+    .unwrap();
+    Text::with_baseline(
+        " 2 ",
+        Point::new(TEXT_OFFSET_WIDTH + 4 * 6, 0),
+        if latest_state.hmi_state == HmiState::MotorSelected {
+            font_styles.selected
+        } else {
+            font_styles.unselected
+        },
+        Baseline::Top,
+    )
+    .draw(display)
+    .unwrap();
 }

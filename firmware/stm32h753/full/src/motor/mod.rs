@@ -21,15 +21,15 @@ pub enum MotorState {
 pub enum MotorDirection {
     #[default]
     Forward,
-    Backward,
+    Reverse,
 }
 
 impl MotorDirection {
     pub fn reverse(&mut self) {
         use MotorDirection::*;
         *self = match self {
-            Forward => Backward,
-            Backward => Forward,
+            Forward => Reverse,
+            Reverse => Forward,
         };
     }
 }
@@ -38,7 +38,7 @@ impl Into<Direction> for MotorDirection {
     fn into(self) -> Direction {
         match self {
             Self::Forward => Direction::Forward,
-            Self::Backward => Direction::Reverse,
+            Self::Reverse => Direction::Reverse,
         }
     }
 }

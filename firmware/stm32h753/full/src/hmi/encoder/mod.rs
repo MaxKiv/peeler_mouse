@@ -18,9 +18,7 @@ use crate::{
 };
 
 const TASK_PERIOD: Duration = Duration::from_millis(50);
-
-const SINGLE_THRESHOLD: f32 = 0.8;
-const MULTI_THRESHOLD: f32 = 2.3;
+const FAST_TURN_DELTA: i16 = 12;
 
 pub struct QuadratureEncoderPeripherals<P1, P2>
 where
@@ -72,22 +70,32 @@ async fn manage_encoder(encoder: QuadratureEncoder) {
         let delta = count.wrapping_sub(prev) as i16;
         let abs_delta = delta.abs();
 
-        // Map delta -> abstract encoder position
-        let increase = match abs_delta {
-            _ if abs_delta >= 4 => 2,
-            _ if abs_delta >= 1 => 1,
-            _ => 0,
-        };
-        // Make sure to in/decrement based on encoder direction
-        pos += match dir {
-            Direction::Increased => 1,
-            Direction::Decreased => -1,
-        } * increase;
+        let increase = if abs_delta > FAST_TURN_DELTA { 10 } else { 1 };
 
-        let state = EncoderData { dir, pos };
-        trace!(
-            "encoder - count: {} - delta: {} - pos: {}",
-            count, delta, pos
+        // Map delta -> abstract encoder position
+        let filtered_delta = if delta > 0 {
+            increase
+        } else if delta < 0 {
+            -increase
+        } else {
+            0
+        };
+
+        // Make sure to in/decrement based on encoder direction
+        // pos += match dir {
+        //     Direction::Increased => 1,
+        //     Direction::Decreased => -1,
+        // } * increase;
+        pos += filtered_delta;
+
+        let state = EncoderData {
+            dir,
+            pos,
+            filtered_delta,
+        };
+        info!(
+            "encoder - count: {} - delta: {} - pos: {} - increase: {}",
+            count, delta, pos, filtered_delta
         );
 
         // Send the new value along
@@ -95,7 +103,7 @@ async fn manage_encoder(encoder: QuadratureEncoder) {
 
         // Housekeeping
         prev = count;
-        // Debounce knob if we increased this cycle
+        // Debounce knob if we had a change this cycle
         if abs_delta > 1 {
             Timer::after_millis(100).await;
         }

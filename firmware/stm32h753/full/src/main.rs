@@ -188,7 +188,7 @@ async fn main(spawner: Spawner) {
 
     // ---- Motor Task Construction -----
     motor::controller::setup(&spawner);
-    motor::knife::setup(knife_peri, &spawner);
+    // motor::knife::setup(knife_peri, &spawner);
     motor::translation::setup(translation_peri, &spawner);
     motor::rotation::setup(rotation_peri, &spawner);
 

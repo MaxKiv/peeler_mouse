@@ -2,9 +2,11 @@ use defmt::*;
 use embassy_executor::Spawner;
 use embassy_futures::select::Either6;
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Watch};
+use embassy_time::Timer;
 
 use crate::hmi::button::BUTTON_WATCH_SIZE;
 use crate::hmi::encoder::data::EncoderData;
+use crate::motor::MotorDirection;
 use crate::supervisor::SelectedMotor;
 use crate::supervisor::appstate::Appstate;
 
@@ -24,6 +26,13 @@ pub const DEFAULT_CUT_VELOCITY_MM_PS: f32 = 0.0;
 pub const MAX_ROTATION_VELOCITY_MM_PS: f32 = 10.0;
 pub const MAX_TRANSLATION_VELOCITY_MM_PS: f32 = 1.0;
 pub const MAX_CUT_VELOCITY_MM_PS: f32 = 1.4;
+
+#[derive(Default, Debug, Clone, PartialEq)]
+pub enum HmiState {
+    #[default]
+    NoSelection,
+    MotorSelected,
+}
 
 pub fn setup(spawner: &Spawner) {
     info!("Setting up Supervisor");
@@ -69,69 +78,73 @@ async fn supervise() {
         )
         .await
         {
-            // Rotation Selected Pressed -> Select Rotation motor
             Either6::First(_) => {
-                debug!("Supervisor - Select Rotation Motor");
-                app_state.select_motor(SelectedMotor::Rotation);
+                debug!("Supervisor - START ALL");
+                app_state.start_all();
             }
-            // Translation Selected Pressed -> Select Translation motor
-            Either6::Second(_) => {
-                debug!("Supervisor - Select Translation Motor");
-                app_state.select_motor(SelectedMotor::Translation);
-            }
-            // Cut Selected Pressed -> Select cut motor
-            Either6::Third(_) => {
-                debug!("Supervisor - Select Cut Motor");
-                app_state.select_motor(SelectedMotor::Cut);
-            }
-            // Stop All Selected Pressed -> Stop all motors
+            Either6::Second(_) => {}
+            Either6::Third(_) => {}
             Either6::Fourth(_) => {
-                debug!("Supervisor - STOP ALL");
-                app_state.stop_all();
+                if app_state.enable {
+                    debug!("Supervisor - STOP ALL");
+                    app_state.stop_all();
+                } else {
+                    debug!("Supervisor - RESET ALL");
+                    app_state.reset_all();
+                }
             }
-            // Encoder button pressed -> Stop current motor + Reverse direction
+            // Encoder button pressed -> Switch between HmiState
             Either6::Fifth(_) => {
-                let mut setpoint = app_state.get_current_motor_setpoint();
-                setpoint.speed_percentage = 0.0;
-                setpoint.dir.reverse();
-                setpoint.enabled = false;
+                let hmi_state = match app_state.hmi_state {
+                    HmiState::NoSelection => HmiState::MotorSelected,
+                    HmiState::MotorSelected => HmiState::NoSelection,
+                };
 
-                debug!(
-                    "Supervisor - Reversing {:?}",
-                    app_state.get_selected_motor()
-                );
-
-                app_state.set_current_motor_setpoint(setpoint);
+                app_state.set_hmi_state(hmi_state);
             }
             // Encoder count change -> Change current motor speed
             Either6::Sixth(encoder_data) => {
-                // Calculate new speed
-                let selected_motor = app_state.get_selected_motor();
-                let mut setpoint = app_state.get_current_motor_setpoint();
-                let encoder_delta = encoder_data.pos.saturating_sub(app_state.last_encoder_pos);
+                let encoder_delta = encoder_data.filtered_delta;
 
-                setpoint.speed_percentage = calculate_new_motor_speed_percentage(
-                    selected_motor,
-                    setpoint.speed_percentage,
-                    encoder_delta,
-                );
+                match app_state.hmi_state {
+                    HmiState::NoSelection => {
+                        // Select motor based on encoder position
+                        app_state.selected_motor_idx(app_state.last_encoder_pos + encoder_delta);
+                    }
+                    HmiState::MotorSelected => {
+                        // Calculate new speed for this motor
+                        let selected_motor = app_state.get_selected_motor();
+                        let mut setpoint = app_state.get_current_motor_setpoint();
 
-                if setpoint.speed_percentage > 0.0 {
-                    debug!("Supervisor - speed {} > 0.0", setpoint.speed_percentage);
-                    setpoint.enabled = true;
-                } else {
-                    debug!("Supervisor - speed {} = 0.0", setpoint.speed_percentage);
-                    setpoint.enabled = false;
-                }
+                        setpoint.speed_percentage = calculate_new_motor_speed_percentage(
+                            selected_motor,
+                            setpoint.speed_percentage,
+                            encoder_delta,
+                        );
 
-                // Log change in speed
-                debug!(
-                    "Supervisor - Setting {} state {} speed {}%",
-                    app_state.selected_motor, setpoint.enabled, setpoint.speed_percentage
-                );
+                        if setpoint.speed_percentage < 0.0 {
+                            // debug!("Supervisor - speed {} > 0.0", setpoint.speed_percentage);
+                            setpoint.dir = MotorDirection::Reverse;
+                        }
 
-                app_state.last_encoder_pos = encoder_data.pos;
-                app_state.set_current_motor_setpoint(setpoint);
+                        // Log change in speed
+                        debug!(
+                            "Supervisor - Setting {} state {} dir {} speed {}%",
+                            app_state.selected_motor,
+                            setpoint.enabled,
+                            setpoint.dir,
+                            setpoint.speed_percentage
+                        );
+
+                        app_state.set_current_motor_setpoint(setpoint);
+                    }
+                };
+
+                // Keep track of encoder position
+                app_state.last_encoder_pos += encoder_delta;
+
+                // Debounce menu selection
+                Timer::after_millis(100).await;
             }
         }
 
@@ -147,7 +160,7 @@ fn calculate_new_motor_speed_percentage(
     current_speed_percentage: f32,
     encoder_delta: i16,
 ) -> f32 {
-    const STEP: f32 = 2.5;
+    const STEP: f32 = 1.0;
 
-    (current_speed_percentage + (STEP * encoder_delta as f32)).clamp(0.0, 100.0)
+    (current_speed_percentage + (STEP * encoder_delta as f32)).clamp(-100.0, 100.0)
 }
