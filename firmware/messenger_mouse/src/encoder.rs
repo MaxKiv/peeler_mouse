@@ -12,6 +12,7 @@ pub const KNIFE_AXIS_LEAD: f32 = 0.7;
 pub type KnifePosition = f32;
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
+#[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub enum EncoderValidity {
     NotHomedYet,
     Valid,
@@ -19,6 +20,7 @@ pub enum EncoderValidity {
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
+#[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub enum EncoderError {
     /// Communication error with the sensor
     Communication,
@@ -29,6 +31,7 @@ pub enum EncoderError {
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
+#[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub struct EncoderState {
     pub angle: i32,
     pub revolution: i32,
@@ -68,6 +71,7 @@ impl EncoderState {
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
+#[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub struct KnifeState {
     pub encoder_state: EncoderState,
     pub validity: EncoderValidity,
