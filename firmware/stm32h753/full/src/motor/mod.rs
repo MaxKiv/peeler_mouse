@@ -4,7 +4,7 @@ pub mod rotation;
 pub mod translation;
 
 use core::fmt;
-use tb6600::Direction;
+use messenger_mouse::motor::MotorDirection;
 use uom::si::f32::Velocity;
 use uom::si::velocity::millimeter_per_second;
 
@@ -15,32 +15,6 @@ pub enum MotorState {
     Braking,
     #[default]
     Coasting,
-}
-
-#[derive(Debug, Clone, Default, defmt::Format, PartialEq)]
-pub enum MotorDirection {
-    #[default]
-    Forward,
-    Reverse,
-}
-
-impl MotorDirection {
-    pub fn reverse(&mut self) {
-        use MotorDirection::*;
-        *self = match self {
-            Forward => Reverse,
-            Reverse => Forward,
-        };
-    }
-}
-
-impl Into<Direction> for MotorDirection {
-    fn into(self) -> Direction {
-        match self {
-            Self::Forward => Direction::Forward,
-            Self::Reverse => Direction::Reverse,
-        }
-    }
 }
 
 /// Commands all motors can accept
@@ -72,5 +46,12 @@ impl fmt::Display for MotorCommand {
             }
             _ => write!(f, "DISABLED"),
         }
+    }
+}
+
+pub fn into_tb6600_dir(dir: MotorDirection) -> tb6600::Direction {
+    match dir {
+        MotorDirection::Forward => tb6600::Direction::Forward,
+        MotorDirection::Reverse => tb6600::Direction::Reverse,
     }
 }

@@ -76,10 +76,7 @@ async fn rx_task(
     loop {
         // Read UART report bytes
         if uart_rx.read_exact(&mut buf).await.is_ok() {
-            info!(
-                "COMMS - receive_setpoints: read {} bytes: {}",
-                BUF_SIZE, buf
-            );
+            info!("COMMS - rx_task: read {} bytes: {}", BUF_SIZE, buf);
 
             // Write bytes to pipe for framing
             let mut written = 0;
@@ -87,7 +84,7 @@ async fn rx_task(
                 written += report_pipe_tx.write(&buf[written..]).await;
             }
 
-            debug!("COMMS - receive_setpoints: write {} bytes to pipe", written);
+            debug!("COMMS - rx_task: write {} bytes to pipe", written);
         }
     }
 }
@@ -117,9 +114,55 @@ async fn tx_task(
 #[embassy_executor::task]
 /// Frame received bytes into
 pub async fn frame_and_serialise_reports(
-    _report_sender: watch::Sender<'static, Cs, Report, 1>,
-    _report_pipe_rx: pipe::Reader<'static, Cs, { messenger_mouse::REPORT_BYTES * 4 }>,
+    report_sender: watch::Sender<'static, Cs, Report, 1>,
+    report_pipe_rx: pipe::Reader<'static, Cs, { messenger_mouse::REPORT_BYTES * 4 }>,
 ) {
+    let mut framing_buf = heapless::Vec::<u8, { messenger_mouse::SETPOINT_BYTES * 4 }>::new();
+    let mut buf = [0u8; 1];
+
+    loop {
+        match report_pipe_rx.read(&mut buf).await {
+            // Read single byte
+            1 => {
+                let byte = buf[0];
+                // COBS Delimiter
+                if byte == 0 {
+                    debug!(
+                        "FRAMING - frame_and_serialise_reports: COBS delimiter detected, attempting to frame: {:?}",
+                        framing_buf
+                    );
+
+                    // COBS delimiter byte: process frame
+                    match messenger_mouse::deserialize_report(&mut framing_buf) {
+                        Ok(framed_report) => {
+                            info!(
+                                "FRAMING - frame_and_serialise_reports: COBS delimeter detected & Deserialise succes: {:?}",
+                                framed_report
+                            );
+                            // Happy path - Send deserialised setpoint to control task
+                            report_sender.send(framed_report);
+                        }
+                        Err(err) => {
+                            error!(
+                                "FRAMING - frame_and_serialise_reports: Unable to deserialise framing buffer into a setpoint. Err: {} - buffer: {:?}",
+                                err, framing_buf
+                            );
+                        }
+                    }
+                    // Reset current frame
+                    framing_buf.clear();
+                }
+            }
+            // Unhappy path
+            n => {
+                error!(
+                    "frame_and_serialise_reports: read {} bytes from pipe, ignoring",
+                    n
+                );
+                framing_buf.clear();
+            }
+        };
+    }
 }
 
 #[embassy_executor::task]
@@ -139,7 +182,7 @@ pub async fn serialise_setpoints(
             Ok(mut serialised) => {
                 // Push serialised report into pipe for consumption in comms task
                 debug!(
-                    "FRAMING - serialize_report: serialised report: {:?}",
+                    "FRAMING - serialize_setpoint: serialised setpoint: {:?}",
                     serialised
                 );
                 // Write until full report is pushed into pipe
@@ -157,7 +200,7 @@ pub async fn serialise_setpoints(
             }
             Err(err) => {
                 error!(
-                    "FRAMING - serialise_reports: {} - Unable to serialise report {:?}, skipping...",
+                    "FRAMING - serialize_setpoints: {} - Unable to serialise setpoint {:?}, skipping...",
                     err, setpoint
                 );
             }

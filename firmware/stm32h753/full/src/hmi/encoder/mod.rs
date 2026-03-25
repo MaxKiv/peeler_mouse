@@ -89,6 +89,7 @@ async fn manage_encoder(encoder: QuadratureEncoder) {
         pos += filtered_delta;
 
         let state = EncoderData {
+            count,
             dir,
             pos,
             filtered_delta,

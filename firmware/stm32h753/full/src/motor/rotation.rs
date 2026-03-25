@@ -1,3 +1,5 @@
+use crate::motor::into_tb6600_dir;
+
 use defmt::*;
 use embassy_executor::Spawner;
 use embassy_stm32::gpio::{Level, Output, Speed};
@@ -50,8 +52,12 @@ pub async fn manage_rotational_motor(mut tb: Tb6600<TIM4, Output<'static>, Delay
 
         match &cmd.state {
             MotorState::Enabled => {
-                if tb.run_with_dir(cmd.speed, cmd.dir.into()).await.is_err() {
-                    error!("Unable to drive rotation motor!");
+                if tb
+                    .run_with_dir(cmd.speed, into_tb6600_dir(cmd.dir))
+                    .await
+                    .is_err()
+                {
+                    error!("Unable to drive rotational motor!");
                 };
             }
             _ => tb.stop(),

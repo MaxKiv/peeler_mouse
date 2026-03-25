@@ -16,19 +16,20 @@ use embedded_graphics::{
 };
 use embedded_graphics::{pixelcolor::BinaryColor, prelude::Point};
 use heapless::format;
+use messenger_mouse::{
+    Report,
+    motor::{KnifeManager, MotorCommand, MotorDirection},
+};
 use oled_async::{displays::ssd1309::Ssd1309_128_64, mode::GraphicsMode};
+use uom::si::velocity::millimeter_per_second;
 
 use crate::{
+    comms::task::REPORT_WATCH,
     hmi::{
         button::BUTTON_WATCH_SIZE,
         lcd::{setup::SSD1309_FRAMEBUFFER_SIZE, startup::startup_display},
     },
-    motor::MotorDirection,
-    supervisor::{
-        MotorSetpoint, SelectedMotor,
-        appstate::Appstate,
-        task::{APPSTATE_WATCH, HmiState},
-    },
+    supervisor::{HmiState, SelectedMotor, appstate::Appstate, task::APPSTATE_WATCH},
 };
 
 pub static LCD_INPUT: Watch<CriticalSectionRawMutex, bool, { BUTTON_WATCH_SIZE }> = Watch::new();
@@ -39,6 +40,11 @@ const LCD_PERIOD: Duration = Duration::from_millis(100);
 const TEXT_OFFSET_WIDTH: i32 = 4;
 const TEXT_OFFSET_HEIGHT: i32 = 14;
 const NUM_SPEED_BARS: usize = 8;
+
+pub enum MotorMovementDirection {
+    UpDown,
+    LeftRight,
+}
 
 struct FontStyles<'a> {
     width: usize,
@@ -57,9 +63,10 @@ pub async fn manage_display(
     info!("Starting to manage display");
 
     let mut ticker = Ticker::every(LCD_PERIOD);
-    let mut appstate_tx = APPSTATE_WATCH
+    let mut appstate_rx = APPSTATE_WATCH
         .receiver()
         .expect("increase APPSTATE_WATCH N");
+    let mut report_rx = REPORT_WATCH.receiver().expect("increase REPORT_WATCH N");
 
     // Set up fonts
     let font = &FONT_6X10;
@@ -85,11 +92,12 @@ pub async fn manage_display(
     loop {
         display.clear();
 
-        // Get latest state
-        let latest_state = appstate_tx.try_get().unwrap_or_default();
+        // Get latest state & report
+        let state = appstate_rx.try_get().unwrap_or_default();
+        let report = report_rx.try_get().unwrap_or_default();
 
         // use appstate to draw display
-        draw_ui(&mut display, latest_state, &font_styles);
+        draw_ui(&mut display, state, report, &font_styles);
 
         // Flush display
         if display.flush().await.is_err() {
@@ -110,24 +118,37 @@ fn draw_ui(
         I2CInterface<I2c<'static, Async, Master>>,
         { SSD1309_FRAMEBUFFER_SIZE },
     >,
-    latest_state: Appstate,
+    state: Appstate,
+    report: Report,
     font_styles: &FontStyles,
 ) {
-    draw_header(&latest_state, &font_styles, &mut display);
+    draw_header(&state, &font_styles, &mut display);
 
-    let rot_str = format!(128; "Rot  {} {:>5.1}%", get_dir_str(&latest_state.rotation_setpoint), latest_state.rotation_setpoint.speed_percentage)
-        .expect("rot cmd string doesn't fit heapless string");
-    let lin_str =
-        format!(128; "Lin  {} {:>5.1}%", get_dir_str(&latest_state.translation_setpoint),latest_state.translation_setpoint.speed_percentage)
-            .expect("lin cmd string doesn't fit heapless string");
-    let cut_str =
-        format!(128; "Cut  {} {:>5.1}%", get_up_down_str(&latest_state.cut_setpoint), latest_state.cut_setpoint.speed_percentage)
-            .expect("Cut cmd string doesn't fit heapless string");
-    let running_str = format!(128; "{}", get_running_str(&latest_state))
+    let rot_str = format!(128; "Rot | {}", get_cmd_str(&state.rotation_setpoint,
+        MotorMovementDirection::LeftRight))
+    .expect("rot cmd string doesn't fit heapless string");
+
+    let lin_str = format!(128; "Lin | {}", get_cmd_str(&state.translation_setpoint,
+        MotorMovementDirection::LeftRight))
+    .expect("lin cmd string doesn't fit heapless string");
+
+    let cut_str = match state.knife_manager {
+        KnifeManager::Manual => {
+            format!(128; "Cut | {}", get_cmd_str(&state.knife_setpoint, MotorMovementDirection::UpDown))
+                .expect("cut cmd string doesn't fit heapless string")
+        }
+        KnifeManager::Vision => {
+            format!(128; "Cut | ESP: {}",
+                report.measurements.current_knife_state.encoder_state.absolute_count())
+            .expect("cut cmd string doesn't fit heapless string")
+        }
+    };
+
+    let state_str = format!(128; "{}", get_state_str(&state))
         .expect("running state string doesn't fit heapless string");
 
-    let to_plot = [&cut_str, &lin_str, &rot_str, &running_str];
-    let selected: usize = match latest_state.selected_motor {
+    let to_plot = [&cut_str, &lin_str, &rot_str, &state_str];
+    let selected: usize = match state.selected_motor {
         SelectedMotor::Cut => 0,
         SelectedMotor::Translation => 1,
         SelectedMotor::Rotation => 2,
@@ -149,33 +170,63 @@ fn draw_ui(
     }
 }
 
-fn get_dir_str(setpoint: &MotorSetpoint) -> &'static str {
-    use MotorDirection::*;
-
-    match setpoint.dir {
-        Forward => ">",
-        Reverse => "<",
+fn get_cmd_str(
+    setpoint: &MotorCommand,
+    motor_movement_direction: MotorMovementDirection,
+) -> &'static str {
+    match setpoint {
+        MotorCommand::Halt => format!(128, "HALT  "),
+        MotorCommand::Home => format!(128, "HOMING"),
+        MotorCommand::MoveVelocity(sp) => format!(128;
+            "{}   {}mm/s",
+            get_movement_dir_str(motor_movement_direction, sp.dir),
+            sp.speed.get::<millimeter_per_second>(),
+        )
+        .expect("string doesn't fit heapless string"),
+        MotorCommand::MovePosition(sp) => format!(128;
+            "{}mm-{}mm/s",
+            get_movement_dir_str(motor_movement_direction, sp.dir),
+            sp.speed.get::<millimeter_per_second>(),
+        )
+        .expect("string doesn't fit heapless string"),
     }
 }
 
-fn get_up_down_str(setpoint: &MotorSetpoint) -> &'static str {
+// Kan slechter
+fn get_movement_dir_str(
+    motor_movement_direction: MotorMovementDirection,
+    direction: MotorDirection,
+) -> &'static str {
     use MotorDirection::*;
 
-    match setpoint.dir {
-        Forward => "^",
-        Reverse => "D",
+    match motor_movement_direction {
+        MotorMovementDirection::UpDown => match direction {
+            Forward => ">",
+            Reverse => "<",
+        },
+        MotorMovementDirection::LeftRight => match direction {
+            Forward => "^",
+            Reverse => "v",
+        },
     }
 }
 
-fn get_running_str(appstate: &Appstate) -> &'static str {
+fn get_state_str(appstate: &Appstate) -> heapless::String<128> {
+    let out = format!(128; "{} - {}",
     match appstate.enable {
-        true => "ENABLED",
-        false => "DISABLED",
-    }
+            true => "ENABLED ",
+            false => "DISABLED",
+        }, match appstate.knife_manager {
+        KnifeManager::Manual => "Manual",
+        KnifeManager::Vision => "Vision",
+    })
+    .expect("state cmd string doesn't fit heapless string");
+
+    out
 }
 
 fn draw_header(
-    latest_state: &Appstate,
+    state: &Appstate,
     font_styles: &FontStyles,
     display: &mut GraphicsMode<
         Ssd1309_128_64,
@@ -186,7 +237,7 @@ fn draw_header(
     Text::with_baseline(
         " 1 ",
         Point::new(TEXT_OFFSET_WIDTH, 0),
-        if latest_state.hmi_state == HmiState::NoSelection {
+        if state.hmi_state == HmiState::NoSelection {
             font_styles.selected
         } else {
             font_styles.unselected
@@ -206,7 +257,7 @@ fn draw_header(
     Text::with_baseline(
         " 2 ",
         Point::new(TEXT_OFFSET_WIDTH + 4 * 6, 0),
-        if latest_state.hmi_state == HmiState::MotorSelected {
+        if state.hmi_state == HmiState::MotorSelected {
             font_styles.selected
         } else {
             font_styles.unselected

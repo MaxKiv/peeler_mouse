@@ -5,16 +5,15 @@ use crate::{
     },
     supervisor::{
         MotorSetpoint, SelectedMotor,
-        task::{
-            APPSTATE_WATCH, MAX_ROTATION_VELOCITY_MM_PS,
-            MAX_TRANSLATION_VELOCITY_MM_PS,
-        },
+        task::{APPSTATE_WATCH, MAX_ROTATION_VELOCITY_MM_PS, MAX_TRANSLATION_VELOCITY_MM_PS},
     },
 };
 use defmt::*;
 use embassy_executor::Spawner;
 use l9110::CUT_MAX_SPEED_MS_PS;
 use uom::si::{f32::Velocity, velocity::millimeter_per_second};
+
+pub const KNIFE_OPERATIONAL_SPEED_MM_PS: f32 = 1.0;
 
 pub fn setup(spawner: &Spawner) {
     info!("Setting up Motor Contoller");

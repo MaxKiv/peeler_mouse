@@ -1,8 +1,16 @@
-use crate::motor::MotorDirection;
-
 pub mod appstate;
 pub mod cmd;
+pub mod esp;
+pub mod hmi;
 pub mod task;
+
+/// Menu items / tabs the HMI can be in
+#[derive(Default, Debug, Clone, PartialEq)]
+pub enum HmiState {
+    #[default]
+    NoSelection,
+    MotorSelected,
+}
 
 /// Different motors used in the project
 #[derive(Debug, Clone, Default, defmt::Format)]
@@ -11,22 +19,4 @@ pub enum SelectedMotor {
     Translation,
     Rotation,
     Cut,
-}
-
-/// Setpoint for a single motor
-#[derive(Debug, Clone, Default)]
-pub struct MotorSetpoint {
-    pub enabled: bool,
-    pub speed_percentage: f32,
-    pub dir: MotorDirection,
-}
-
-impl MotorSetpoint {
-    pub fn safe() -> Self {
-        Self {
-            enabled: false,
-            speed_percentage: 0.0,
-            dir: MotorDirection::Forward,
-        }
-    }
 }

@@ -144,7 +144,7 @@ async fn main(spawner: Spawner) {
 
     hmi::button::DebouncedButton::run(
         green_button,
-        &supervisor::task::STOP_ALL_SELECTED,
+        &supervisor::task::BUTTON_D,
         "green",
         ButtonMode::FallingEdge,
         &spawner,
@@ -152,7 +152,7 @@ async fn main(spawner: Spawner) {
 
     hmi::button::DebouncedButton::run(
         blue_button,
-        &supervisor::task::TRANSLATION_SELECTED,
+        &supervisor::task::BUTTON_A,
         "blue",
         ButtonMode::FallingEdge,
         &spawner,
@@ -160,7 +160,7 @@ async fn main(spawner: Spawner) {
 
     hmi::button::DebouncedButton::run(
         purple_button,
-        &supervisor::task::CUT_SELECTED,
+        &supervisor::task::BUTTON_B,
         "purple",
         ButtonMode::FallingEdge,
         &spawner,
@@ -168,7 +168,7 @@ async fn main(spawner: Spawner) {
 
     hmi::button::DebouncedButton::run(
         gray_button,
-        &supervisor::task::ROTATION_SELECTED,
+        &supervisor::task::BUTTON_C,
         "gray",
         ButtonMode::FallingEdge,
         &spawner,

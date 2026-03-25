@@ -32,6 +32,7 @@ impl Default for EncoderData {
             dir: Direction::Increased,
             pos: 0,
             filtered_delta: 0,
+            count: 0,
         }
     }
 }
@@ -41,4 +42,5 @@ pub struct EncoderData {
     pub dir: Direction,
     pub pos: i16,
     pub filtered_delta: i16,
+    pub count: u16,
 }
