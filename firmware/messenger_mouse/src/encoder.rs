@@ -11,9 +11,10 @@ pub const KNIFE_AXIS_LEAD: f32 = 0.7;
 /// Knife position in mm
 pub type KnifePosition = f32;
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub enum EncoderValidity {
+    #[default]
     NotHomedYet,
     Valid,
     EncoderError(EncoderError),
@@ -30,7 +31,7 @@ pub enum EncoderError {
     SensorError,
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub struct EncoderState {
     pub angle: i32,
@@ -70,7 +71,7 @@ impl EncoderState {
     }
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub struct KnifeState {
     pub encoder_state: EncoderState,

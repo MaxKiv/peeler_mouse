@@ -1,10 +1,11 @@
 #![no_std]
 
 pub mod encoder;
+pub mod motor;
 
 use serde::{Deserialize, Serialize};
 
-use crate::encoder::KnifeState;
+use crate::{encoder::KnifeState, motor::KnifeManager};
 
 pub const REPORT_BYTES: usize = core::mem::size_of::<Report>();
 pub const SETPOINT_BYTES: usize = core::mem::size_of::<Setpoint>();
@@ -26,7 +27,7 @@ pub fn deserialize_setpoint(buf: &mut [u8]) -> postcard::Result<Setpoint> {
     postcard::from_bytes_cobs(buf)
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub struct Report {
     pub setpoint: Setpoint,
@@ -37,11 +38,11 @@ pub struct Report {
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub struct Setpoint {
-    pub enable: bool,
+    pub knife_management_state: KnifeManager,
     pub led_setpoint: LedSetpoint,
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub struct Measurements {
     /// microseconds since boot
@@ -66,10 +67,11 @@ pub enum AppState {
     Fault,
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub enum VisionAlgorithmOutput {
     Up,
+    #[default]
     Hold,
     Down,
 }
