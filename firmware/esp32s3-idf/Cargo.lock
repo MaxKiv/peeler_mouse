@@ -1120,8 +1120,10 @@ name = "messenger-mouse"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "defmt 0.3.100",
  "postcard",
  "serde",
+ "uom",
 ]
 
 [[package]]

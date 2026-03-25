@@ -136,14 +136,6 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     // Attempt to start up the control loop + dependencies
     encoder::encoder_task::run(spawner, encoder_peri)?;
 
-    // let motor_peri = MotorPeripherals {
-    //     timer: peripherals.ledc.timer1,
-    //     channel: peripherals.ledc.channel1,
-    //     pwm_pin: peripherals.pins.gpio41,
-    //     dir_pin: peripherals.pins.gpio42,
-    //     limit_switch: peripherals.pins.gpio45,
-    // };
-
     let motor_peri = MotorPeripherals {
         timer: peripherals.ledc.timer1,
         rmt_channel: peripherals.rmt.channel0,

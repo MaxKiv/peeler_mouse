@@ -23,23 +23,6 @@ impl MotorCommand {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq)]
-pub enum MotorDirection {
-    #[default]
-    Forward,
-    Reverse,
-}
-
-impl MotorDirection {
-    pub fn flip(&mut self) {
-        use MotorDirection::*;
-        *self = match self {
-            Forward => Reverse,
-            Reverse => Forward,
-        };
-    }
-}
-
 impl Into<l9110::Direction> for MotorDirection {
     fn into(self) -> l9110::Direction {
         match self {

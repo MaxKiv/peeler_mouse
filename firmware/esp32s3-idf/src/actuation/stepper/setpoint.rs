@@ -40,3 +40,20 @@ impl MotorVelocitySetpoint {
         Self::new(MotorDirection::Reverse)
     }
 }
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub enum MotorDirection {
+    #[default]
+    Forward,
+    Reverse,
+}
+
+impl MotorDirection {
+    pub fn flip(&mut self) {
+        use MotorDirection::*;
+        *self = match self {
+            Forward => Reverse,
+            Reverse => Forward,
+        };
+    }
+}
