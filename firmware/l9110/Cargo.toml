@@ -13,3 +13,6 @@ embassy-sync = { version = "0.7.2"}
 esp-idf-hal = "0.45.2"
 log = "0.4"
 anyhow = "1.0.99"
+
+messenger-mouse = { path = "../messenger_mouse" }
+

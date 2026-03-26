@@ -9,11 +9,7 @@ use thiserror::Error;
 
 use log::*;
 
-#[derive(Debug, Clone, Copy)]
-pub enum Direction {
-    Forward,
-    Reverse,
-}
+use messenger_mouse::motor::MotorDirection as Direction;
 
 #[derive(Error, Debug)]
 pub enum StepperError {

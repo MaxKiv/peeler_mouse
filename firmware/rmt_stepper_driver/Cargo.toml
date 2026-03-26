@@ -16,3 +16,5 @@ log = "0.4"
 anyhow = "1.0.99"
 
 embassy-futures = "0.1.1"
+
+messenger-mouse = { path = "../messenger_mouse" }

@@ -17,41 +17,34 @@ pub enum MotorState {
     Coasting,
 }
 
-/// Commands all motors can accept
-#[derive(Debug, Clone, Default)]
-pub struct MotorCommand {
-    /// Operational state of the motor, i.e. is it enabled? Is it braking?
-    pub state: MotorState,
-    /// Direction of axis rotation
-    pub dir: MotorDirection,
-    /// Speed of the motor
-    pub speed: Velocity,
-}
-
-impl core::fmt::Display for MotorState {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            MotorState::Enabled => f.write_str("EN"),
-            MotorState::Braking => f.write_str("BR"),
-            MotorState::Coasting => f.write_str("CO"),
-        }
-    }
-}
-
-impl fmt::Display for MotorCommand {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.state {
-            MotorState::Enabled => {
-                write!(f, "{:.2} mm/s", self.speed.get::<millimeter_per_second>(),)
-            }
-            _ => write!(f, "DISABLED"),
-        }
-    }
-}
-
-pub fn into_tb6600_dir(dir: MotorDirection) -> tb6600::Direction {
-    match dir {
-        MotorDirection::Forward => tb6600::Direction::Forward,
-        MotorDirection::Reverse => tb6600::Direction::Reverse,
-    }
-}
+// /// Commands all motors can accept
+// #[derive(Debug, Clone, Default)]
+// pub struct MotorCommand {
+//     /// Operational state of the motor, i.e. is it enabled? Is it braking?
+//     pub state: MotorState,
+//     /// Direction of axis rotation
+//     pub dir: MotorDirection,
+//     /// Speed of the motor
+//     pub speed: Velocity,
+// }
+//
+// impl core::fmt::Display for MotorState {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         match self {
+//             MotorState::Enabled => f.write_str("EN"),
+//             MotorState::Braking => f.write_str("BR"),
+//             MotorState::Coasting => f.write_str("CO"),
+//         }
+//     }
+// }
+//
+// impl fmt::Display for MotorCommand {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         match self.state {
+//             MotorState::Enabled => {
+//                 write!(f, "{:.2} mm/s", self.speed.get::<millimeter_per_second>(),)
+//             }
+//             _ => write!(f, "DISABLED"),
+//         }
+//     }
+// }

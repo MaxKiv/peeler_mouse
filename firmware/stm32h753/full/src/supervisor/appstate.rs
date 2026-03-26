@@ -1,11 +1,10 @@
-use messenger_mouse::motor::{
-    KnifeManagementState, KnifeManager, MotorCommand, MotorVelocitySetpoint,
-};
+use defmt::warn;
+use messenger_mouse::motor::{KnifeManager, MotorCommand, MotorVelocitySetpoint};
 use uom::si::{f32::Velocity, velocity::millimeter_per_second};
 
 use crate::{
     motor::controller::KNIFE_OPERATIONAL_SPEED_MM_PS,
-    supervisor::{HmiState, MotorSetpoint, SelectedMotor},
+    supervisor::{HmiState, SelectedMotor},
 };
 
 const MOTORS: [SelectedMotor; 3] = [
@@ -17,7 +16,7 @@ const MOTORS: [SelectedMotor; 3] = [
 /// Application state, managed by the supervisor
 /// Tracks the currently selected motor
 /// And for each motor the previo
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone, defmt::Format)]
 pub struct Appstate {
     pub hmi_state: HmiState,
     pub selected_motor: SelectedMotor,
@@ -52,11 +51,7 @@ impl Appstate {
         match self.selected_motor {
             SelectedMotor::Translation => self.translation_setpoint = setpoint,
             SelectedMotor::Rotation => self.rotation_setpoint = setpoint,
-            SelectedMotor::Cut => {
-                self.knife_setpoint = KnifeManagementState::Manual(MotorCommand::MoveVelocity(
-                    self.construct_knife_setpoint_from_appstate(),
-                ));
-            }
+            SelectedMotor::Cut => self.knife_setpoint = setpoint,
         }
     }
 
@@ -64,15 +59,8 @@ impl Appstate {
         match self.selected_motor {
             SelectedMotor::Translation => self.translation_setpoint.clone(),
             SelectedMotor::Rotation => self.rotation_setpoint.clone(),
-            SelectedMotor::Cut => self.cut_setpoint.clone(),
+            SelectedMotor::Cut => self.knife_setpoint.clone(),
         }
-    }
-
-    fn set_motor_enable(&mut self, enable: bool) {
-        self.translation_setpoint.enabled = enable;
-        self.rotation_setpoint.enabled = enable;
-        self.knife_setpoint.enabled = enable;
-        self.enable = enable;
     }
 
     pub fn set_knife_management(&mut self, manager: KnifeManager) {
@@ -80,20 +68,34 @@ impl Appstate {
     }
 
     pub fn start_all(&mut self) {
-        self.set_motor_enable(true);
+        self.enable = true
     }
 
     pub fn stop_all(&mut self) {
         self.knife_manager = KnifeManager::Manual;
-        self.set_motor_enable(false);
+        self.enable = false;
     }
 
     pub fn reset_all(&mut self) {
-        self.enable = false;
-        self.translation_setpoint = MotorCommand::default();
-        self.rotation_setpoint = MotorCommand::default();
-        self.knife_setpoint = MotorCommand::default();
-        self.knife_manager = KnifeManager::Manual;
         self.hmi_state = HmiState::default();
+        self.translation_setpoint = MotorCommand::MoveVelocity(MotorVelocitySetpoint::new_safe());
+        self.rotation_setpoint = MotorCommand::MoveVelocity(MotorVelocitySetpoint::new_safe());
+        self.knife_setpoint = MotorCommand::MoveVelocity(MotorVelocitySetpoint::new_safe());
+        self.stop_all();
+    }
+}
+
+impl Default for Appstate {
+    fn default() -> Self {
+        Self {
+            translation_setpoint: MotorCommand::MoveVelocity(MotorVelocitySetpoint::new_safe()),
+            rotation_setpoint: MotorCommand::MoveVelocity(MotorVelocitySetpoint::new_safe()),
+            knife_setpoint: MotorCommand::MoveVelocity(MotorVelocitySetpoint::new_safe()),
+            hmi_state: Default::default(),
+            selected_motor: Default::default(),
+            knife_manager: Default::default(),
+            last_encoder_pos: Default::default(),
+            enable: Default::default(),
+        }
     }
 }

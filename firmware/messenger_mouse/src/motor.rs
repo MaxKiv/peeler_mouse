@@ -15,7 +15,20 @@ pub enum MotorCommand {
     MovePosition(MotorPositionSetpoint),
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug, Default)]
+impl MotorCommand {
+    pub fn next(&self) -> Self {
+        match self {
+            MotorCommand::Halt => MotorCommand::Home,
+            MotorCommand::Home => MotorCommand::MoveVelocity(MotorVelocitySetpoint::new_safe()),
+            MotorCommand::MoveVelocity(_) => {
+                MotorCommand::MovePosition(MotorPositionSetpoint::new_safe())
+            }
+            MotorCommand::MovePosition(_) => MotorCommand::Halt,
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub enum KnifeManager {
     #[default]
@@ -39,6 +52,15 @@ pub struct MotorPositionSetpoint {
     pub target: Length,
     /// Speed of the motor
     pub speed: Velocity,
+}
+
+impl MotorPositionSetpoint {
+    pub fn new_safe() -> Self {
+        Self {
+            target: Length::new::<millimeter>(0.0),
+            speed: Velocity::new::<millimeter_per_second>(0.0),
+        }
+    }
 }
 
 impl MotorVelocitySetpoint {

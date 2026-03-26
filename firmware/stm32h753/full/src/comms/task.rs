@@ -84,7 +84,7 @@ async fn rx_task(
                 written += report_pipe_tx.write(&buf[written..]).await;
             }
 
-            debug!("COMMS - rx_task: write {} bytes to pipe", written);
+            // debug!("COMMS - rx_task: write {} bytes to pipe", written);
         }
     }
 }

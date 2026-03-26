@@ -3,7 +3,8 @@ use uom::si::{
     velocity::millimeter_per_second,
 };
 
-use crate::actuation::stepper::{command::MotorDirection, motor_task::OPERATION_SPEED_MM_PS};
+use crate::actuation::stepper::motor_task::OPERATION_SPEED_MM_PS;
+use messenger_mouse::motor::MotorDirection;
 
 /// Velocity movement setpoint
 #[derive(Debug, Clone, Default)]
@@ -38,22 +39,5 @@ impl MotorVelocitySetpoint {
 
     pub fn new_reverse() -> Self {
         Self::new(MotorDirection::Reverse)
-    }
-}
-
-#[derive(Debug, Clone, Default, PartialEq)]
-pub enum MotorDirection {
-    #[default]
-    Forward,
-    Reverse,
-}
-
-impl MotorDirection {
-    pub fn flip(&mut self) {
-        use MotorDirection::*;
-        *self = match self {
-            Forward => Reverse,
-            Reverse => Forward,
-        };
     }
 }

@@ -76,22 +76,22 @@ async fn main(spawner: Spawner) {
     };
 
     // let knife_left_pwm_pin = p.PE9;
-    let knife_left_pwm_pin = p.PA8;
-    let knife_left_pwm = PwmPin::new(knife_left_pwm_pin, OutputType::PushPull);
-    // let knife_right_pwm_pin = p.PE11;
-    let knife_right_pwm_pin = p.PA9;
-    let knife_right_pwm = PwmPin::new(knife_right_pwm_pin, OutputType::PushPull);
-    let knife_pwm = SimplePwm::new(
-        p.TIM1,
-        Some(knife_left_pwm),
-        Some(knife_right_pwm),
-        None,
-        None,
-        hz(l9110::PWM_FREQUENCY.0),
-        Default::default(),
-    );
-
-    let knife_peri = CutMotorPeripherals { pwm: knife_pwm };
+    // let knife_left_pwm_pin = p.PA8;
+    // let knife_left_pwm = PwmPin::new(knife_left_pwm_pin, OutputType::PushPull);
+    // // let knife_right_pwm_pin = p.PE11;
+    // let knife_right_pwm_pin = p.PA9;
+    // let knife_right_pwm = PwmPin::new(knife_right_pwm_pin, OutputType::PushPull);
+    // let knife_pwm = SimplePwm::new(
+    //     p.TIM1,
+    //     Some(knife_left_pwm),
+    //     Some(knife_right_pwm),
+    //     None,
+    //     None,
+    //     hz(l9110::PWM_FREQUENCY.0),
+    //     Default::default(),
+    // );
+    //
+    // let knife_peri = CutMotorPeripherals { pwm: knife_pwm };
 
     // ---- HMI Peripheral declarations -----
 

@@ -1,13 +1,14 @@
 use defmt::*;
 use embassy_executor::Spawner;
-use embassy_stm32::timer::simple_pwm::SimplePwm;
 use embassy_stm32::peripherals::*;
+use embassy_stm32::timer::simple_pwm::SimplePwm;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::watch::Watch;
 use embassy_time::Delay;
 use l9110::L9110;
+use messenger_mouse::motor::MotorCommand;
 
-use crate::motor::{MotorCommand, MotorDirection, MotorState};
+use crate::motor::{MotorDirection, MotorState};
 
 pub static CUT_SETPOINT: Watch<CriticalSectionRawMutex, MotorCommand, 2> = Watch::new();
 
@@ -36,16 +37,16 @@ pub async fn manage_cutting_motor(mut l9110: L9110<TIM1, Delay>) {
     loop {
         let cmd = rx.changed().await;
 
-        match &cmd.state {
-            MotorState::Braking => l9110.short_break().await,
-            MotorState::Coasting => l9110.coast(),
-            MotorState::Enabled => {
-                if cmd.dir == MotorDirection::Forward {
-                    l9110.forward(cmd.speed)
-                } else {
-                    l9110.reverse(cmd.speed)
-                }
-            }
-        };
+        // match &cmd.state {
+        //     MotorState::Braking => l9110.short_break().await,
+        //     MotorState::Coasting => l9110.coast(),
+        //     MotorState::Enabled => {
+        //         if cmd.dir == MotorDirection::Forward {
+        //             l9110.forward(cmd.speed)
+        //         } else {
+        //             l9110.reverse(cmd.speed)
+        //         }
+        //     }
+        // };
     }
 }

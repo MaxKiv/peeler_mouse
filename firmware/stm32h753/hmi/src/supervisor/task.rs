@@ -149,7 +149,7 @@ fn calculate_new_motor_speed_percentage(
     current_speed_percentage: f32,
     encoder_delta: i16,
 ) -> f32 {
-    const STEP: f32 = 2.5;
+    const STEP: f32 = 1.0;
 
     (current_speed_percentage + (STEP * encoder_delta as f32)).clamp(0.0, 100.0)
 }

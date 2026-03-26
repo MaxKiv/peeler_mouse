@@ -30,9 +30,6 @@ pub static ENCODER_PRESSED: Watch<Cs, bool, { BUTTON_WATCH_SIZE }> = Watch::new(
 pub static ENCODER_DATA: Watch<Cs, EncoderData, 2> = Watch::new();
 
 pub const MOTOR_SPEED_STEPS: usize = 10;
-pub const DEFAULT_ROTATION_VELOCITY_MM_PS: f32 = 0.0;
-pub const DEFAULT_TRANSLATION_VELOCITY_MM_PS: f32 = 0.0;
-pub const DEFAULT_CUT_VELOCITY_MM_PS: f32 = 0.0;
 pub const MAX_ROTATION_VELOCITY_MM_PS: f32 = 10.0;
 pub const MAX_TRANSLATION_VELOCITY_MM_PS: f32 = 1.0;
 pub const MAX_CUT_VELOCITY_MM_PS: f32 = 1.4;

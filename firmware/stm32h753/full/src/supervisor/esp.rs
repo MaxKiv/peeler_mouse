@@ -1,12 +1,20 @@
 use defmt::*;
-use messenger_mouse::{LedSetpoint, Setpoint};
+use embassy_time::{Duration, Ticker};
+use messenger_mouse::{
+    LedSetpoint, Setpoint,
+    motor::{KnifeManager, MotorCommand},
+};
 
 use crate::{comms::task::SETPOINT_WATCH, supervisor::task::APPSTATE_WATCH};
 
-/// Main supervisor loop, manages appstate
+const TASK_PERIOD: Duration = Duration::from_millis(100);
+
+/// Uses latest appstate to instruct ESP32
 #[embassy_executor::task]
 pub async fn supervise_esp() {
     info!("Starting to supervise ESP");
+
+    let mut ticker = Ticker::every(TASK_PERIOD);
 
     let mut appstate_rx = APPSTATE_WATCH.receiver().unwrap();
     let setpoint_tx = SETPOINT_WATCH.sender();
@@ -17,15 +25,35 @@ pub async fn supervise_esp() {
     loop {
         // get latest appstate
         let state = appstate_rx.changed().await;
-        info!(
-            "Got knife management state: {:?}",
-            state.knife_management_state
-        );
 
-        // Inform esp32 whether it should be managing the knife motor
-        setpoint_tx.send(Setpoint {
-            knife_management_state: state.knife_management_state,
-            led_setpoint: LedSetpoint { brightness: 0.0 },
-        });
+        if state.enable {
+            if state.knife_manager == KnifeManager::Manual {
+                warn!(
+                    "ESP: Managed MANUAL with command {:?}",
+                    state.knife_setpoint,
+                );
+            } else {
+                warn!("ESP: Managed by VISION");
+            }
+
+            // Inform esp32 whether it should enable the vision algorithm
+            // and if not what the knife motor should be doing.
+            setpoint_tx.send(Setpoint {
+                knife_manager: state.knife_manager,
+                // Hack: Only ask the knife to do anything if global appstate enable = true
+                // This friction comes from the broad scope of MotorCommand, which the HMI is unable to
+                // handle atm
+                knife_setpoint: if state.enable {
+                    state.knife_setpoint
+                } else {
+                    MotorCommand::Halt
+                },
+                led_setpoint: LedSetpoint { brightness: 0.0 },
+            });
+        } else {
+            setpoint_tx.send(Setpoint::new_safe());
+        }
+
+        ticker.next().await;
     }
 }

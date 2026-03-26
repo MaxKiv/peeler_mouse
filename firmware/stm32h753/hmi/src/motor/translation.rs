@@ -42,7 +42,7 @@ pub fn setup(p: TranslationMotorPeripherals, spawner: &Spawner) {
     // Set up TB6600 Direction pin
     let dir = Output::new(p.dir, Level::Low, Speed::VeryHigh);
     // Set up TB6600 motordriver
-    let tb = Tb6600::new("Tranlsation", p.pwm, dir, embassy_time::Delay);
+    let tb = Tb6600::new("Translation", p.pwm, dir, embassy_time::Delay);
 
     spawner.spawn(manage_translation_motor(tb)).unwrap();
 }

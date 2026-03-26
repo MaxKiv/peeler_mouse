@@ -1,4 +1,5 @@
-use messenger_mouse::VisionAlgorithmOutput;
+use messenger_mouse::{motor::MotorCommand, VisionAlgorithmOutput};
+use uom::si::{f32::Velocity, velocity::millimeter_per_second};
 
 use crate::{camera::framebuffer::FrameBuffer, control::vision::HORIZONTAL_SOBEL_KERNEL};
 
@@ -11,6 +12,24 @@ enum Algo {
 const ALGO: Algo = Algo::PeriodicEncoderTest;
 const HIGH_THRESHOLD: u64 = 200;
 const LOW_THRESHOLD: u64 = 100;
+
+const VISION_KNIFE_SPEED_MM_PS: f32 = 1.0;
+
+pub fn vision_output_to_motorcommand(algo_out: VisionAlgorithmOutput) -> MotorCommand {
+    match algo_out {
+        VisionAlgorithmOutput::Hold => MotorCommand::Halt,
+        VisionAlgorithmOutput::Up => {
+            MotorCommand::MoveVelocity(messenger_mouse::motor::MotorVelocitySetpoint::new_forward(
+                Velocity::new::<millimeter_per_second>(VISION_KNIFE_SPEED_MM_PS),
+            ))
+        }
+        VisionAlgorithmOutput::Down => {
+            MotorCommand::MoveVelocity(messenger_mouse::motor::MotorVelocitySetpoint::new_reverse(
+                Velocity::new::<millimeter_per_second>(VISION_KNIFE_SPEED_MM_PS),
+            ))
+        }
+    }
+}
 
 pub async fn calculate_control_effort(frame: FrameBuffer) -> VisionAlgorithmOutput {
     let out = match ALGO {

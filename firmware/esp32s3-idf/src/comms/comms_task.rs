@@ -25,7 +25,7 @@ static REPORT_PIPE: StaticCell<pipe::Pipe<Cs, { messenger_mouse::REPORT_BYTES * 
 static SETPOINT_PIPE: StaticCell<pipe::Pipe<Cs, { messenger_mouse::SETPOINT_BYTES * 4 }>> =
     StaticCell::new();
 pub static REPORT_WATCH: Watch<Cs, messenger_mouse::Report, 1> = Watch::new();
-pub static SETPOINT_WATCH: Watch<Cs, messenger_mouse::Setpoint, 1> = Watch::new();
+pub static SETPOINT_WATCH: Watch<Cs, messenger_mouse::Setpoint, 2> = Watch::new();
 
 // Spawn all COMMS & FRAMING tasks required for external communications
 pub fn run(spawner: &Spawner, comms_peri: CommsPeripherals) -> anyhow::Result<()> {
@@ -64,7 +64,7 @@ pub fn run(spawner: &Spawner, comms_peri: CommsPeripherals) -> anyhow::Result<()
     Ok(())
 }
 
-// UART RX COMMS task, pushes serialised setpoints over the wire
+// UART RX COMMS task, receives serialised setpoints over the wire
 #[embassy_executor::task]
 pub async fn rx_task(
     rx: AsyncUartRxDriver<'static, UartRxDriver<'static>>,
@@ -87,7 +87,26 @@ pub async fn rx_task(
     }
 }
 
-// UART RX FRAMING task, serialises latest report
+// UART TX COMMS task, sends latest serialised reports over wire
+#[embassy_executor::task]
+pub async fn tx_task(
+    mut tx: AsyncUartTxDriver<'static, UartTxDriver<'static>>,
+    report_pipe_rx: pipe::Reader<'static, Cs, { messenger_mouse::REPORT_BYTES * 4 }>,
+) {
+    info!("COMMS: Starting TX task");
+    let mut buf = [0u8; 64];
+
+    loop {
+        // Receive serialised report bytes
+        let x = report_pipe_rx.read(&mut buf).await;
+        // Send them across the wire
+        if let Err(err) = tx.write_all(&buf[..x]).await {
+            error!("COMMS: TX error: {err}");
+        }
+    }
+}
+
+// UART TX FRAMING task, serialises latest report to send to stm32
 #[embassy_executor::task]
 pub async fn serialise_task(
     mut report_pipe_tx: pipe::Writer<'static, Cs, { messenger_mouse::REPORT_BYTES * 4 }>,
@@ -113,30 +132,11 @@ pub async fn serialise_task(
     }
 }
 
-// UART TX COMMS task, receives latest serialised setpoints from wire
-#[embassy_executor::task]
-pub async fn tx_task(
-    mut tx: AsyncUartTxDriver<'static, UartTxDriver<'static>>,
-    report_pipe_rx: pipe::Reader<'static, Cs, { messenger_mouse::REPORT_BYTES * 4 }>,
-) {
-    info!("COMMS: Starting TX task");
-    let mut buf = [0u8; 64];
-
-    loop {
-        // Receive serialised report bytes
-        let x = report_pipe_rx.read(&mut buf).await;
-        // Send them across the wire
-        if let Err(err) = tx.write_all(&buf[..x]).await {
-            error!("COMMS: TX error: {err}");
-        }
-    }
-}
-
-// UART TX FRAMING task, deserialises received setpoints for consumption in this firmware
+// UART RX FRAMING task, deserialises received setpoints for consumption in this firmware
 #[embassy_executor::task]
 pub async fn deserialise_task(
     setpoint_pipe_rx: pipe::Reader<'static, Cs, { messenger_mouse::SETPOINT_BYTES * 4 }>,
-    setpoint_sender: watch::Sender<'static, Cs, messenger_mouse::Setpoint, 1>,
+    setpoint_sender: watch::Sender<'static, Cs, messenger_mouse::Setpoint, 2>,
 ) {
     info!("COMMS: Starting deserialise task");
     let mut framing_buf = heapless::Vec::<u8, { messenger_mouse::SETPOINT_BYTES * 2 }>::new();

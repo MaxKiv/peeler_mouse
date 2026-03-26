@@ -1,6 +1,6 @@
 #![no_std]
 
-use defmt::{info, trace, warn};
+use defmt::{error, info, trace, warn};
 use embassy_stm32::{
     time::Hertz,
     timer::{GeneralInstance4Channel, simple_pwm::SimplePwm},
@@ -9,6 +9,8 @@ use embedded_hal::digital::OutputPin;
 use embedded_hal_async::delay::DelayNs;
 use thiserror::Error;
 use uom::si::{f32::Velocity, velocity::millimeter_per_second};
+
+use messenger_mouse::motor::MotorDirection as Direction;
 
 const BASE_DUTY_CYCLE_PERCENT: u8 = 50;
 pub const BASE_STEP_FREQUENCY_HZ: Hertz = Hertz(10_000);
@@ -22,11 +24,10 @@ where
 {
     name: &'static str,
     step_pwm: SimplePwm<'static, Timer>,
-    step_frequency: Hertz,
     dir_pin: DirPin,
     enabled: bool,
     delay: Delay,
-    /// Fierce googling: min pulse width ~5µs, maybe?
+    pub step_frequency: Hertz,
     pub direction: Direction,
 }
 
@@ -40,12 +41,6 @@ pub enum TB6600Error {
     EnablePin,
     #[error("Invalid input")]
     Input,
-}
-
-#[derive(Clone, Debug, defmt::Format)]
-pub enum Direction {
-    Forward,
-    Reverse,
 }
 
 impl<Timer, DirPin, Delay> Tb6600<Timer, DirPin, Delay>
@@ -78,48 +73,29 @@ where
         out
     }
 
-    /// Run the stepper at given speed
-    pub async fn run_with_dir(
-        &mut self,
-        speed: Velocity,
-        dir: Direction,
-    ) -> Result<(), TB6600Error> {
-        match dir {
-            Direction::Forward => self.run(speed).await,
-            Direction::Reverse => self.run(-speed).await,
+    // Move the stepper at given step frequency
+    pub async fn run_hertz(&mut self, freq: Hertz, dir: Direction) -> Result<(), TB6600Error> {
+        // Make sure the motor is going in the right direction
+        if dir != self.direction {
+            self.set_direction(dir.clone()).await?;
         }
-    }
 
-    /// Run the stepper at given speed
-    pub async fn run(&mut self, speed: Velocity) -> Result<(), TB6600Error> {
-        let mut speed = speed.get::<millimeter_per_second>();
-        info!("{} motor RUNNING at {}mm/s", self.name, speed);
-
-        // Check in which direction we should be running
-        if speed > 0.0 {
-            self.set_direction(Direction::Forward).await?;
+        // Start PWM at requested step frequency
+        if let Hertz(0) = freq {
+            self.stop();
         } else {
-            self.set_direction(Direction::Reverse).await?;
-            // make sure speed is positive from here
-            speed = -speed;
-        }
-
-        // Set stepping frequency appropriate to the velocity setpoint
-        // Validate setpoint
-        if let Some(freq) = self.speed_to_frequency(speed) {
+            // Set pwm frequency
             self.step_pwm.set_frequency(freq);
-
+            // Set pwm duty cycle
             self.step_pwm
                 .ch1()
                 .set_duty_cycle_percent(BASE_DUTY_CYCLE_PERCENT); // set_frequency docs suggests I have to call this again
-
             self.start_stepping();
-
-            self.step_frequency = freq;
-        } else {
-            // Setpoint invalid, stop motor
-            self.stop();
         }
+
+        // Track step_frequency and direction
+        self.step_frequency = freq;
+        self.direction = dir;
 
         Ok(())
     }
@@ -131,24 +107,24 @@ where
         self.enabled = false;
     }
 
-    /// Set step N times
-    pub async fn do_steps(&mut self, num_steps: u32, speed: Velocity) {
-        let us = ((num_steps as f32 / self.step_frequency.0 as f32) * 1_000_000.0) as u32;
-
-        info!(
-            "{} motor START stepping {} times -> {}us",
-            self.name, num_steps, us
-        );
-
-        self.run(speed).await;
-        self.delay.delay_us(us).await;
-
-        info!(
-            "{} motor DONE stepping {} times -> {}us",
-            self.name, num_steps, us
-        );
-        self.stop();
-    }
+    // /// Set step N times
+    // pub async fn do_steps(&mut self, num_steps: u32, speed: Velocity) {
+    //     let us = ((num_steps as f32 / self.step_frequency.0 as f32) * 1_000_000.0) as u32;
+    //
+    //     info!(
+    //         "{} motor START stepping {} times -> {}us",
+    //         self.name, num_steps, us
+    //     );
+    //
+    //     self.run(speed, dir).await;
+    //     self.delay.delay_us(us).await;
+    //
+    //     info!(
+    //         "{} motor DONE stepping {} times -> {}us",
+    //         self.name, num_steps, us
+    //     );
+    //     self.stop();
+    // }
 
     /// Start stepping
     /// ENABLE LOW = ON + EN tied low -> Driver is always on
@@ -202,32 +178,34 @@ where
         self.step_pwm.ch1().set_duty_cycle_percent(percentage);
     }
 
-    fn speed_to_frequency(&self, speed: f32) -> Option<Hertz> {
-        /// Speed [mm/s] at maximum stepping frequency
-        const MAX_SPEED_MS_PS: f32 = 10.0;
-
-        let speed_percentage = (speed / MAX_SPEED_MS_PS).clamp(0.0, 1.0);
-        let freq = (speed_percentage * MAX_STEP_FREQUENCY_HZ.0 as f32) as u32;
-        if freq > 0 {
-            info!(
-                "converting {} motor speed setpoint of {}mm/s to {}% speed ({})",
-                self.name,
-                speed,
-                speed_percentage * 100.0,
-                freq
-            );
-
-            Some(Hertz(freq))
-        } else {
-            warn!(
-                "INVALID SPEED: attempting to convert {} motor speed setpoint of {}mm/s to {}% speed ({})",
-                self.name,
-                speed,
-                speed_percentage * 100.0,
-                freq
-            );
-
-            None
-        }
-    }
+    // fn speed_to_frequency(&self, speed: f32) -> Option<Hertz> {
+    //     /// Speed [mm/s] at maximum stepping frequency
+    //     const MAX_SPEED_MM_PS: f32 = 10.0;
+    //     const ROTATIONS_PS_AT_10_MM_PS: f32 = 4.897 / 60.0;
+    //
+    //     let speed_percentage = (speed / MAX_SPEED_MM_PS).clamp(0.0, 1.0);
+    //     let freq = speed_percentage * ROTATIONS_PS_AT_10_MM_PS;
+    //
+    //     if freq > 0 {
+    //         info!(
+    //             "converting {} motor speed setpoint of {}mm/s to {}% speed ({})",
+    //             self.name,
+    //             speed,
+    //             speed_percentage * 100.0,
+    //             freq
+    //         );
+    //
+    //         Some(Hertz(freq))
+    //     } else {
+    //         warn!(
+    //             "INVALID SPEED: attempting to convert {} motor speed setpoint of {}mm/s to {}% speed ({})",
+    //             self.name,
+    //             speed,
+    //             speed_percentage * 100.0,
+    //             freq
+    //         );
+    //
+    //         None
+    //     }
+    // }
 }

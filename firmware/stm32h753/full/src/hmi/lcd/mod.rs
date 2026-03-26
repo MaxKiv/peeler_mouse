@@ -1,6 +1,7 @@
 pub mod setup;
 pub mod startup;
 
+use core::fmt::Write;
 use defmt::*;
 use display_interface_i2c::I2CInterface;
 use embassy_stm32::{
@@ -15,12 +16,13 @@ use embedded_graphics::{
     text::{Baseline, Text},
 };
 use embedded_graphics::{pixelcolor::BinaryColor, prelude::Point};
-use heapless::format;
+use heapless::{String, format};
 use messenger_mouse::{
     Report,
     motor::{KnifeManager, MotorCommand, MotorDirection},
 };
 use oled_async::{displays::ssd1309::Ssd1309_128_64, mode::GraphicsMode};
+use uom::si::length::millimeter;
 use uom::si::velocity::millimeter_per_second;
 
 use crate::{
@@ -42,6 +44,7 @@ const TEXT_OFFSET_HEIGHT: i32 = 14;
 const NUM_SPEED_BARS: usize = 8;
 
 pub enum MotorMovementDirection {
+    Rotational,
     UpDown,
     LeftRight,
 }
@@ -100,8 +103,8 @@ pub async fn manage_display(
         draw_ui(&mut display, state, report, &font_styles);
 
         // Flush display
-        if display.flush().await.is_err() {
-            warn!("Unable to flush display");
+        if let Err(err) = display.flush().await {
+            warn!("Unable to flush display: {:?}", err);
             while display.init().await.is_err() {
                 error!("Unable to initialise display, is it connected?");
                 Timer::after(Duration::from_millis(1000)).await;
@@ -124,17 +127,26 @@ fn draw_ui(
 ) {
     draw_header(&state, &font_styles, &mut display);
 
-    let rot_str = format!(128; "Rot | {}", get_cmd_str(&state.rotation_setpoint,
-        MotorMovementDirection::LeftRight))
-    .expect("rot cmd string doesn't fit heapless string");
+    let rot_str: String<128> = format!(
+        128;
+        "Rot | {}",
+        get_cmd_str::<64>(&state.rotation_setpoint, MotorMovementDirection::Rotational)
+    )
+    .unwrap();
 
-    let lin_str = format!(128; "Lin | {}", get_cmd_str(&state.translation_setpoint,
-        MotorMovementDirection::LeftRight))
-    .expect("lin cmd string doesn't fit heapless string");
+    let lin_str: String<128> = format!(
+        128;
+        "Lin | {}",
+        get_cmd_str::<64>(&state.translation_setpoint, MotorMovementDirection::LeftRight)
+    )
+    .unwrap();
+
+    let mut cut_str: String<128> = String::new();
+    cut_str.write_str("Cut | ").unwrap();
 
     let cut_str = match state.knife_manager {
         KnifeManager::Manual => {
-            format!(128; "Cut | {}", get_cmd_str(&state.knife_setpoint, MotorMovementDirection::UpDown))
+            format!(128; "Cut | {}", get_cmd_str::<64>(&state.knife_setpoint, MotorMovementDirection::UpDown))
                 .expect("cut cmd string doesn't fit heapless string")
         }
         KnifeManager::Vision => {
@@ -170,25 +182,27 @@ fn draw_ui(
     }
 }
 
-fn get_cmd_str(
+fn get_cmd_str<const N: usize>(
     setpoint: &MotorCommand,
     motor_movement_direction: MotorMovementDirection,
-) -> &'static str {
+) -> String<N> {
     match setpoint {
-        MotorCommand::Halt => format!(128, "HALT  "),
-        MotorCommand::Home => format!(128, "HOMING"),
-        MotorCommand::MoveVelocity(sp) => format!(128;
-            "{}   {}mm/s",
-            get_movement_dir_str(motor_movement_direction, sp.dir),
+        MotorCommand::Halt => format!(N; "HALT").unwrap(),
+        MotorCommand::Home => format!(N; "HOMING").unwrap(),
+        MotorCommand::MoveVelocity(sp) => format!(
+            N;
+            "{} {:>4.1}mm/s",
+            get_movement_dir_str(motor_movement_direction, sp.dir.clone()),
             sp.speed.get::<millimeter_per_second>(),
         )
-        .expect("string doesn't fit heapless string"),
-        MotorCommand::MovePosition(sp) => format!(128;
-            "{}mm-{}mm/s",
-            get_movement_dir_str(motor_movement_direction, sp.dir),
+        .unwrap(),
+        MotorCommand::MovePosition(sp) => format!(
+            N;
+            "{}mm {}mm/s",
+            sp.target.get::<millimeter>(),
             sp.speed.get::<millimeter_per_second>(),
         )
-        .expect("string doesn't fit heapless string"),
+        .unwrap(),
     }
 }
 
@@ -201,12 +215,16 @@ fn get_movement_dir_str(
 
     match motor_movement_direction {
         MotorMovementDirection::UpDown => match direction {
-            Forward => ">",
-            Reverse => "<",
-        },
-        MotorMovementDirection::LeftRight => match direction {
             Forward => "^",
             Reverse => "v",
+        },
+        MotorMovementDirection::LeftRight => match direction {
+            Forward => "<",
+            Reverse => ">",
+        },
+        MotorMovementDirection::Rotational => match direction {
+            Forward => "L",
+            Reverse => "R",
         },
     }
 }
@@ -235,7 +253,7 @@ fn draw_header(
     >,
 ) {
     Text::with_baseline(
-        " 1 ",
+        " 1  ",
         Point::new(TEXT_OFFSET_WIDTH, 0),
         if state.hmi_state == HmiState::NoSelection {
             font_styles.selected
@@ -248,15 +266,15 @@ fn draw_header(
     .unwrap();
     Text::with_baseline(
         "|",
-        Point::new(TEXT_OFFSET_WIDTH + 3 * 6, 0),
+        Point::new(TEXT_OFFSET_WIDTH + 4 * 6, 0),
         font_styles.unselected,
         Baseline::Top,
     )
     .draw(display)
     .unwrap();
     Text::with_baseline(
-        " 2 ",
-        Point::new(TEXT_OFFSET_WIDTH + 4 * 6, 0),
+        " 2  ",
+        Point::new(TEXT_OFFSET_WIDTH + 5 * 6, 0),
         if state.hmi_state == HmiState::MotorSelected {
             font_styles.selected
         } else {

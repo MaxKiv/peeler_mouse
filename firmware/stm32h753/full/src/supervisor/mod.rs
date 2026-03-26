@@ -5,7 +5,7 @@ pub mod hmi;
 pub mod task;
 
 /// Menu items / tabs the HMI can be in
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq, defmt::Format)]
 pub enum HmiState {
     #[default]
     NoSelection,

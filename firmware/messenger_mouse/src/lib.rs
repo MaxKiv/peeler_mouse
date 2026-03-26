@@ -5,7 +5,10 @@ pub mod motor;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{encoder::KnifeState, motor::KnifeManager};
+use crate::{
+    encoder::KnifeState,
+    motor::{KnifeManager, MotorCommand},
+};
 
 pub const REPORT_BYTES: usize = core::mem::size_of::<Report>();
 pub const SETPOINT_BYTES: usize = core::mem::size_of::<Setpoint>();
@@ -38,8 +41,19 @@ pub struct Report {
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub struct Setpoint {
-    pub knife_management_state: KnifeManager,
+    pub knife_manager: KnifeManager,
+    pub knife_setpoint: MotorCommand,
     pub led_setpoint: LedSetpoint,
+}
+
+impl Setpoint {
+    pub fn new_safe() -> Self {
+        Self {
+            knife_manager: KnifeManager::Manual,
+            knife_setpoint: MotorCommand::Halt,
+            led_setpoint: LedSetpoint { brightness: 0.0 },
+        }
+    }
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, Default)]

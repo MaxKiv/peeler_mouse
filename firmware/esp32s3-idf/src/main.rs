@@ -139,7 +139,7 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     let motor_peri = MotorPeripherals {
         timer: peripherals.ledc.timer1,
         rmt_channel: peripherals.rmt.channel0,
-        rmt_pin: peripherals.pins.gpio41,
+        step_rmt_pin: peripherals.pins.gpio41,
         dir_pin: peripherals.pins.gpio42,
         limit_switch: peripherals.pins.gpio45,
     };

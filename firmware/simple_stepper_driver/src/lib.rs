@@ -7,6 +7,8 @@ use thiserror::Error;
 
 pub const BASE_STEP_FREQUENCY_HZ: Hertz = Hertz(1_000);
 
+use messenger_mouse::motor::MotorDirection as Direction;
+
 use log::*;
 
 /// Simple single speed DIR/STEP driver
@@ -27,12 +29,6 @@ pub enum SimpleStepperError {
     EnablePin,
     #[error("Issue with PWM driver")]
     Pwm,
-}
-
-#[derive(Clone, Debug)]
-pub enum Direction {
-    Forward,
-    Reverse,
 }
 
 impl<DirPin, Delay> SimpleStepperDriver<DirPin, Delay>

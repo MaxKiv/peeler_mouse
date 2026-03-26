@@ -1045,6 +1045,7 @@ dependencies = [
  "embedded-hal-async",
  "esp-idf-hal",
  "log",
+ "messenger-mouse",
  "static_cell",
  "uom",
 ]
@@ -1456,6 +1457,7 @@ dependencies = [
  "embedded-hal-async",
  "esp-idf-hal",
  "log",
+ "messenger-mouse",
  "static_cell",
  "thiserror 2.0.18",
  "uom",
@@ -1596,6 +1598,7 @@ dependencies = [
  "embedded-hal-async",
  "esp-idf-hal",
  "log",
+ "messenger-mouse",
  "static_cell",
  "thiserror 2.0.18",
  "uom",

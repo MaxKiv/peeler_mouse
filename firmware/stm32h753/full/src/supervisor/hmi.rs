@@ -3,9 +3,8 @@ use embassy_executor::Spawner;
 use embassy_futures::select::Either6;
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Watch};
 use embassy_time::Timer;
-use messenger_mouse::motor::{
-    KnifeManagementState, MotorCommand, MotorDirection, MotorVelocitySetpoint,
-};
+use messenger_mouse::Setpoint;
+use messenger_mouse::motor::{KnifeManager, MotorCommand, MotorDirection, MotorVelocitySetpoint};
 use uom::si::f32::Velocity;
 use uom::si::velocity::millimeter_per_second;
 
@@ -13,6 +12,7 @@ use crate::motor::controller::KNIFE_OPERATIONAL_SPEED_MM_PS;
 use crate::supervisor::appstate::Appstate;
 use crate::supervisor::task::{
     APPSTATE_WATCH, BUTTON_A, BUTTON_B, BUTTON_C, BUTTON_D, ENCODER_DATA, ENCODER_PRESSED,
+    MAX_CUT_VELOCITY_MM_PS, MAX_ROTATION_VELOCITY_MM_PS, MAX_TRANSLATION_VELOCITY_MM_PS,
 };
 use crate::supervisor::{HmiState, SelectedMotor};
 
@@ -33,9 +33,11 @@ pub async fn supervise_hmi() {
 
     // Initialise appstate
     let mut app_state = Appstate::default();
+
     // Send default appstate
     appstate_tx.send(app_state.clone());
 
+    // Continously Process HMI inputs into appstate changes, which are then picked up elsewhere
     loop {
         // Wait for a HMI input that we need to process
         match embassy_futures::select::select6(
@@ -48,23 +50,21 @@ pub async fn supervise_hmi() {
         )
         .await
         {
-            Either6::First(_) => {}
+            Either6::First(_) => {
+                app_state.set_knife_management(match app_state.knife_manager {
+                    KnifeManager::Manual => KnifeManager::Vision,
+                    KnifeManager::Vision => KnifeManager::Manual,
+                });
+            }
             Either6::Second(_) => {
-                app_state.set_knife_management(match app_state.knife_management_state {
-                    KnifeManagementState::Manual(_) => {
-                        debug!("Supervisor - TOGGLE KNIFE MANAGEMENT -> VISION");
-                        KnifeManagementState::Vision
+                match app_state.hmi_state {
+                    HmiState::MotorSelected => {
+                        // Cycles to next type of MotorCommand
+                        let current_setpoint = app_state.get_current_motor_setpoint();
+                        app_state.set_current_motor_setpoint(current_setpoint.next());
                     }
-                    KnifeManagementState::Vision => {
-                        debug!("Supervisor - TOGGLE KNIFE MANAGEMENT -> MANUAL");
-                        if app_state.enable && app_state.cut_setpoint.enabled {
-                            let setpoint = construct_knife_setpoint_from_appstate(&app_state);
-                            KnifeManagementState::Manual(MotorCommand::MoveVelocity(setpoint))
-                        } else {
-                            KnifeManagementState::Manual(MotorCommand::Halt)
-                        }
-                    }
-                })
+                    _ => (),
+                };
             }
             Either6::Third(_) => {
                 debug!("Supervisor - START ALL");
@@ -74,16 +74,6 @@ pub async fn supervise_hmi() {
                 if app_state.enable {
                     debug!("Supervisor - STOP ALL");
                     app_state.stop_all();
-                    // Return knife management to Stm32
-                    if let KnifeManagementState::Vision = app_state.knife_management_state {
-                        app_state
-                            .set_knife_management(KnifeManagementState::Manual(MotorCommand::Halt));
-                    } else {
-                        let setpoint = construct_knife_setpoint_from_appstate(&app_state);
-                        app_state.set_knife_management(KnifeManagementState::Manual(
-                            MotorCommand::MoveVelocity(setpoint),
-                        ));
-                    }
                 } else {
                     debug!("Supervisor - RESET ALL");
                     app_state.reset_all();
@@ -109,31 +99,38 @@ pub async fn supervise_hmi() {
                             .selected_motor_idx(get_menu_idx_from_encoder_count(encoder_count));
                     }
                     HmiState::MotorSelected => {
-                        // Calculate new speed for this motor
-                        let selected_motor = app_state.get_selected_motor();
-                        let mut setpoint = app_state.get_current_motor_setpoint();
+                        let current_setpoint = app_state.get_current_motor_setpoint();
+                        match current_setpoint {
+                            MotorCommand::Halt => {
+                                // Halt mode -> turning encoder does nothing
+                            }
+                            MotorCommand::Home => {
+                                // TODO: maybe set homing velocity here?
+                            }
+                            MotorCommand::MoveVelocity(sp) => {
+                                // Change target velocity based on encoder delta
+                                let new_setpoint = calculate_new_motor_speed(
+                                    sp.speed,
+                                    encoder_data.filtered_delta,
+                                    app_state.get_selected_motor(),
+                                );
 
-                        setpoint.speed_percentage = calculate_new_motor_speed_percentage(
-                            selected_motor,
-                            setpoint.speed_percentage,
-                            encoder_data.filtered_delta,
-                        );
+                                app_state.set_current_motor_setpoint(MotorCommand::MoveVelocity(
+                                    new_setpoint.clone(),
+                                ));
 
-                        if setpoint.speed_percentage < 0.0 {
-                            // debug!("Supervisor - speed {} > 0.0", setpoint.speed_percentage);
-                            setpoint.dir = MotorDirection::Reverse;
+                                // Log change in speed
+                                debug!(
+                                    "Supervisor - Setting {} {}mm/s {}",
+                                    app_state.selected_motor,
+                                    new_setpoint.speed.get::<millimeter_per_second>(),
+                                    new_setpoint.dir
+                                );
+                            }
+                            MotorCommand::MovePosition(_sp) => {
+                                // TODO: in/decrease position based on encoder delta
+                            }
                         }
-
-                        // Log change in speed
-                        debug!(
-                            "Supervisor - Setting {} state {} dir {} speed {}%",
-                            app_state.selected_motor,
-                            setpoint.enabled,
-                            setpoint.dir,
-                            setpoint.speed_percentage
-                        );
-
-                        app_state.set_current_motor_setpoint(setpoint);
                     }
                 };
 
@@ -142,6 +139,8 @@ pub async fn supervise_hmi() {
             }
         }
 
+        info!("APPSTATE: {:?}\n\n", app_state);
+
         // Application state has changed, update downstream actuators & Display
         appstate_tx.send(app_state.clone());
     }
@@ -149,14 +148,34 @@ pub async fn supervise_hmi() {
 
 /// Calculates the new motor speed after a new encoder delta is received
 /// This depends on the previous and maximum motor speed.
-pub fn calculate_new_motor_speed_percentage(
-    _selected_motor: SelectedMotor,
-    current_speed_percentage: f32,
+pub fn calculate_new_motor_speed(
+    current_speed: Velocity,
     encoder_delta: i16,
-) -> f32 {
-    const STEP: f32 = 1.0;
+    selected_motor: SelectedMotor,
+) -> MotorVelocitySetpoint {
+    const STEP_MM_PS: f32 = 0.1;
 
-    (current_speed_percentage + (STEP * encoder_delta as f32)).clamp(-100.0, 100.0)
+    let (min, max) = match selected_motor {
+        SelectedMotor::Translation => (
+            -MAX_TRANSLATION_VELOCITY_MM_PS,
+            MAX_TRANSLATION_VELOCITY_MM_PS,
+        ),
+        SelectedMotor::Rotation => (-MAX_ROTATION_VELOCITY_MM_PS, MAX_ROTATION_VELOCITY_MM_PS),
+        SelectedMotor::Cut => (-MAX_CUT_VELOCITY_MM_PS, MAX_CUT_VELOCITY_MM_PS),
+    };
+
+    let speed = (current_speed.get::<millimeter_per_second>()
+        + (STEP_MM_PS * encoder_delta as f32))
+        .clamp(min, max);
+    let dir = match speed {
+        _ if speed >= 0.0 => MotorDirection::Reverse,
+        _ => MotorDirection::Forward,
+    };
+    let speed = Velocity::new::<millimeter_per_second>(speed);
+
+    let out = MotorVelocitySetpoint { dir, speed };
+    info!("new setpoint for {:?}: {:?}", selected_motor, out);
+    out
 }
 
 pub fn get_menu_idx_from_encoder_count(count: u16) -> i16 {

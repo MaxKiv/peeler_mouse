@@ -37,7 +37,8 @@ grounded = "0.2.0"
 embedded-graphics = { version = "0.8.1", features = ["defmt"] }
 uom = { version = "0.37.0", default-features = false, features = ["f32", "si"] }
 oled_async = "0.2.0"
-display-interface-i2c = "^ 0.5"
+display-interface = { version = "0.5.0",  features = ["defmt-03"] }
+display-interface-i2c = { version = "^ 0.5" }
 
 tb6600 = { version = "0.1.0", path = "../tb6600" }
 l9110 = { version = "0.1.0", path = "../l9110" }

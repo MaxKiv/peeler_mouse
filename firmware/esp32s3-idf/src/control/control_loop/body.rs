@@ -4,23 +4,26 @@ use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Re
 use embassy_time::{Duration, Timer};
 use esp_idf_hal::ledc::LedcDriver;
 use log::*;
-use messenger_mouse::{encoder::KnifeState, AppState, Setpoint, VisionAlgorithmOutput};
+use messenger_mouse::{
+    encoder::KnifeState,
+    motor::{KnifeManager, MotorCommand},
+    AppState, Setpoint, VisionAlgorithmOutput,
+};
 
 use crate::{
     actuation::stepper::{
-        command::MotorCommand,
         motor_task::{KNIFE_MOTOR_HOME, KNIFE_MOTOR_SETPOINT},
         HomeStatus,
     },
     camera::{camera_freertos_task::FRAMEBUFFER_CONTROL_LOOP_CHANNEL, framebuffer::FrameBuffer},
     comms::comms_task::REPORT_WATCH,
-    control::vision::algo::calculate_control_effort,
+    control::vision::algo::{calculate_control_effort, vision_output_to_motorcommand},
     encoder::encoder_task::KNIFE_STATE,
 };
 
 #[embassy_executor::task]
 pub async fn control_loop(
-    mut setpoint_receiver: Receiver<'static, Cs, Setpoint, 1>,
+    mut setpoint_receiver: Receiver<'static, Cs, Setpoint, 2>,
     mut led: LedcDriver<'static>,
 ) {
     info!("starting control task");
@@ -68,67 +71,76 @@ pub async fn control_loop(
         }
 
         // update appstate
-        let mut current_appstate = match latest_setpoint.enable {
-            true => AppState::Active,
-            false => AppState::StandBy,
+        let mut current_appstate = match latest_setpoint.knife_manager {
+            KnifeManager::Vision => AppState::Active,
+            KnifeManager::Manual => AppState::StandBy,
         };
 
         // Act on latest setpoint
         // if latest_setpoint.enable {
-        if true {
-            // Get latest framebuffer from camera
-            let frame = framebuffer_rx.changed().await;
+        // Get latest framebuffer from camera
+        let frame = framebuffer_rx.changed().await;
 
-            let gen = frame.generation;
-            let timestamp_us = frame.timestamp_us;
-            let camera_fps = frame.fps;
-            let led_brightness = latest_setpoint.led_setpoint.brightness;
+        let gen = frame.generation;
+        let timestamp_us = frame.timestamp_us;
+        let camera_fps = frame.fps;
+        let led_brightness = latest_setpoint.led_setpoint.brightness;
 
-            // Get latest encoder value
-            let current_knife_state = encoder_rx.try_get().unwrap_or_else(|| {
-                log::error!("CONTROL: unable to get valid knife state, using default...");
-                KnifeState::new()
-            });
+        // Get latest encoder value
+        let current_knife_state = encoder_rx.try_get().unwrap_or_else(|| {
+            log::error!("CONTROL: unable to get valid knife state, using default...");
+            KnifeState::new()
+        });
 
-            // Calculate control effort
-            let vision_output = get_control_effort(frame).await;
+        // Calculate control effort
+        let vision_output = get_control_effort(frame).await;
 
-            // Convert into motor command
-            let motor_cmd = MotorCommand::from_vision_output(vision_output.clone());
-
-            log::info!(
-                "CONTROL: frame {} -> vision alg: {:?} -> control effort: {:?}",
-                gen,
-                vision_output,
-                motor_cmd,
-            );
-
-            // Actuate Knife adjustment motor
-            motor_tx.send(motor_cmd);
-
-            // Actuate LED
-            // Note: Esp driver clamps DC value
-            if let Err(err) = led.set_duty((led_brightness * (led.get_max_duty() as f32)) as u32) {
-                log::error!("CONTROL: unable to set LED duty cycle: {err}");
-                current_appstate = AppState::Fault;
+        // Knife motor actuation
+        let motor_cmd = match latest_setpoint.knife_manager {
+            KnifeManager::Manual => {
+                // Translate knife motor commannd to
+                latest_setpoint.knife_setpoint.clone()
             }
+            KnifeManager::Vision => {
+                // Convert into motor command
 
-            // Collect & Send Report to stm32
-            let measurements = messenger_mouse::Measurements {
-                timestamp_us,
-                camera_fps,
-                controller_output: vision_output,
-                current_knife_state,
-            };
+                let motor_cmd = vision_output_to_motorcommand(vision_output.clone());
 
-            let report = messenger_mouse::Report {
-                setpoint: latest_setpoint.clone(),
-                app_state: current_appstate,
-                measurements,
-            };
+                log::info!(
+                    "CONTROL: frame {} -> vision alg: {:?} -> control effort: {:?}",
+                    gen,
+                    vision_output,
+                    motor_cmd,
+                );
 
-            report_tx.send(report);
+                motor_cmd
+            }
+        };
+        // Actuate Knife adjustment motor
+        motor_tx.send(motor_cmd);
+
+        // Actuate LED
+        // Note: Esp driver clamps DC value
+        if let Err(err) = led.set_duty((led_brightness * (led.get_max_duty() as f32)) as u32) {
+            log::error!("CONTROL: unable to set LED duty cycle: {err}");
+            current_appstate = AppState::Fault;
         }
+
+        // Collect & Send Report to stm32
+        let measurements = messenger_mouse::Measurements {
+            timestamp_us,
+            camera_fps,
+            controller_output: vision_output,
+            current_knife_state,
+        };
+
+        let report = messenger_mouse::Report {
+            setpoint: latest_setpoint.clone(),
+            app_state: current_appstate,
+            measurements,
+        };
+
+        report_tx.send(report);
     }
 }
 

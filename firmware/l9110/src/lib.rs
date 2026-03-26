@@ -16,6 +16,8 @@ pub const CUT_MAX_SPEED_MS_PS: f32 = 2.0;
 /// Increasing this increase heat release due to large ampererage in L9110 H-bridge short, potentially killing the device
 pub const BREAK_DURATION_MS: u32 = 10;
 
+use messenger_mouse::motor::MotorDirection as Direction;
+
 pub struct L9110<Delay> {
     name: &'static str,
     pwm_a: LedcDriver<'static>,
@@ -23,21 +25,6 @@ pub struct L9110<Delay> {
     delay: Delay,
     speed: Velocity,
     direction: Direction,
-}
-
-#[derive(Clone, Debug)]
-pub enum Direction {
-    Forward,
-    Reverse,
-}
-
-impl Direction {
-    pub fn flip(&mut self) {
-        *self = match self {
-            Direction::Forward => Direction::Reverse,
-            Direction::Reverse => Direction::Forward,
-        }
-    }
 }
 
 impl<Delay> L9110<Delay>
