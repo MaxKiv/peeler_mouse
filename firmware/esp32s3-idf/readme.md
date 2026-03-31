@@ -174,6 +174,8 @@ This project targets:
 
 # Pin Mapping
 
+![ESP32-S3 pinout](../../data/esp32s3_pinout.svg)
+
 ## UART (external)
 
 | Signal | GPIO |

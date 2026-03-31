@@ -1,0 +1,188 @@
+<svg width="680" height="740" viewBox="0 0 680 740" xmlns="http://www.w3.org/2000/svg" style="font-family: sans-serif; background: white;">
+  <defs>
+    <style>
+      .ts { font-size: 12px; fill: #444; }
+      .label-blue { font-size: 12px; fill: #B5D4F4; }
+      .label-green { font-size: 12px; fill: #9FE1CB; }
+      .label-amber { font-size: 12px; fill: #FAC775; }
+      .label-coral { font-size: 12px; fill: #F5C4B3; }
+      .label-gray-light { font-size: 12px; fill: #D3D1C7; }
+      .label-tertiary { font-size: 12px; fill: #888; }
+    </style>
+  </defs>
+
+  <!-- Legend -->
+  <rect x="10" y="8" width="12" height="12" rx="2" fill="#185FA5"/>
+  <text x="26" y="19" class="ts">UART / comms</text>
+  <rect x="130" y="8" width="12" height="12" rx="2" fill="#0F6E56"/>
+  <text x="146" y="19" class="ts">SPI encoder</text>
+  <rect x="240" y="8" width="12" height="12" rx="2" fill="#854F0B"/>
+  <text x="256" y="19" class="ts">Stepper motor</text>
+  <rect x="370" y="8" width="12" height="12" rx="2" fill="#993C1D"/>
+  <text x="386" y="19" class="ts">LED / control</text>
+  <rect x="480" y="8" width="12" height="12" rx="2" fill="#888780"/>
+  <text x="496" y="19" class="ts">Power / GND</text>
+
+  <!-- Board outline -->
+  <rect x="255" y="30" width="170" height="700" rx="14" fill="none" stroke="#bbb" stroke-width="1.5"/>
+
+  <!-- Module rectangle -->
+  <rect x="268" y="130" width="144" height="200" rx="6" fill="#f4f4f4" stroke="#ccc" stroke-width="0.5"/>
+  <text x="340" y="225" text-anchor="middle" class="label-tertiary">ESP32-S3</text>
+  <text x="340" y="242" text-anchor="middle" class="label-tertiary">module</text>
+
+  <!-- USB connector -->
+  <rect x="305" y="700" width="70" height="18" rx="4" fill="#f4f4f4" stroke="#ccc" stroke-width="0.5"/>
+  <text x="340" y="712" text-anchor="middle" class="label-tertiary">USB-C</text>
+
+  <!-- LEFT pin dots -->
+  <circle cx="255" cy="48"  r="4" fill="#888780"/>
+  <circle cx="255" cy="82"  r="4" fill="#888780"/>
+  <circle cx="255" cy="116" r="4" fill="#ccc"/>
+  <circle cx="255" cy="150" r="4" fill="#ccc"/>
+  <circle cx="255" cy="184" r="4" fill="#ccc"/>
+  <circle cx="255" cy="218" r="4" fill="#ccc"/>
+  <circle cx="255" cy="252" r="4" fill="#ccc"/>
+  <circle cx="255" cy="286" r="4" fill="#ccc"/>
+  <circle cx="255" cy="320" r="4" fill="#ccc"/>
+  <circle cx="255" cy="354" r="4" fill="#ccc"/>
+  <circle cx="255" cy="388" r="4" fill="#ccc"/>
+  <circle cx="255" cy="422" r="4" fill="#ccc"/>
+  <circle cx="255" cy="456" r="4" fill="#ccc"/>
+  <circle cx="255" cy="490" r="4" fill="#ccc"/>
+  <circle cx="255" cy="524" r="4" fill="#ccc"/>
+  <circle cx="255" cy="558" r="4" fill="#ccc"/>
+  <circle cx="255" cy="592" r="4" fill="#ccc"/>
+  <circle cx="255" cy="626" r="4" fill="#ccc"/>
+  <circle cx="255" cy="660" r="4" fill="#888780"/>
+  <circle cx="255" cy="694" r="4" fill="#444"/>
+
+  <!-- RIGHT pin dots -->
+  <circle cx="425" cy="48"  r="4" fill="#185FA5"/>
+  <circle cx="425" cy="82"  r="4" fill="#185FA5"/>
+  <circle cx="425" cy="116" r="4" fill="#0F6E56"/>
+  <circle cx="425" cy="150" r="4" fill="#0F6E56"/>
+  <circle cx="425" cy="184" r="4" fill="#854F0B"/>
+  <circle cx="425" cy="218" r="4" fill="#854F0B"/>
+  <circle cx="425" cy="252" r="4" fill="#ccc"/>
+  <circle cx="425" cy="286" r="4" fill="#ccc"/>
+  <circle cx="425" cy="320" r="4" fill="#ccc"/>
+  <circle cx="425" cy="354" r="4" fill="#ccc"/>
+  <circle cx="425" cy="388" r="4" fill="#ccc"/>
+  <circle cx="425" cy="422" r="4" fill="#ccc"/>
+  <circle cx="425" cy="456" r="4" fill="#ccc"/>
+  <circle cx="425" cy="490" r="4" fill="#854F0B"/>
+  <circle cx="425" cy="524" r="4" fill="#993C1D"/>
+  <circle cx="425" cy="558" r="4" fill="#0F6E56"/>
+  <circle cx="425" cy="592" r="4" fill="#0F6E56"/>
+  <circle cx="425" cy="626" r="4" fill="#ccc"/>
+  <circle cx="425" cy="660" r="4" fill="#ccc"/>
+  <circle cx="425" cy="694" r="4" fill="#444"/>
+
+  <!-- RIGHT LABELS (coloured badges) -->
+  <!-- GPIO43 TX -->
+  <line x1="420" y1="48" x2="490" y2="48" stroke="#185FA5" stroke-width="1"/>
+  <rect x="491" y="38" width="80" height="20" rx="3" fill="#185FA5"/>
+  <text x="531" y="52" text-anchor="middle" dominant-baseline="central" class="label-blue">GPIO43 TX</text>
+
+  <!-- GPIO44 RX -->
+  <line x1="420" y1="82" x2="490" y2="82" stroke="#185FA5" stroke-width="1"/>
+  <rect x="491" y="72" width="80" height="20" rx="3" fill="#185FA5"/>
+  <text x="531" y="86" text-anchor="middle" dominant-baseline="central" class="label-blue">GPIO44 RX</text>
+
+  <!-- GPIO1 SCLK -->
+  <line x1="420" y1="116" x2="490" y2="116" stroke="#0F6E56" stroke-width="1"/>
+  <rect x="491" y="106" width="92" height="20" rx="3" fill="#0F6E56"/>
+  <text x="537" y="120" text-anchor="middle" dominant-baseline="central" class="label-green">GPIO1 SCLK</text>
+
+  <!-- GPIO2 MISO -->
+  <line x1="420" y1="150" x2="490" y2="150" stroke="#0F6E56" stroke-width="1"/>
+  <rect x="491" y="140" width="92" height="20" rx="3" fill="#0F6E56"/>
+  <text x="537" y="154" text-anchor="middle" dominant-baseline="central" class="label-green">GPIO2 MISO</text>
+
+  <!-- GPIO42 DIR -->
+  <line x1="420" y1="184" x2="490" y2="184" stroke="#854F0B" stroke-width="1"/>
+  <rect x="491" y="174" width="84" height="20" rx="3" fill="#854F0B"/>
+  <text x="533" y="188" text-anchor="middle" dominant-baseline="central" class="label-amber">GPIO42 DIR</text>
+
+  <!-- GPIO41 STEP -->
+  <line x1="420" y1="218" x2="490" y2="218" stroke="#854F0B" stroke-width="1"/>
+  <rect x="491" y="208" width="92" height="20" rx="3" fill="#854F0B"/>
+  <text x="537" y="222" text-anchor="middle" dominant-baseline="central" class="label-amber">GPIO41 STEP</text>
+
+  <!-- GPIO45 LIMIT -->
+  <line x1="420" y1="490" x2="490" y2="490" stroke="#854F0B" stroke-width="1"/>
+  <rect x="491" y="480" width="100" height="20" rx="3" fill="#854F0B"/>
+  <text x="541" y="494" text-anchor="middle" dominant-baseline="central" class="label-amber">GPIO45 LIMIT</text>
+
+  <!-- GPIO48 LED -->
+  <line x1="420" y1="524" x2="490" y2="524" stroke="#993C1D" stroke-width="1"/>
+  <rect x="491" y="514" width="84" height="20" rx="3" fill="#993C1D"/>
+  <text x="533" y="528" text-anchor="middle" dominant-baseline="central" class="label-coral">GPIO48 LED</text>
+
+  <!-- GPIO47 CS -->
+  <line x1="420" y1="558" x2="490" y2="558" stroke="#0F6E56" stroke-width="1"/>
+  <rect x="491" y="548" width="76" height="20" rx="3" fill="#0F6E56"/>
+  <text x="529" y="562" text-anchor="middle" dominant-baseline="central" class="label-green">GPIO47 CS</text>
+
+  <!-- GPIO21 MOSI -->
+  <line x1="420" y1="592" x2="490" y2="592" stroke="#0F6E56" stroke-width="1"/>
+  <rect x="491" y="582" width="92" height="20" rx="3" fill="#0F6E56"/>
+  <text x="537" y="596" text-anchor="middle" dominant-baseline="central" class="label-green">GPIO21 MOSI</text>
+
+  <!-- GND right -->
+  <line x1="420" y1="694" x2="490" y2="694" stroke="#444" stroke-width="1"/>
+  <rect x="491" y="684" width="42" height="20" rx="3" fill="#444"/>
+  <text x="512" y="698" text-anchor="middle" dominant-baseline="central" class="label-gray-light">GND</text>
+
+  <!-- LEFT LABELS (power) -->
+  <line x1="260" y1="48" x2="190" y2="48" stroke="#888780" stroke-width="1"/>
+  <rect x="108" y="38" width="80" height="20" rx="3" fill="#888780"/>
+  <text x="148" y="52" text-anchor="middle" dominant-baseline="central" style="font-size:12px;fill:#2C2C2A;">3V3</text>
+
+  <line x1="260" y1="82" x2="190" y2="82" stroke="#888780" stroke-width="1"/>
+  <rect x="108" y="72" width="80" height="20" rx="3" fill="#888780"/>
+  <text x="148" y="86" text-anchor="middle" dominant-baseline="central" style="font-size:12px;fill:#2C2C2A;">RST</text>
+
+  <line x1="260" y1="660" x2="190" y2="660" stroke="#888780" stroke-width="1"/>
+  <rect x="108" y="650" width="80" height="20" rx="3" fill="#888780"/>
+  <text x="148" y="664" text-anchor="middle" dominant-baseline="central" style="font-size:12px;fill:#2C2C2A;">5V</text>
+
+  <line x1="260" y1="694" x2="190" y2="694" stroke="#444" stroke-width="1"/>
+  <rect x="108" y="684" width="80" height="20" rx="3" fill="#444"/>
+  <text x="148" y="698" text-anchor="middle" dominant-baseline="central" class="label-gray-light">GND</text>
+
+  <!-- Left GPIO numbers (unlabelled, tertiary) -->
+  <text x="248" y="120" text-anchor="end" class="label-tertiary">GPIO4</text>
+  <text x="248" y="154" text-anchor="end" class="label-tertiary">GPIO5</text>
+  <text x="248" y="188" text-anchor="end" class="label-tertiary">GPIO6</text>
+  <text x="248" y="222" text-anchor="end" class="label-tertiary">GPIO7</text>
+  <text x="248" y="256" text-anchor="end" class="label-tertiary">GPIO15</text>
+  <text x="248" y="290" text-anchor="end" class="label-tertiary">GPIO16</text>
+  <text x="248" y="324" text-anchor="end" class="label-tertiary">GPIO17</text>
+  <text x="248" y="358" text-anchor="end" class="label-tertiary">GPIO18</text>
+  <text x="248" y="392" text-anchor="end" class="label-tertiary">GPIO8</text>
+  <text x="248" y="426" text-anchor="end" class="label-tertiary">GPIO19</text>
+  <text x="248" y="460" text-anchor="end" class="label-tertiary">GPIO20</text>
+  <text x="248" y="494" text-anchor="end" class="label-tertiary">GPIO3</text>
+  <text x="248" y="528" text-anchor="end" class="label-tertiary">GPIO46</text>
+  <text x="248" y="562" text-anchor="end" class="label-tertiary">GPIO9</text>
+  <text x="248" y="596" text-anchor="end" class="label-tertiary">GPIO10</text>
+  <text x="248" y="630" text-anchor="end" class="label-tertiary">GPIO11</text>
+
+  <!-- Right GPIO numbers (unlabelled) -->
+  <text x="432" y="256" text-anchor="start" class="label-tertiary">GPIO40</text>
+  <text x="432" y="290" text-anchor="start" class="label-tertiary">GPIO39</text>
+  <text x="432" y="324" text-anchor="start" class="label-tertiary">GPIO38</text>
+  <text x="432" y="358" text-anchor="start" class="label-tertiary">GPIO37</text>
+  <text x="432" y="392" text-anchor="start" class="label-tertiary">GPIO36</text>
+  <text x="432" y="426" text-anchor="start" class="label-tertiary">GPIO35</text>
+  <text x="432" y="460" text-anchor="start" class="label-tertiary">GPIO0</text>
+  <text x="432" y="630" text-anchor="start" class="label-tertiary">GPIO20</text>
+  <text x="432" y="664" text-anchor="start" class="label-tertiary">GPIO19</text>
+
+  <!-- PCB-internal note -->
+  <rect x="258" y="440" width="164" height="36" rx="6" fill="#f9f9f9" stroke="#ccc" stroke-width="0.5" stroke-dasharray="3 2"/>
+  <text x="340" y="454" text-anchor="middle" dominant-baseline="central" class="label-tertiary">Camera + SD pins</text>
+  <text x="340" y="468" text-anchor="middle" dominant-baseline="central" class="label-tertiary">PCB-internal</text>
+</svg>
