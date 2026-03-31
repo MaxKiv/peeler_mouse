@@ -68,23 +68,29 @@ pub fn setup(spawner: &Spawner, p: CommsPeripherals) {
 #[embassy_executor::task]
 async fn rx_task(
     mut uart_rx: BufferedUartRx<'static>,
-    report_pipe_tx: pipe::Writer<'static, Cs, { messenger_mouse::REPORT_BYTES * 4 }>,
+    mut report_pipe_tx: pipe::Writer<'static, Cs, { messenger_mouse::REPORT_BYTES * 4 }>,
 ) {
-    const BUF_SIZE: usize = 8;
-    let mut buf = [0u8; BUF_SIZE];
+    let mut buf = [0u8; messenger_mouse::REPORT_BYTES * 1];
 
     loop {
         // Read UART report bytes
-        if uart_rx.read_exact(&mut buf).await.is_ok() {
-            info!("COMMS - rx_task: read {} bytes: {}", BUF_SIZE, buf);
-
-            // Write bytes to pipe for framing
-            let mut written = 0;
-            while written < BUF_SIZE {
-                written += report_pipe_tx.write(&buf[written..]).await;
+        match uart_rx.read(&mut buf).await {
+            Ok(0) => {
+                error!("COMMS - rx_task: read zero bytes?");
             }
+            Err(err) => {
+                error!("COMMS - rx_task: read error: {:?}", err);
+            }
+            Ok(n) => {
+                trace!("COMMS - rx_task: read {} bytes: {}", n, buf);
 
-            // debug!("COMMS - rx_task: write {} bytes to pipe", written);
+                // Write bytes to pipe for framing
+                let mut written = 0;
+
+                while written < n {
+                    written += report_pipe_tx.write(&buf[written..n]).await;
+                }
+            }
         }
     }
 }
@@ -117,7 +123,7 @@ pub async fn frame_and_serialise_reports(
     report_sender: watch::Sender<'static, Cs, Report, 1>,
     report_pipe_rx: pipe::Reader<'static, Cs, { messenger_mouse::REPORT_BYTES * 4 }>,
 ) {
-    let mut framing_buf = heapless::Vec::<u8, { messenger_mouse::SETPOINT_BYTES * 4 }>::new();
+    let mut framing_buf = heapless::Vec::<u8, { messenger_mouse::REPORT_BYTES * 4 }>::new();
     let mut buf = [0u8; 1];
 
     loop {
@@ -151,6 +157,17 @@ pub async fn frame_and_serialise_reports(
                     }
                     // Reset current frame
                     framing_buf.clear();
+                } else {
+                    trace!("FRAMING - frame_setpoints: data byte: {}", byte);
+                    // Data byte: add to frame
+                    if let Err(byte) = framing_buf.push(byte) {
+                        error!(
+                            "FRAMING - frame_setpoints: Unable to collect byte {} because framing buffer {:?} is full, should never happen but you are here anyway",
+                            byte, framing_buf
+                        );
+                        // Clear frame, issue is hopefully resolved after next delimiter byte
+                        framing_buf.clear();
+                    }
                 }
             }
             // Unhappy path

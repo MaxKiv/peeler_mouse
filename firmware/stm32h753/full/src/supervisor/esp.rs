@@ -7,7 +7,7 @@ use messenger_mouse::{
 
 use crate::{comms::task::SETPOINT_WATCH, supervisor::task::APPSTATE_WATCH};
 
-const TASK_PERIOD: Duration = Duration::from_millis(100);
+const TASK_PERIOD: Duration = Duration::from_millis(1000);
 
 /// Uses latest appstate to instruct ESP32
 #[embassy_executor::task]
