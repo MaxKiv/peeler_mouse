@@ -71,14 +71,15 @@ pub async fn rx_task(
     mut setpoint_pipe_tx: pipe::Writer<'static, Cs, { messenger_mouse::SETPOINT_BYTES * 4 }>,
 ) {
     info!("COMMS: Starting RX task");
-    let mut buf = [0u8; 64];
+    let mut buf = [0u8; messenger_mouse::SETPOINT_BYTES * 4];
 
     info!("COMMS: Starting RX comms loop");
     loop {
         match rx.read(&mut buf).await {
-            Ok(_) => {
+            Ok(n) => {
+                info!("COMMS: RX received {} bytes: {:?}", n, &buf[..]);
                 // Read N bytes, send along for framing
-                if let Err(err) = setpoint_pipe_tx.write_all(&buf).await {
+                if let Err(err) = setpoint_pipe_tx.write_all(&buf[..n]).await {
                     error!("COMMS: RX error: {err}");
                 }
             }
@@ -166,6 +167,9 @@ pub async fn deserialise_task(
                             );
                         }
                     }
+
+                    // Deserialise attempted: clear framing buffer
+                    framing_buf.clear();
                 } else if framing_buf.push(byte).is_err() {
                     error!(
                         "FRAMING - Royally fucked: we somehow managed to push SETPOINT_BYTES * 2 bytes into the framing buffer and failed to serialise a single setpoint, restart framing"

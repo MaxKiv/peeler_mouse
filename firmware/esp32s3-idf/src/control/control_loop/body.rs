@@ -1,7 +1,7 @@
 use std::time::SystemTime;
 
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Receiver};
-use embassy_time::{Duration, Timer};
+use embassy_time::{Duration, Ticker, Timer, WithTimeout};
 use esp_idf_hal::ledc::LedcDriver;
 use log::*;
 use messenger_mouse::{
@@ -21,6 +21,8 @@ use crate::{
     encoder::encoder_task::KNIFE_STATE,
 };
 
+const CONTROL_LOOP_FREQUENCY: Duration = Duration::from_millis(1000);
+
 #[embassy_executor::task]
 pub async fn control_loop(
     mut setpoint_receiver: Receiver<'static, Cs, Setpoint, 2>,
@@ -32,7 +34,7 @@ pub async fn control_loop(
     let mut latest_setpoint = messenger_mouse::Setpoint::default();
 
     // Task timekeeper
-    // let mut ticker = Ticker::every(CONTROL_LOOP_FREQUENCY);
+    let mut ticker = Ticker::every(CONTROL_LOOP_FREQUENCY);
 
     // Latest framebuffer signal
     let mut framebuffer_rx = FRAMEBUFFER_CONTROL_LOOP_CHANNEL
@@ -48,18 +50,19 @@ pub async fn control_loop(
     let report_tx = REPORT_WATCH.sender();
 
     // Startup: Home motor
-    motor_tx.send(MotorCommand::Home);
     loop {
-        let home_status = motor_rx.changed().await;
+        motor_tx.send(MotorCommand::Home);
+        let home_status = motor_rx.changed().with_timeout(Duration::from_hz(1)).await;
         match home_status {
-            HomeStatus::Homed => {
+            Ok(HomeStatus::Homed) => {
                 info!("CONTROL: Motor indicates succesful homing, running main loop");
                 break;
             }
-            HomeStatus::Lost => {
+            Ok(HomeStatus::Lost) => {
                 warn!("CONTROL: Knife motor not homed yet");
                 continue;
             }
+            _ => continue,
         }
     }
 
@@ -103,7 +106,6 @@ pub async fn control_loop(
             }
             KnifeManager::Vision => {
                 // Convert into motor command
-
                 let motor_cmd = vision_output_to_motorcommand(vision_output.clone());
 
                 log::info!(
@@ -116,6 +118,7 @@ pub async fn control_loop(
                 motor_cmd
             }
         };
+
         // Actuate Knife adjustment motor
         motor_tx.send(motor_cmd);
 
@@ -140,7 +143,10 @@ pub async fn control_loop(
             measurements,
         };
 
+        info!("CONTROL: sending  report {:?}", report);
         report_tx.send(report);
+
+        ticker.next().await;
     }
 }
 

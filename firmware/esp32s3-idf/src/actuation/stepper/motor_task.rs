@@ -1,20 +1,34 @@
 use embassy_executor::Spawner;
+use embassy_futures::select::{select, select3, Either, Either3};
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, watch::Watch};
 use embassy_time::{Delay, Duration, Timer};
 use esp_idf_hal::{
-    gpio::{PinDriver, Pull},
+    gpio::{Level, PinDriver, Pull},
     rmt::{TxRmtConfig, TxRmtDriver},
 };
-use log::{error, info};
-use messenger_mouse::motor::{MotorCommand, MotorDirection};
+use log::*;
+use messenger_mouse::motor::MotorDirection;
 use rmt_stepper_driver::RmtStepper;
-use uom::si::f32::Velocity;
+use uom::si::{f32::Velocity, velocity::millimeter_per_second};
 
-use crate::actuation::stepper::{peripherals::MotorPeripherals, HomeStatus};
+use crate::actuation::stepper::{
+    limit_switch_task::{manage_limit_switch, LimitSwitchState, LIMIT_EVENT},
+    peripherals::{MotorPeripherals, StepperPeripherals},
+    HomeStatus, MotorAction,
+};
 
-pub static KNIFE_MOTOR_SETPOINT: Watch<CriticalSectionRawMutex, MotorCommand, 2> = Watch::new();
+// pub static KNIFE_MOTOR_SETPOINT: Watch<CriticalSectionRawMutex, MotorCommand, 2> = Watch::new();
+// pub static KNIFE_MOTOR_HOME: Watch<CriticalSectionRawMutex, HomeStatus, 2> = Watch::new();
+// static MOTOR_CONTROLLER: Watch<CriticalSectionRawMutex, MotorAction, 1> = Watch::new();
+
+/// Public: callers write MotorAction here
+pub static KNIFE_MOTOR_SETPOINT: Watch<CriticalSectionRawMutex, MotorAction, 2> = Watch::new();
+/// Public: anyone can read homing status
 pub static KNIFE_MOTOR_HOME: Watch<CriticalSectionRawMutex, HomeStatus, 2> = Watch::new();
-static MOTOR_CONTROLLER: Watch<CriticalSectionRawMutex, MotorAction, 1> = Watch::new();
+/// Public: live step-position (0 = home)
+pub static KNIFE_MOTOR_POS: Watch<CriticalSectionRawMutex, i32, 2> = Watch::new();
+/// Internal: control task → stepper task
+static STEPPER_CMD: Watch<CriticalSectionRawMutex, StepperCommand, 1> = Watch::new();
 
 /// Homing speed in mm/s
 pub const HOMING_SPEED_MM_PS: f32 = 1.0;
@@ -24,175 +38,166 @@ pub const OPERATION_SPEED_MM_PS: f32 = 1.0;
 pub const SPEED_REV_PS: f32 = 1.0;
 pub const LIMIT_SWITCH_DEBOUNCE_DURATION: Duration = Duration::from_millis(5);
 
-#[derive(Clone)]
-enum MotorAction {
-    Stop,
-    Velocity {
-        dir: MotorDirection,
-        speed: Velocity,
-    },
-    Home,
+#[derive(Clone, Debug, PartialEq)]
+pub struct StepperCommand {
+    pub dir: MotorDirection,
+    pub interval: Duration, // derived from Velocity
+    pub running: bool,      // false = hold position / coast
 }
 
-#[derive(Clone)]
-enum MotorMode {
-    Stopped,
-    Homing,
-    Velocity {
-        dir: MotorDirection,
-        speed: Velocity,
-    },
-    Position,
+impl StepperCommand {
+    pub const STOPPED: Self = Self {
+        dir: MotorDirection::Forward,
+        interval: Duration::from_millis(10),
+        running: false,
+    };
 }
 
 // Spawn all COMMS & FRAMING tasks required for external communications
 pub fn run(spawner: &Spawner, p: MotorPeripherals) -> anyhow::Result<()> {
     log::info!("initialising knife motor task");
 
-    spawner.spawn(control_knife_motor(p))?;
-    spawner.spawn(manage_knife_motor())?;
+    spawner.spawn(manage_limit_switch(p.limit_switch))?;
+    spawner.spawn(control_knife_motor())?;
+    spawner.spawn(stepper_task(p.stepper))?;
 
     Ok(())
 }
 
+// Control task
 #[embassy_executor::task]
-pub async fn control_knife_motor(p: MotorPeripherals) {
-    info!("KNIFE CONTROL: initialising motor driver");
-
-    let dir = PinDriver::output(p.dir_pin).expect("unable to create the DIR pin driver");
-    let mut limit_switch =
-        PinDriver::input(p.limit_switch).expect("unable to create the limit switch pin driver");
-    limit_switch
-        .set_pull(Pull::Up)
-        .expect("Unable to set limit switch to pull up");
-
-    let rmt_cfg = TxRmtConfig::new();
-    let rmt_driver = TxRmtDriver::new(p.rmt_channel, p.step_rmt_pin, &rmt_cfg)
-        .expect("Stepper: unable to construct TxRmtDriver");
-
-    let mut driver = RmtStepper::new("KNIFE", rmt_driver, dir, Delay);
-
+pub async fn control_knife_motor() {
+    let cmd_tx = STEPPER_CMD.sender();
     let home_tx = KNIFE_MOTOR_HOME.sender();
+    let mut limit_rx = LIMIT_EVENT.receiver().unwrap();
+    let mut action_rx = KNIFE_MOTOR_SETPOINT.receiver().unwrap();
 
-    info!("KNIFE CONTROL: Starting to control knife motor");
+    // Start stopped and lost
+    cmd_tx.send(StepperCommand::STOPPED);
+    home_tx.send(HomeStatus::Lost);
 
-    // start disabled & lost
+    let mut current = StepperCommand::STOPPED;
     let mut home_status = HomeStatus::Lost;
-    home_tx.send(home_status.clone());
-    driver.stop();
-    let mut mode = MotorMode::Stopped;
 
-    let mut motorcontroller_rx = MOTOR_CONTROLLER.receiver().unwrap();
-
-    // Big state machine
+    // Main motor control loop
+    // Transform target speed into appropriate step period and relay to stepper driver
+    // Check for limit switch activation
     loop {
-        let action = motorcontroller_rx.get().await;
+        match select(action_rx.changed(), limit_rx.changed()).await {
+            // New target action received
+            Either::First(action) => {
+                let next = match action {
+                    MotorAction::Stop => StepperCommand::STOPPED,
 
-        // Check for state transitions
-        match (mode.clone(), action) {
-            (MotorMode::Stopped, MotorAction::Velocity { dir, speed }) => {
-                mode = MotorMode::Velocity { dir, speed };
-            }
-            (MotorMode::Stopped, MotorAction::Home) => {
-                mode = MotorMode::Homing;
-            }
-            (MotorMode::Homing, MotorAction::Stop) => {
-                mode = MotorMode::Stopped;
-            }
-            (MotorMode::Homing, MotorAction::Velocity { dir, speed }) => {
-                if home_status == HomeStatus::Homed {
-                    mode = MotorMode::Velocity { dir, speed };
-                }
-            }
-            (MotorMode::Velocity { dir: _, speed: _ }, MotorAction::Stop) => {
-                mode = MotorMode::Stopped;
-            }
-            (MotorMode::Velocity { dir: _, speed: _ }, MotorAction::Velocity { dir, speed }) => {
-                mode = MotorMode::Velocity { dir, speed };
-            }
-            (MotorMode::Velocity { dir: _, speed: _ }, MotorAction::Home) => {
-                mode = MotorMode::Homing;
-            }
-            (MotorMode::Position, MotorAction::Stop) => {
-                mode = MotorMode::Stopped;
-            }
-            (MotorMode::Position, MotorAction::Velocity { dir, speed }) => {
-                mode = MotorMode::Velocity { dir, speed };
-            }
-            (MotorMode::Position, MotorAction::Home) => {
-                mode = MotorMode::Homing;
-            }
-            _ => {}
-        }
+                    MotorAction::Velocity { dir, speed } => StepperCommand {
+                        dir,
+                        interval: velocity_to_interval(speed),
+                        running: true,
+                    },
 
-        // Actuate state machine
-        match mode {
-            MotorMode::Stopped => {
-                driver.stop();
-            }
-            MotorMode::Velocity {
-                dir: new_dir,
-                speed: _,
-            } => {
-                driver.set_direction(new_dir).await;
-                driver.step_once().await;
-            }
-            MotorMode::Position => {
-                driver.step_once().await;
-            }
-            MotorMode::Homing => {
-                if limit_switch.is_low() {
-                    // debounce limit switch
-                    Timer::after(LIMIT_SWITCH_DEBOUNCE_DURATION).await;
-                    if limit_switch.is_low() {
-                        // valid home position, stop the motor!
-                        driver.stop();
-                        home_tx.send(HomeStatus::Homed);
-                        info!("KNIFE: Home reached");
-
-                        // Inform other of new homing status
-                        home_status = HomeStatus::Homed;
-                        home_tx.send(home_status);
+                    MotorAction::Home => {
+                        // Entering home mode always resets status to Lost
+                        home_status = HomeStatus::Lost;
+                        home_tx.send(home_status.clone());
+                        StepperCommand {
+                            dir: HOMING_DIRECTION,
+                            interval: velocity_to_interval(Velocity::new::<millimeter_per_second>(
+                                HOMING_SPEED_MM_PS,
+                            )),
+                            running: true,
+                        }
                     }
+                };
+
+                current = next;
+                cmd_tx.send(current.clone());
+            }
+
+            // limit_switch event
+            Either::Second(level) => {
+                // Stop the motor immediately, then debounce
+                cmd_tx.send(StepperCommand::STOPPED);
+                Timer::after(LIMIT_SWITCH_DEBOUNCE_DURATION).await;
+
+                // Re-read the pin from here (borrow the pin, or read through a shared Watch)
+                // If the line is still low → genuine home
+                if limit_rx.get().await == LimitSwitchState::Active {
+                    // TODO Possibly move back untill switch != LIMIT_SWITCH_ENGAGE_LEVEL
+
+                    info!("KNIFE: home confirmed");
+                    // Record home. Stepper task zeroes its counter when it sees running=false
+                    // at a known position — or we can send a dedicated zero command if needed.
+                    home_status = HomeStatus::Homed { position: 0 };
+                    home_tx.send(home_status.clone());
+                    // Stay stopped; caller must send next MotorAction
+                } else {
+                    warn!("KNIFE: spurious limit trigger, resuming");
+                    cmd_tx.send(current.clone()); // resume homing
                 }
-                // Continue moving in home direction
-                driver.set_direction(HOMING_DIRECTION).await;
-                driver.step_once().await;
             }
         }
-
-        break;
     }
 }
 
+fn velocity_to_interval(_speed: Velocity) -> Duration {
+    warn!("TODO: velocity_to_interval");
+    Duration::from_hz(1_000)
+}
+
+// Stepper task
 #[embassy_executor::task]
-pub async fn manage_knife_motor() {
-    let motorcontroller_tx = MOTOR_CONTROLLER.sender();
+pub async fn stepper_task(p: StepperPeripherals) {
+    // --- hardware init ---
+    let rmt_driver = TxRmtDriver::new(p.rmt_channel, p.step_rmt_pin, &TxRmtConfig::new()).unwrap();
+    let dir_pin = PinDriver::output(p.dir_pin).unwrap();
+    let mut driver = RmtStepper::new("KNIFE", rmt_driver, dir_pin, Delay);
 
-    let mut rx = KNIFE_MOTOR_SETPOINT
-        .receiver()
-        .expect("increase KNIFE_SETPOINT N");
+    let pos_tx = KNIFE_MOTOR_POS.sender();
+    let limit_tx = LIMIT_EVENT.sender();
+    let mut cmd_rx = STEPPER_CMD.receiver().unwrap();
 
+    let mut cmd = StepperCommand::STOPPED;
+    let mut position: i32 = 0;
+
+    let mut step_timer = Timer::after(cmd.interval);
+    // Main stepper control loop: does in parallel:
+    // 1. Check for new stepper command
+    // 2. Looks at the limit switch, informs others if it is hit
+    // 3. Service current stepper command by stepping at the correct period
+    // Note: During execution of 1 & 3 it is possible to miss a limit switch edge
+    // I think this is no problem as the execution times of a single step are of period ~1ms
     loop {
-        let cmd = rx.changed().await;
+        match select3(cmd_rx.changed(), step_timer).await {
+            Either3::First(new_cmd) => {
+                if new_cmd.dir != cmd.dir {
+                    driver.set_direction(new_cmd.dir.clone()).await;
+                }
+                if !new_cmd.running {
+                    driver.stop();
+                }
+                cmd = new_cmd;
+                // Reset timer so we don't immediately step at the old interval
+                step_timer = Timer::after(cmd.interval);
+            }
 
-        match cmd {
-            MotorCommand::Halt => {
-                motorcontroller_tx.send(MotorAction::Stop);
+            Either3::Second(_) => {
+                // Notify motor controller of new limit switch state
+                limit_tx.send(limit.get_level());
             }
-            MotorCommand::MoveVelocity(sp) => {
-                motorcontroller_tx.send(MotorAction::Velocity {
-                    dir: sp.dir,
-                    speed: sp.speed,
-                });
-            }
-            MotorCommand::Home => {
-                motorcontroller_tx.send(MotorAction::Home);
-            }
-            MotorCommand::MovePosition(sp) => {
-                info!("KNIFE: actuating {:?}", sp);
-                error!("TODO: position setpoints");
-                todo!();
+
+            Either3::Third(()) => {
+                if cmd.running {
+                    driver.step_once().await;
+
+                    // Update position
+                    position += match cmd.dir {
+                        MotorDirection::Forward => 1,
+                        MotorDirection::Reverse => -1,
+                    };
+                    pos_tx.send(position);
+                }
+                // Re-arm for next step
+                step_timer = Timer::after(cmd.interval);
             }
         }
     }

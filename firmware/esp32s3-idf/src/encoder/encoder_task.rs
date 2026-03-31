@@ -17,7 +17,7 @@ use messenger_mouse::encoder::{EncoderError, EncoderValidity};
 use crate::encoder::peripherals::EncoderPeripherals;
 use messenger_mouse::encoder::KnifeState;
 
-const DURATION: Duration = Duration::from_hz(10);
+const DURATION: Duration = Duration::from_hz(1);
 
 pub static KNIFE_STATE: Watch<Cs, KnifeState, 2> = Watch::new();
 pub static ENCODER_RESET: Signal<Cs, bool> = Signal::new();

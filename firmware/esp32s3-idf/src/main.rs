@@ -8,7 +8,7 @@ pub mod sd;
 pub mod server;
 pub mod wifi;
 
-use crate::actuation::stepper::peripherals::MotorPeripherals;
+use crate::actuation::stepper::peripherals::{MotorPeripherals, StepperPeripherals};
 use crate::camera::peripherals::CameraPeripherals;
 use crate::comms::periperhals::CommsPeripherals;
 use crate::control::control_loop::peripherals::ControlPeripherals;
@@ -78,7 +78,7 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     camera::camera_freertos_task::setup_freertos(camera_peripherals);
 
     let comms_peri = CommsPeripherals {
-        uart: peripherals.uart0,
+        uart: peripherals.uart2,
         tx: peripherals.pins.gpio43,
         rx: peripherals.pins.gpio44,
     };
@@ -136,11 +136,15 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     // Attempt to start up the control loop + dependencies
     encoder::encoder_task::run(spawner, encoder_peri)?;
 
-    let motor_peri = MotorPeripherals {
+    let stepper_peri = StepperPeripherals {
         timer: peripherals.ledc.timer1,
         rmt_channel: peripherals.rmt.channel0,
         step_rmt_pin: peripherals.pins.gpio41,
         dir_pin: peripherals.pins.gpio42,
+    };
+
+    let motor_peri = MotorPeripherals {
+        stepper: stepper_peri,
         limit_switch: peripherals.pins.gpio45,
     };
 
