@@ -50,7 +50,7 @@ where
             dir_pin,
             delay,
             step_high_ticks: 5, // 5µs using default clock divider of 80 (1 µs tick)
-            step_period_ticks: 1_000, // 1ms period (1khz)
+            step_period_ticks: 100, // 0.1ms period (10khz)
             direction: Direction::Forward,
             running: false,
         }

@@ -14,13 +14,15 @@ use esp_idf_hal::units::*;
 use log::*;
 use messenger_mouse::encoder::{EncoderError, EncoderValidity};
 
-use crate::encoder::peripherals::EncoderPeripherals;
+use crate::{
+    actuation::stepper::{motor_task::KNIFE_MOTOR_HOME_STATUS, HomeStatus},
+    encoder::peripherals::EncoderPeripherals,
+};
 use messenger_mouse::encoder::KnifeState;
 
 const DURATION: Duration = Duration::from_hz(1);
 
 pub static KNIFE_STATE: Watch<Cs, KnifeState, 2> = Watch::new();
-pub static ENCODER_RESET: Signal<Cs, bool> = Signal::new();
 
 // Spawn all COMMS & FRAMING tasks required for external communications
 pub fn run(spawner: &Spawner, p: EncoderPeripherals) -> anyhow::Result<()> {
@@ -53,7 +55,7 @@ pub async fn encoder_task(p: EncoderPeripherals) {
         .bit_order(config::BitOrder::MsbFirst)
         .data_mode(spi::MODE_1)
         .baudrate(1.MHz().into())
-        .cs_pre_delay_us(1);
+        .cs_pre_delay_us(1); // According to the as5048 datasheet
     let mut spi_device = SpiDeviceDriver::new(&spi, Some(p.cs), &spi_cfg)
         .expect("ENCODER: unable to set up SpiDeviceDriver");
 
@@ -62,11 +64,12 @@ pub async fn encoder_task(p: EncoderPeripherals) {
     // Initialize encoder state
     let mut knife_state = KnifeState::new();
     let tx = KNIFE_STATE.sender();
+    let mut home_status_rx = KNIFE_MOTOR_HOME_STATUS.receiver().unwrap();
 
     log::info!("Encoder: Initialisation done, starting loop");
     loop {
         // Continously wait for either the sampling tick or a reset signal
-        let event = embassy_futures::select::select(ticker.next(), ENCODER_RESET.wait()).await;
+        let event = embassy_futures::select::select(ticker.next(), home_status_rx.changed()).await;
 
         match event {
             // Sampling tick
@@ -113,10 +116,16 @@ pub async fn encoder_task(p: EncoderPeripherals) {
             }
 
             // Reset signal received, reset the encoder state
-            Either::Second(_) => {
-                knife_state.encoder_state.reset();
-                info!("ENCODER: RESET");
-            }
+            Either::Second(new_home_status) => match new_home_status {
+                HomeStatus::Lost => {
+                    info!("ENCODER: On Home Lost");
+                    knife_state.on_home_lost();
+                }
+                HomeStatus::Homed { position: _ } => {
+                    info!("ENCODER: HOMED -> reset counter");
+                    knife_state.on_homed();
+                }
+            },
         }
     }
 }

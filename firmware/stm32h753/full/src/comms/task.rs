@@ -73,24 +73,15 @@ async fn rx_task(
     let mut buf = [0u8; messenger_mouse::REPORT_BYTES * 1];
 
     loop {
-        // Read UART report bytes
         match uart_rx.read(&mut buf).await {
-            Ok(0) => {
-                error!("COMMS - rx_task: read zero bytes?");
-            }
-            Err(err) => {
-                error!("COMMS - rx_task: read error: {:?}", err);
-            }
             Ok(n) => {
-                trace!("COMMS - rx_task: read {} bytes: {}", n, buf);
-
-                // Write bytes to pipe for framing
-                let mut written = 0;
-
-                while written < n {
-                    written += report_pipe_tx.write(&buf[written..n]).await;
+                info!("read {} bytes: {:?}", n, &buf[..n]);
+                // Read N bytes, send along for framing
+                if let Err(err) = report_pipe_tx.write_all(&buf[..n]).await {
+                    error!("COMMS: RX error: {:?}", err);
                 }
             }
+            Err(err) => error!("COMMS: RX error: {:?}", err),
         }
     }
 }
@@ -107,7 +98,7 @@ async fn tx_task(
         // Get latest serialised report from the framing task
         let n = setpoint_pipe_rx.read(&mut buf).await;
         debug!("COMMS - tx_task: writing {} bytes to UART", n);
-        if let Err(err) = uart_tx.write(&buf[..n]).await {
+        if let Err(err) = uart_tx.write_all(&buf[..n]).await {
             error!(
                 "COMMS - tx_task: {} unable to write serialised setpoint bytes {:?} to UART",
                 err,
@@ -150,7 +141,7 @@ pub async fn frame_and_serialise_reports(
                         }
                         Err(err) => {
                             error!(
-                                "FRAMING - frame_and_serialise_reports: Unable to deserialise framing buffer into a setpoint. Err: {} - buffer: {:?}",
+                                "FRAMING - frame_and_serialise_reports: Unable to deserialise framing buffer into a report. Err: {} - buffer: {:?}",
                                 err, framing_buf
                             );
                         }

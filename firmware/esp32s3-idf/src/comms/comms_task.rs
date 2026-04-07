@@ -77,7 +77,7 @@ pub async fn rx_task(
     loop {
         match rx.read(&mut buf).await {
             Ok(n) => {
-                info!("COMMS: RX received {} bytes: {:?}", n, &buf[..]);
+                info!("read {} bytes: {:?}", n, &buf[..n]);
                 // Read N bytes, send along for framing
                 if let Err(err) = setpoint_pipe_tx.write_all(&buf[..n]).await {
                     error!("COMMS: RX error: {err}");

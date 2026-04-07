@@ -5,8 +5,16 @@ pub const ANGLE_MAX: u16 = 0x3FFF + 1;
 pub const MAX_COUNT: i32 = ANGLE_MAX as i32;
 pub const WRAP_THRESHOLD: i32 = MAX_COUNT / 2;
 
-/// mm per revolution
-pub const KNIFE_AXIS_LEAD: f32 = 0.7;
+/// mm per revolution of worm wheel
+pub const KNIFE_AXIS_LEAD_MM: f32 = 0.7;
+// gear ratio -> revolutions of stepper axis per revolution of worm wheel
+pub const KNIFE_AXIS_GEAR_RATIO: f32 = 20.0;
+// Stepperdriver Microstep settings -> STEP pulses per driver full step, depends on <
+// TMC2209 DS: https://www.analog.com/media/en/technical-documentation/data-sheets/TMC2209_datasheet_rev1.08.pdf
+pub const KNIFE_AXIS_MICROSTEPS_PER_STEP: f32 = 8.0;
+// How many steps in a full axis rotation? 1.8deg per step according to nema 11 datasheet
+// NEMA11 DS: https://www.mouser.com/pdfdocs/nema11-amt112s.pdf
+pub const KNIFE_AXIS_STEPS_PER_ROTATION: f32 = 20.0;
 
 /// Knife position in mm
 pub type KnifePosition = f32;
@@ -88,8 +96,17 @@ impl KnifeState {
 
     pub fn get_position(&self) -> KnifePosition {
         let abs = self.encoder_state.absolute_count();
-        let mm = abs as f32 * KNIFE_AXIS_LEAD;
+        let mm = abs as f32 * KNIFE_AXIS_LEAD_MM;
 
         mm
+    }
+
+    pub fn on_homed(&mut self) {
+        self.validity = EncoderValidity::Valid;
+        self.encoder_state.reset();
+    }
+
+    pub fn on_home_lost(&mut self) {
+        self.validity = EncoderValidity::NotHomedYet;
     }
 }

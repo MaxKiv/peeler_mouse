@@ -134,7 +134,7 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
                 fps,
             );
 
-            log::info!("Starting FB copy for control loop");
+            // log::info!("Starting FB copy for control loop");
             let start = SystemTime::now();
             // Copy framebuffer, continue if this fails
             if let Some(fb_copy) = FrameBuffer::try_from_esp(&frame, fps, timestamp_us) {

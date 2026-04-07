@@ -12,8 +12,8 @@ use messenger_mouse::{
 
 use crate::{
     actuation::stepper::{
-        motor_task::{KNIFE_MOTOR_HOME, KNIFE_MOTOR_SETPOINT},
-        HomeStatus,
+        motor_task::{KNIFE_MOTOR_HOME_STATUS, KNIFE_MOTOR_SETPOINT},
+        HomeStatus, MotorAction,
     },
     camera::{camera_freertos_task::FRAMEBUFFER_CONTROL_LOOP_CHANNEL, framebuffer::FrameBuffer},
     comms::comms_task::REPORT_WATCH,
@@ -22,13 +22,14 @@ use crate::{
 };
 
 const CONTROL_LOOP_FREQUENCY: Duration = Duration::from_millis(1000);
+const HOME_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[embassy_executor::task]
 pub async fn control_loop(
     mut setpoint_receiver: Receiver<'static, Cs, Setpoint, 2>,
     mut led: LedcDriver<'static>,
 ) {
-    info!("starting control task");
+    info!("CONTROL: Entering Startup");
 
     // Track latest setpoint
     let mut latest_setpoint = messenger_mouse::Setpoint::default();
@@ -44,25 +45,24 @@ pub async fn control_loop(
     let mut encoder_rx = KNIFE_STATE.receiver().expect("not enough KNIFE_STATE rx N");
 
     let motor_tx = KNIFE_MOTOR_SETPOINT.sender();
-    let mut motor_rx = KNIFE_MOTOR_HOME
+    let mut motor_home_rx = KNIFE_MOTOR_HOME_STATUS
         .receiver()
         .expect("not enough KNIFE_MOTOR_HOME N");
     let report_tx = REPORT_WATCH.sender();
 
-    // Startup: Home motor
+    info!("CONTROL: Startup -> Homing motor");
+    // Ask motor controller to start homing
+    motor_tx.send(MotorCommand::Home);
     loop {
-        motor_tx.send(MotorCommand::Home);
-        let home_status = motor_rx.changed().with_timeout(Duration::from_hz(1)).await;
-        match home_status {
-            Ok(HomeStatus::Homed) => {
-                info!("CONTROL: Motor indicates succesful homing, running main loop");
-                break;
-            }
-            Ok(HomeStatus::Lost) => {
-                warn!("CONTROL: Knife motor not homed yet");
-                continue;
-            }
-            _ => continue,
+        let home_status = motor_home_rx.changed().with_timeout(HOME_TIMEOUT).await;
+        info!(
+            "CONTROL: Startup -> Received home status: {:?}",
+            home_status
+        );
+
+        if let Ok(HomeStatus::Homed { position: _ }) = home_status {
+            info!("CONTROL: Motor indicates succesful homing, running main loop");
+            break;
         }
     }
 
@@ -70,7 +70,10 @@ pub async fn control_loop(
     loop {
         // Update to latest setpoint, if any
         if let Some(new_setpoint) = setpoint_receiver.try_get() {
+            info!("CONTROL: NEW setpoint: {:?}", new_setpoint);
             latest_setpoint = new_setpoint;
+        } else {
+            info!("CONTROL: CURRENT setpoint: {:?}", latest_setpoint);
         }
 
         // update appstate
@@ -94,6 +97,7 @@ pub async fn control_loop(
             log::error!("CONTROL: unable to get valid knife state, using default...");
             KnifeState::new()
         });
+        info!("CONTROL: Encoder state: {:?}", current_knife_state);
 
         // Calculate control effort
         let vision_output = get_control_effort(frame).await;
@@ -101,18 +105,17 @@ pub async fn control_loop(
         // Knife motor actuation
         let motor_cmd = match latest_setpoint.knife_manager {
             KnifeManager::Manual => {
-                // Translate knife motor commannd to
+                // Translate knife motor command to
+                info!("CONTROL: MANUAL setpoint: {:?}", latest_setpoint);
                 latest_setpoint.knife_setpoint.clone()
             }
             KnifeManager::Vision => {
                 // Convert into motor command
                 let motor_cmd = vision_output_to_motorcommand(vision_output.clone());
 
-                log::info!(
-                    "CONTROL: frame {} -> vision alg: {:?} -> control effort: {:?}",
-                    gen,
-                    vision_output,
-                    motor_cmd,
+                info!(
+                    "CONTROL: VISION frame {} -> vision alg: {:?} -> control effort: {:?}",
+                    gen, vision_output, motor_cmd,
                 );
 
                 motor_cmd

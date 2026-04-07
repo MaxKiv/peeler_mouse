@@ -100,6 +100,14 @@ impl MotorDirection {
             Reverse => Forward,
         };
     }
+
+    pub fn get_opposite(&self) -> Self {
+        use MotorDirection::*;
+        match self {
+            Forward => Reverse,
+            Reverse => Forward,
+        }
+    }
 }
 
 // ---- Format impls ----
