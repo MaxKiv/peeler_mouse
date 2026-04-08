@@ -7,7 +7,7 @@ use log::*;
 use messenger_mouse::{
     encoder::KnifeState,
     motor::{KnifeManager, MotorCommand},
-    AppState, Setpoint, VisionAlgorithmOutput,
+    AppState, Setpoint, VisionAlgorithmOutput, VisionData,
 };
 
 use crate::{
@@ -15,7 +15,10 @@ use crate::{
         motor_task::{KNIFE_MOTOR_HOME_STATUS, KNIFE_MOTOR_SETPOINT},
         HomeStatus, MotorAction,
     },
-    camera::{camera_freertos_task::FRAMEBUFFER_CONTROL_LOOP_CHANNEL, framebuffer::FrameBuffer},
+    camera::{
+        camera_freertos_task::FRAMEBUFFER_CONTROL_LOOP_CHANNEL, framebuffer::FrameBuffer,
+        framebuffer_view::FrameBufferView,
+    },
     comms::comms_task::REPORT_WATCH,
     control::vision::algo::{calculate_control_effort, vision_output_to_motorcommand},
     encoder::encoder_task::KNIFE_STATE,
@@ -34,13 +37,14 @@ pub async fn control_loop(
     // Track latest setpoint
     let mut latest_setpoint = messenger_mouse::Setpoint::default();
 
+    // Track latest frame generation
+    let mut last_gen = 0u32;
+
     // Task timekeeper
     let mut ticker = Ticker::every(CONTROL_LOOP_FREQUENCY);
 
     // Latest framebuffer signal
-    let mut framebuffer_rx = FRAMEBUFFER_CONTROL_LOOP_CHANNEL
-        .receiver()
-        .expect("not enough FRAMEBUFFER_CONTROL_LOOP_CHANNEL rx N");
+    let mut framebuffer_rx = FRAMEBUFFER_CONTROL_LOOP_CHANNEL.receiver();
 
     let mut encoder_rx = KNIFE_STATE.receiver().expect("not enough KNIFE_STATE rx N");
 
@@ -50,8 +54,8 @@ pub async fn control_loop(
         .expect("not enough KNIFE_MOTOR_HOME N");
     let report_tx = REPORT_WATCH.sender();
 
+    // Startup: Ask motor controller to start homing
     info!("CONTROL: Startup -> Homing motor");
-    // Ask motor controller to start homing
     motor_tx.send(MotorCommand::Home);
     loop {
         let home_status = motor_home_rx.changed().with_timeout(HOME_TIMEOUT).await;
@@ -68,28 +72,13 @@ pub async fn control_loop(
 
     // Main Control loop
     loop {
-        // Update to latest setpoint, if any
+        // ----- Fetch Control Input -----
         if let Some(new_setpoint) = setpoint_receiver.try_get() {
             info!("CONTROL: NEW setpoint: {:?}", new_setpoint);
             latest_setpoint = new_setpoint;
         } else {
             info!("CONTROL: CURRENT setpoint: {:?}", latest_setpoint);
         }
-
-        // update appstate
-        let mut current_appstate = match latest_setpoint.knife_manager {
-            KnifeManager::Vision => AppState::Active,
-            KnifeManager::Manual => AppState::StandBy,
-        };
-
-        // Act on latest setpoint
-        // if latest_setpoint.enable {
-        // Get latest framebuffer from camera
-        let frame = framebuffer_rx.changed().await;
-
-        let gen = frame.generation;
-        let timestamp_us = frame.timestamp_us;
-        let camera_fps = frame.fps;
         let led_brightness = latest_setpoint.led_setpoint.brightness;
 
         // Get latest encoder value
@@ -99,17 +88,39 @@ pub async fn control_loop(
         });
         info!("CONTROL: Encoder state: {:?}", current_knife_state);
 
-        // Calculate control effort
-        let vision_output = get_control_effort(frame).await;
+        // update appstate
+        let mut current_appstate = match latest_setpoint.knife_manager {
+            KnifeManager::Vision => AppState::Active,
+            KnifeManager::Manual => AppState::StandBy,
+        };
 
-        // Knife motor actuation
-        let motor_cmd = match latest_setpoint.knife_manager {
+        let (motor_cmd, vision_data) = match latest_setpoint.knife_manager.clone() {
             KnifeManager::Manual => {
                 // Translate knife motor command to
                 info!("CONTROL: MANUAL setpoint: {:?}", latest_setpoint);
-                latest_setpoint.knife_setpoint.clone()
+                let motor_cmd = latest_setpoint.knife_setpoint.clone();
+
+                (motor_cmd, None)
             }
+
             KnifeManager::Vision => {
+                // Get latest framebuffer from camera
+                let frame = framebuffer_rx.receive().await;
+
+                let timestamp = frame.timestamp.clone();
+                let gen = frame.generation;
+                let camera_fps = frame.fps;
+
+                // Tearing detection
+                let current_gen = frame.generation;
+                let current_hash = frame.calculate_checksum();
+                let last_hash = frame.hash;
+                detect_tearing(current_gen, last_gen, current_hash, last_hash);
+
+                // ----- Calculate control effort -----
+                // Calculate control effort through vision algorithm
+                let vision_output = get_control_effort(frame).await;
+
                 // Convert into motor command
                 let motor_cmd = vision_output_to_motorcommand(vision_output.clone());
 
@@ -118,7 +129,18 @@ pub async fn control_loop(
                     gen, vision_output, motor_cmd,
                 );
 
-                motor_cmd
+                let vision_data = VisionData {
+                    generation: gen,
+                    timestamp_s: timestamp.tv_sec,
+                    timestamp_us: timestamp.tv_usec,
+                    camera_fps,
+                    vision_output,
+                };
+
+                // Bookkeeping
+                last_gen = vision_data.generation;
+
+                (motor_cmd, Some(vision_data))
             }
         };
 
@@ -134,18 +156,18 @@ pub async fn control_loop(
 
         // Collect & Send Report to stm32
         let measurements = messenger_mouse::Measurements {
-            timestamp_us,
-            camera_fps,
-            controller_output: vision_output,
+            vision_data,
             current_knife_state,
         };
 
+        // Combine into report
         let report = messenger_mouse::Report {
             setpoint: latest_setpoint.clone(),
             app_state: current_appstate,
             measurements,
         };
 
+        // ----- Reporting -----
         info!("CONTROL: sending  report {:?}", report);
         report_tx.send(report);
 
@@ -153,8 +175,30 @@ pub async fn control_loop(
     }
 }
 
+fn detect_tearing(current_gen: u32, last_gen: u32, current_hash: u32, last_hash: u32) -> bool {
+    let hash_mismatch = current_hash != last_hash;
+    let gen_mismatch = (current_gen <= last_gen) && last_gen != 0;
+
+    if hash_mismatch {
+        error!(
+            "CONTROL: Aliasing detected! old & new checksum mismatch: {} != {}, continuing...",
+            current_hash, last_hash
+        );
+        return true;
+    }
+
+    if gen_mismatch {
+        error!(
+            "CONTROL: Aliasing detected! last gen >= current gen {} >= {}, continuing...",
+            last_gen, current_gen
+        );
+        return true;
+    }
+    false
+}
+
 // Calculate control effort + telemetry
-async fn get_control_effort(frame: FrameBuffer) -> VisionAlgorithmOutput {
+async fn get_control_effort(frame: FrameBufferView) -> VisionAlgorithmOutput {
     let start = SystemTime::now();
 
     let out = calculate_control_effort(frame).await;

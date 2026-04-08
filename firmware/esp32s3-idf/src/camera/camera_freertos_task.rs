@@ -1,23 +1,25 @@
 use std::time::SystemTime;
 
 use crate::camera::{
-    esp_cam_wrapper::Camera, framebuffer::FrameBuffer, framesize::FrameSize,
-    peripherals::CameraPeripherals, pixelformat::PixelFormat, CameraConfig,
+    esp_cam_wrapper::Camera, framebuffer::FrameBuffer, framebuffer_view::FrameBufferView,
+    framesize::FrameSize, peripherals::CameraPeripherals, pixelformat::PixelFormat, CameraConfig,
 };
 
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Watch};
+use embassy_sync::{
+    blocking_mutex::raw::CriticalSectionRawMutex as Cs, channel::Channel, watch::Watch,
+};
 
 use esp_idf_sys::*;
 use log::*;
 
-pub static FRAMEBUFFER_CONTROL_LOOP_CHANNEL: Watch<Cs, FrameBuffer, 1> = Watch::new();
+pub static FRAMEBUFFER_CONTROL_LOOP_CHANNEL: Channel<Cs, FrameBufferView, 1> = Channel::new();
 pub static FRAMEBUFFER_WEBSERVER_CHANNEL: Watch<Cs, FrameBuffer, 1> = Watch::new();
 pub static FRAMEBUFFER_SD_CHANNEL: Watch<Cs, FrameBuffer, 1> = Watch::new();
 static mut CAMERA_TASK_ARGS: Option<CameraTaskArgs> = None;
 
 pub struct CameraTaskArgs {
     camera_peripherals: Option<CameraPeripherals>,
-    control_loop_signal: &'static Watch<Cs, FrameBuffer, 1>,
+    control_loop_tx: &'static Channel<Cs, FrameBufferView, 1>,
     webserver_signal: &'static Watch<Cs, FrameBuffer, 1>,
     sd_signal: &'static Watch<Cs, FrameBuffer, 1>,
 }
@@ -28,7 +30,7 @@ pub fn setup_freertos(camera_peripherals: CameraPeripherals) {
     unsafe {
         CAMERA_TASK_ARGS = Some(CameraTaskArgs {
             camera_peripherals: Some(camera_peripherals),
-            control_loop_signal: &FRAMEBUFFER_CONTROL_LOOP_CHANNEL,
+            control_loop_tx: &FRAMEBUFFER_CONTROL_LOOP_CHANNEL,
             webserver_signal: &FRAMEBUFFER_WEBSERVER_CHANNEL,
             sd_signal: &FRAMEBUFFER_SD_CHANNEL,
         });
@@ -38,9 +40,9 @@ pub fn setup_freertos(camera_peripherals: CameraPeripherals) {
             b"camera\0".as_ptr(),
             4096,
             CAMERA_TASK_ARGS.as_mut().unwrap() as *mut _ as *mut _,
-            5,
+            24,
             core::ptr::null_mut(),
-            0,
+            1,
         );
     }
 }
@@ -54,7 +56,7 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
     // Get our camera args
     let args = &mut *(arg as *mut CameraTaskArgs);
 
-    let control_loop_signal = args.control_loop_signal;
+    let control_loop_tx = args.control_loop_tx;
     let webserver_signal = args.webserver_signal;
     let sd_signal = args.sd_signal;
 
@@ -121,9 +123,6 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
                 f64::INFINITY
             };
 
-            // Get timestamp in micros since boot
-            let timestamp_us = unsafe { esp_timer_get_time() };
-
             log::info!(
                 "Camera got {} [{}x{}] framebuffer gen {} @ {:p}\nFPS: {:.3}\n\n",
                 frame.len(),
@@ -134,22 +133,30 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
                 fps,
             );
 
-            // log::info!("Starting FB copy for control loop");
-            let start = SystemTime::now();
-            // Copy framebuffer, continue if this fails
-            if let Some(fb_copy) = FrameBuffer::try_from_esp(&frame, fps, timestamp_us) {
-                // Send to ControlLoop task
-                control_loop_signal.sender().send(fb_copy);
-            } else {
-                log::error!("unable to make FB copy for control loop");
+            // Move the framebuffer into a higher order structure
+            let fb = FrameBufferView::from_driver(frame, fps);
+            let gen = fb.generation;
+            // Send it to the control task for consumption
+            if let Err(err) = control_loop_tx.try_send(fb) {
+                log::warn!("CAMERA: gen={} dropped: {:?}", gen, err);
             }
-            log::info!(
-                "Finished FB copy for control loop in {}ms",
-                SystemTime::now()
-                    .duration_since(start)
-                    .unwrap_or_default()
-                    .as_millis(),
-            );
+
+            // log::info!("Starting FB copy for control loop");
+            // let start = SystemTime::now();
+            // // Copy framebuffer, continue if this fails
+            // if let Some(fb_copy) = FrameBuffer::try_from_esp(&frame, fps, timestamp_us) {
+            //     // Send to ControlLoop task
+            //     control_loop_tx.sender().send(fb_copy);
+            // } else {
+            //     log::error!("unable to make FB copy for control loop");
+            // }
+            // log::info!(
+            //     "Finished FB copy for control loop in {}ms",
+            //     SystemTime::now()
+            //         .duration_since(start)
+            //         .unwrap_or_default()
+            //         .as_millis(),
+            // );
 
             // If webserver is enabled, copy the framebuffer for consumption there
             // Note: each FB copy takes ~30ms, this directly impacts control loop perf
@@ -198,8 +205,6 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
                     );
                 }
             }
-
-            // Note `frame` is dropped here, which releases the esp FB back to the esp32-camera
         };
 
         // Timekeeping

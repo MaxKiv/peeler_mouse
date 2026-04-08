@@ -37,7 +37,7 @@ pub static KNIFE_MOTOR_POS_RESET: Watch<CriticalSectionRawMutex, (), 1> = Watch:
 static STEPPER_CMD: Watch<CriticalSectionRawMutex, StepperCommand, 1> = Watch::new();
 
 /// Homing speed in mm/s
-pub const HOMING_SPEED_MM_PS: f32 = 1.0;
+pub const HOMING_SPEED_MM_PS: f32 = 0.1;
 pub const HOMING_DIRECTION: MotorDirection = MotorDirection::Forward;
 pub const OPERATION_SPEED_MM_PS: f32 = 1.0;
 /// TODO: Motor speed for 1 revolution per second
@@ -222,7 +222,7 @@ fn position_to_steps(target: Length) -> Steps {
 
 fn velocity_to_interval(_speed: Velocity) -> Duration {
     warn!("TODO: velocity_to_interval");
-    Duration::from_hz(1_000)
+    Duration::from_hz(500)
 }
 
 // Stepper task

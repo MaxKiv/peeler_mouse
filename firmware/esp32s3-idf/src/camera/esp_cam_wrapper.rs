@@ -10,22 +10,13 @@ use crate::camera::pixelformat::PixelFormat;
 #[derive(Debug, Clone)]
 pub struct EspCamFrameBuffer {
     fb: *mut camera::camera_fb_t,
-    pub generation: u64,
+    pub generation: u32,
 }
 
 /// Safety: Pointer refers to PSRAM, managed by esp-camera driver
+/// Camera halts DMA until camera::esp_camera_fb_return() is called
+/// Meaning anyone slow owning this slows down camara FPS
 /// Invariant: No consumer may access framebuffer memory after the camera task has published the next generation.
-///
-/// valid only until next frame publish
-/// read-only
-/// no .await while holding
-/// no storing beyond handler scope
-///
-/// Usage:
-/// let gen = frame.generation;
-/// if gen != expected_gen {
-///   return Err(StaleFrame);
-/// }
 unsafe impl Send for EspCamFrameBuffer {}
 unsafe impl Sync for EspCamFrameBuffer {}
 
@@ -246,7 +237,7 @@ impl<'a> CameraSensor<'a> {
 
 pub struct Camera<'a> {
     _p: PhantomData<&'a ()>,
-    generation: u64,
+    generation: u32,
 }
 
 impl<'a> Camera<'a> {

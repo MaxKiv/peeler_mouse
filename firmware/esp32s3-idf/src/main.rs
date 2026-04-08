@@ -6,6 +6,7 @@ pub mod encoder;
 pub mod request;
 pub mod sd;
 pub mod server;
+pub mod util;
 pub mod wifi;
 
 use crate::actuation::stepper::peripherals::{MotorPeripherals, StepperPeripherals};

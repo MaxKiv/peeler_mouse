@@ -8,7 +8,7 @@ pub struct FrameBuffer {
     pub width: usize,
     pub height: usize,
     pub format: camera::pixformat_t,
-    pub generation: u64,   // Frame generation counter
+    pub generation: u32,   // Frame generation counter
     pub fps: f64,          // Approximate FPS at time of capture
     pub timestamp_us: i64, // microseconds_since_epoch
 }

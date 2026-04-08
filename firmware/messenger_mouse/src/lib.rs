@@ -59,10 +59,7 @@ impl Setpoint {
 #[derive(Deserialize, Serialize, Clone, Debug, Default)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub struct Measurements {
-    /// microseconds since boot
-    pub timestamp_us: i64,
-    pub camera_fps: f64,
-    pub controller_output: VisionAlgorithmOutput,
+    pub vision_data: Option<VisionData>,
     pub current_knife_state: KnifeState,
 }
 
@@ -88,4 +85,14 @@ pub enum VisionAlgorithmOutput {
     #[default]
     Hold,
     Down,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug, Default)]
+#[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
+pub struct VisionData {
+    pub generation: u32,
+    pub timestamp_s: i64,  /* Seconds since boot of DMA completion */
+    pub timestamp_us: i32, /* Microseconds.  */
+    pub camera_fps: f64,
+    pub vision_output: VisionAlgorithmOutput,
 }

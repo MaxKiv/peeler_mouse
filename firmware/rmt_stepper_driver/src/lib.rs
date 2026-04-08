@@ -49,7 +49,7 @@ where
             rmt,
             dir_pin,
             delay,
-            step_high_ticks: 5, // 5µs using default clock divider of 80 (1 µs tick)
+            step_high_ticks: 20, // 20µs using default clock divider of 80 (1 µs tick)
             step_period_ticks: 100, // 0.1ms period (10khz)
             direction: Direction::Forward,
             running: false,
@@ -74,8 +74,39 @@ where
         Ok(())
     }
 
+    /// Start Indefinite RMT pulse stepping
+    pub async fn start_stepping(&mut self) -> Result<(), StepperError> {
+        let signal = self.create_signal()?;
+
+        self.rmt
+            .set_looping(esp_idf_hal::rmt::config::Loop::Endless)
+            .map_err(|_| StepperError::Rmt)?;
+
+        self.rmt.start(signal).map_err(|_| StepperError::Rmt)?;
+
+        Ok(())
+    }
+
+    /// Stop Indefinite RMT pulse stepping
+    pub async fn stop_stepping(&mut self) -> Result<(), StepperError> {
+        self.rmt.stop().map_err(|_| StepperError::Rmt)?;
+        Ok(())
+    }
+
     /// Single step using RMT pulse
     pub async fn step_once(&mut self) -> Result<(), StepperError> {
+        let signal = self.create_signal()?;
+
+        self.rmt.start(signal).map_err(|_| StepperError::Rmt)?;
+
+        // Wait for the total RMT signal duration, hacky but esp-idf-hal doesn't support RMT
+        // interrupt atm
+        self.delay.delay_ns(self.step_period_ticks).await;
+
+        Ok(())
+    }
+
+    fn create_signal(&self) -> Result<FixedLengthSignal<1>, StepperError> {
         let mut signal = FixedLengthSignal::<1>::new();
 
         let high: Pulse = Pulse::new(
@@ -91,13 +122,7 @@ where
 
         signal.set(0, &(high, low)).map_err(|_| StepperError::Rmt)?;
 
-        self.rmt.start(signal).map_err(|_| StepperError::Rmt)?;
-
-        // Wait for the total RMT signal duration, hacky but esp-idf-hal doesn't support RMT
-        // interrupt atm
-        self.delay.delay_ns(self.step_period_ticks).await;
-
-        Ok(())
+        Ok(signal)
     }
 
     /// Run continuously until stopped
