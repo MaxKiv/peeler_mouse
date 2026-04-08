@@ -51,4 +51,4 @@ Thumbs.db
 .cache/
 build/
 .direnv/
-
+.embuild/
