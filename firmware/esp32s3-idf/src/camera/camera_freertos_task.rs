@@ -1,5 +1,3 @@
-use std::time::SystemTime;
-
 use crate::camera::{
     esp_cam_wrapper::Camera, framebuffer::FrameBuffer, framebuffer_view::FrameBufferView,
     framesize::FrameSize, peripherals::CameraPeripherals, pixelformat::PixelFormat, CameraConfig,
@@ -9,6 +7,7 @@ use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex as Cs, channel::Channel, watch::Watch,
 };
 
+use embassy_time::Instant;
 use esp_idf_sys::*;
 use log::*;
 
@@ -51,7 +50,7 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
     log::info!("Starting camera FreeRtos task");
 
     let mut x_last_wake_time = xTaskGetTickCount();
-    let mut last_time = SystemTime::now();
+    let mut last_time = Instant::now();
 
     // Get our camera args
     let args = &mut *(arg as *mut CameraTaskArgs);
@@ -109,27 +108,28 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
         // Take picture!
         if let Some(frame) = cam.get_framebuffer() {
             // Figure out FPS
-            let now = SystemTime::now();
-            let time_since_last_fb = now.duration_since(last_time).unwrap_or_default();
+            let now = Instant::now();
+            let time_since_last_fb = now.duration_since(last_time);
             last_time = now;
 
             // Convert the duration to seconds as an f64
-            let secs = time_since_last_fb.as_secs_f64();
+            let micros = time_since_last_fb.as_micros();
 
             // Guard against a zero length interval
-            let fps = if secs > 0.0 {
-                1.0 / secs
+            let fps = if micros > 0 {
+                1_000_000.0 / (micros as f64)
             } else {
                 f64::INFINITY
             };
 
             log::info!(
-                "Camera got {} [{}x{}] framebuffer gen {} @ {:p}\nFPS: {:.3}\n\n",
+                "Camera got {} [{}x{}] framebuffer gen {} @ {:p}\n{}us -> FPS: {:.3}\n\n",
                 frame.len(),
                 frame.width(),
                 frame.height(),
                 frame.generation,
                 &frame.data(),
+                micros,
                 fps,
             );
 
@@ -142,7 +142,7 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
             }
 
             // log::info!("Starting FB copy for control loop");
-            // let start = SystemTime::now();
+            // let start = Instant::now();
             // // Copy framebuffer, continue if this fails
             // if let Some(fb_copy) = FrameBuffer::try_from_esp(&frame, fps, timestamp_us) {
             //     // Send to ControlLoop task
@@ -152,9 +152,8 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
             // }
             // log::info!(
             //     "Finished FB copy for control loop in {}ms",
-            //     SystemTime::now()
+            //     Instant::now()
             //         .duration_since(start)
-            //         .unwrap_or_default()
             //         .as_millis(),
             // );
 
@@ -163,7 +162,7 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
             #[cfg(feature = "webserver")]
             {
                 log::info!("Starting FB copy for Webserver usage");
-                let start = SystemTime::now();
+                let start = Instant::now();
                 // Copy framebuffer, continue if this fails
                 if let Some(fb_copy) = FrameBuffer::try_from_esp(&frame, fps, timestamp_us) {
                     // Send to Webserver task
@@ -173,10 +172,7 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
                 }
                 log::info!(
                     "Finished FB copy for webserver in {}ms",
-                    SystemTime::now()
-                        .duration_since(start)
-                        .unwrap_or_default()
-                        .as_millis(),
+                    Instant::now().duration_since(start).as_millis(),
                 );
             }
 
@@ -186,7 +182,7 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
             {
                 // Throttle logging
                 if frame.generation % CAMERA_TARGET_FPS == 0 {
-                    let start = SystemTime::now();
+                    let start = Instant::now();
 
                     log::info!("Starting FB copy for SD logging usage");
                     // Copy framebuffer, continue if this fails
@@ -198,10 +194,7 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
                     }
                     log::info!(
                         "Finished FB copy for SD logging in {}ms",
-                        SystemTime::now()
-                            .duration_since(start)
-                            .unwrap_or_default()
-                            .as_millis(),
+                        SystemTime::now().duration_since(start).as_millis(),
                     );
                 }
             }

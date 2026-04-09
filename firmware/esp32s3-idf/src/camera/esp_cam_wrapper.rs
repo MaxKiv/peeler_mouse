@@ -52,7 +52,6 @@ impl EspCamFrameBuffer {
 
 impl Drop for EspCamFrameBuffer {
     fn drop(&mut self) {
-        log::info!("Dropping Framebuffer");
         self.fb_return();
     }
 }

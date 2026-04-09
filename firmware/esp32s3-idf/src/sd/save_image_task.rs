@@ -11,14 +11,8 @@ use esp_idf_svc::fs::fatfs::Fatfs;
 use esp_idf_svc::io::vfs::MountedFatfs;
 
 use log::*;
-use std::{
-    fs::{read_dir, File},
-    time::SystemTime,
-};
-use std::{
-    io::Write,
-    time::UNIX_EPOCH,
-};
+use std::fs::{read_dir, File};
+use std::{io::Write, time::UNIX_EPOCH};
 
 use crate::{
     camera::{
@@ -107,7 +101,7 @@ fn try_save_frame(frame: FrameBuffer) -> std::io::Result<()> {
         frame.height
     );
 
-    let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+    let timestamp = Instant::now().duration_since(UNIX_EPOCH);
     let gen = frame.generation;
     let width = frame.width;
     let height = frame.height;

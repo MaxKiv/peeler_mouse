@@ -1,4 +1,4 @@
-use std::time::SystemTime;
+use std::time::Instant;
 
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Receiver};
 use embassy_time::{Duration, Ticker, Timer, WithTimeout};
@@ -74,8 +74,10 @@ pub async fn control_loop(
     loop {
         // ----- Fetch Control Input -----
         if let Some(new_setpoint) = setpoint_receiver.try_get() {
-            info!("CONTROL: NEW setpoint: {:?}", new_setpoint);
-            latest_setpoint = new_setpoint;
+            if new_setpoint != latest_setpoint {
+                info!("CONTROL: NEW setpoint: {:?}", new_setpoint);
+                latest_setpoint = new_setpoint;
+            }
         } else {
             info!("CONTROL: CURRENT setpoint: {:?}", latest_setpoint);
         }
@@ -110,6 +112,8 @@ pub async fn control_loop(
                 let timestamp = frame.timestamp.clone();
                 let gen = frame.generation;
                 let camera_fps = frame.fps;
+
+                info!("CONTROL: got framebuffer gen {}", gen);
 
                 // Tearing detection
                 let current_gen = frame.generation;
@@ -194,16 +198,21 @@ fn detect_tearing(current_gen: u32, last_gen: u32, current_hash: u32, last_hash:
         );
         return true;
     }
+
+    info!(
+        "CONTROL: NO tearing detected for gen {} - hash {}",
+        current_gen, current_hash
+    );
     false
 }
 
 // Calculate control effort + telemetry
 async fn get_control_effort(frame: FrameBufferView) -> VisionAlgorithmOutput {
-    let start = SystemTime::now();
+    let start = Instant::now();
 
     let out = calculate_control_effort(frame).await;
 
-    let dur = SystemTime::now().duration_since(start).unwrap_or_default();
+    let dur = Instant::now().duration_since(start);
     log::info!(
         "CONTROL: took {}ms to find new output: {:?}",
         dur.as_millis(),

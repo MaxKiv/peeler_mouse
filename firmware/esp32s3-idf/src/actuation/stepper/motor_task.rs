@@ -222,7 +222,7 @@ fn position_to_steps(target: Length) -> Steps {
 
 fn velocity_to_interval(_speed: Velocity) -> Duration {
     warn!("TODO: velocity_to_interval");
-    Duration::from_hz(500)
+    Duration::from_hz(100)
 }
 
 // Stepper task
@@ -260,12 +260,13 @@ pub async fn stepper_task(p: StepperPeripherals) {
                 cmd = new_cmd;
             }
 
-            // Set timer expired -> ask driver to step once, track step and re-arm timer
+            // Set timer expired -> re-arm RMT STEP sequence
+            // track step and re-arm timer
             Either3::Second(()) => {
                 if cmd.running {
                     driver.step_once().await;
 
-                    // Update position
+                    // Assume we stepped; Update position
                     position.0 += match cmd.dir {
                         MotorDirection::Forward => 1,
                         MotorDirection::Reverse => -1,

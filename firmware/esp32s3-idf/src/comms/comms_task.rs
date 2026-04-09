@@ -141,54 +141,19 @@ pub async fn deserialise_task(
 ) {
     info!("COMMS: Starting deserialise task");
     let mut framing_buf = heapless::Vec::<u8, { messenger_mouse::SETPOINT_BYTES * 2 }>::new();
-    let mut buf = [0u8; 1];
+    let mut buf = [0u8; messenger_mouse::SETPOINT_BYTES / 2];
 
     loop {
-        // Fetch serialised setpoint byte per byte
-        match setpoint_pipe_rx.read(&mut buf).await {
-            1 => {
-                // Got a single byte, continue framing
-                let byte = buf[0];
+        let n = setpoint_pipe_rx.read(&mut buf).await;
 
-                // Is this byte a COBS delimiter (0)?
-                if byte == 0 {
-                    // Try to frame all collected bytes so far into a [`Setpoint`]
-                    match messenger_mouse::deserialize_setpoint(&mut framing_buf) {
-                        Ok(setpoint) => {
-                            info!(
-                                "FRAMING - frame_setpoints: COBS delimiter detected & Deserialise succes: {setpoint:?}"
-                            );
-                            // Happy path - Send deserialised setpoint to control task
-                            setpoint_sender.send(setpoint);
-                        }
-                        Err(err) => {
-                            error!(
-                                "FRAMING - frame_setpoints: Unable to deserialise framing buffer into a setpoint. Err: {err} - buffer: {framing_buf:?}"
-                            );
-                        }
-                    }
-
-                    // Deserialise attempted: clear framing buffer
-                    framing_buf.clear();
-                } else if framing_buf.push(byte).is_err() {
-                    error!(
-                        "FRAMING - Royally fucked: we somehow managed to push SETPOINT_BYTES * 2 bytes into the framing buffer and failed to serialise a single setpoint, restart framing"
-                    );
-
-                    // Best we can do here
-                    framing_buf.clear();
+        for &byte in &buf[..n] {
+            if byte == 0 {
+                if let Ok(setpoint) = messenger_mouse::deserialize_setpoint(&mut framing_buf) {
+                    setpoint_sender.send(setpoint);
                 }
-            }
 
-            // Error: received zero or >2 bytes
-            n => {
-                error!("COMMS: deserialise_task got {n} != 1 bytes from serialised setpoint pipe");
-                assert!(
-                    true,
-                    "COMMS: deserialise_task got {n} != 1 bytes from serialised setpoint pipe"
-                );
-
-                // Best we can do here
+                framing_buf.clear();
+            } else if framing_buf.push(byte).is_err() {
                 framing_buf.clear();
             }
         }
