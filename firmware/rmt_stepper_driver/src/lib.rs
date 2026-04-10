@@ -26,8 +26,8 @@ pub struct RmtStepper<DirPin, Delay> {
     dir_pin: DirPin,
     delay: Delay,
 
-    step_high_ticks: u32,
-    step_period_ticks: u32,
+    step_high_ticks: u16,
+    step_period_ticks: u16,
 
     direction: Direction,
     running: bool,
@@ -49,16 +49,15 @@ where
             rmt,
             dir_pin,
             delay,
-            step_high_ticks: 20, // 20µs using default clock divider of 80 (1 µs tick)
-            step_period_ticks: 100, // 0.1ms period (10khz)
+            step_high_ticks: 1, // 20µs using default clock divider of 80 (1 µs tick)
+            step_period_ticks: 100, // 1ms period (1khz)
             direction: Direction::Forward,
             running: false,
         }
     }
 
-    /// Set speed via step frequency (Hz)
-    pub fn set_speed_hz(&mut self, hz: u32) {
-        self.step_period_ticks = 1_000_000 / hz;
+    pub fn set_step_period(&mut self, step_period_ticks: u16) {
+        self.step_period_ticks = step_period_ticks;
     }
 
     pub async fn set_direction(&mut self, dir: Direction) -> Result<(), StepperError> {
@@ -101,7 +100,20 @@ where
 
         // Wait for the total RMT signal duration, hacky but esp-idf-hal doesn't support RMT
         // interrupt atm
-        self.delay.delay_ns(self.step_period_ticks).await;
+        self.delay.delay_ns(self.step_period_ticks as u32).await;
+
+        Ok(())
+    }
+
+    /// Single step using RMT pulse
+    pub async fn do_n_steps(&mut self, n: u32) -> Result<(), StepperError> {
+        let signal = self.create_signal()?;
+
+        self.rmt
+            .set_looping(esp_idf_hal::rmt::config::Loop::Count(n))
+            .map_err(|_| StepperError::Rmt)?;
+
+        self.rmt.start(signal).map_err(|_| StepperError::Rmt)?;
 
         Ok(())
     }

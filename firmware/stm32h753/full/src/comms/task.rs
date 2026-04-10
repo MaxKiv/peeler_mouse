@@ -6,7 +6,7 @@ use embassy_sync::{
     pipe::{self, Pipe},
     watch::{self, Watch},
 };
-use embassy_time::Timer;
+use embassy_time::{Instant, Timer};
 use embedded_io_async::Read;
 use embedded_io_async::Write;
 use messenger_mouse::{Report, Setpoint};
@@ -75,7 +75,6 @@ async fn rx_task(
     loop {
         match uart_rx.read(&mut buf).await {
             Ok(n) => {
-                info!("read {} bytes: {:?}", n, &buf[..n]);
                 // Read N bytes, send along for framing
                 if let Err(err) = report_pipe_tx.write_all(&buf[..n]).await {
                     error!("COMMS: RX error: {:?}", err);
@@ -97,7 +96,6 @@ async fn tx_task(
     loop {
         // Get latest serialised report from the framing task
         let n = setpoint_pipe_rx.read(&mut buf).await;
-        debug!("COMMS - tx_task: writing {} bytes to UART", n);
         if let Err(err) = uart_tx.write_all(&buf[..n]).await {
             error!(
                 "COMMS - tx_task: {} unable to write serialised setpoint bytes {:?} to UART",
@@ -115,61 +113,22 @@ pub async fn frame_and_serialise_reports(
     report_pipe_rx: pipe::Reader<'static, Cs, { messenger_mouse::REPORT_BYTES * 4 }>,
 ) {
     let mut framing_buf = heapless::Vec::<u8, { messenger_mouse::REPORT_BYTES * 4 }>::new();
-    let mut buf = [0u8; 1];
+    let mut buf = [0u8; messenger_mouse::REPORT_BYTES / 2];
 
     loop {
-        match report_pipe_rx.read(&mut buf).await {
-            // Read single byte
-            1 => {
-                let byte = buf[0];
-                // COBS Delimiter
-                if byte == 0 {
-                    debug!(
-                        "FRAMING - frame_and_serialise_reports: COBS delimiter detected, attempting to frame: {:?}",
-                        framing_buf
-                    );
+        let n = report_pipe_rx.read(&mut buf).await;
 
-                    // COBS delimiter byte: process frame
-                    match messenger_mouse::deserialize_report(&mut framing_buf) {
-                        Ok(framed_report) => {
-                            info!(
-                                "FRAMING - frame_and_serialise_reports: COBS delimeter detected & Deserialise succes: {:?}",
-                                framed_report
-                            );
-                            // Happy path - Send deserialised setpoint to control task
-                            report_sender.send(framed_report);
-                        }
-                        Err(err) => {
-                            error!(
-                                "FRAMING - frame_and_serialise_reports: Unable to deserialise framing buffer into a report. Err: {} - buffer: {:?}",
-                                err, framing_buf
-                            );
-                        }
-                    }
-                    // Reset current frame
-                    framing_buf.clear();
-                } else {
-                    trace!("FRAMING - frame_setpoints: data byte: {}", byte);
-                    // Data byte: add to frame
-                    if let Err(byte) = framing_buf.push(byte) {
-                        error!(
-                            "FRAMING - frame_setpoints: Unable to collect byte {} because framing buffer {:?} is full, should never happen but you are here anyway",
-                            byte, framing_buf
-                        );
-                        // Clear frame, issue is hopefully resolved after next delimiter byte
-                        framing_buf.clear();
-                    }
+        for &byte in &buf[..n] {
+            if byte == 0 {
+                if let Ok(report) = messenger_mouse::deserialize_report(&mut framing_buf) {
+                    report_sender.send(report);
                 }
-            }
-            // Unhappy path
-            n => {
-                error!(
-                    "frame_and_serialise_reports: read {} bytes from pipe, ignoring",
-                    n
-                );
+
+                framing_buf.clear();
+            } else if framing_buf.push(byte).is_err() {
                 framing_buf.clear();
             }
-        };
+        }
     }
 }
 
@@ -189,10 +148,6 @@ pub async fn serialise_setpoints(
         match messenger_mouse::serialize_setpoint(setpoint.clone(), &mut buf) {
             Ok(mut serialised) => {
                 // Push serialised report into pipe for consumption in comms task
-                debug!(
-                    "FRAMING - serialize_setpoint: serialised setpoint: {:?}",
-                    serialised
-                );
                 // Write until full report is pushed into pipe
                 while !serialised.is_empty() {
                     let n = setpoint_pipe_tx.write(serialised).await;

@@ -13,6 +13,7 @@ pub struct StepperPeripherals {
     pub rmt_channel: esp_idf_hal::rmt::CHANNEL0,
     pub step_rmt_pin: esp_idf_hal::gpio::Gpio41,
     pub dir_pin: esp_idf_hal::gpio::Gpio42,
+    pub enable_pin: esp_idf_hal::gpio::Gpio40,
 }
 
 pub struct MotorPeripherals {

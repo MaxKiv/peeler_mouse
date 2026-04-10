@@ -1,9 +1,9 @@
 use embassy_executor::Spawner;
 use embassy_futures::select::{select, select3, Either, Either3};
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, watch::Watch};
-use embassy_time::{Delay, Duration, Timer};
+use embassy_time::{Delay, Duration, Instant, Timer};
 use esp_idf_hal::{
-    gpio::{Level, PinDriver, Pull},
+    gpio::{Level, Output, PinDriver, Pull},
     rmt::{TxRmtConfig, TxRmtDriver},
 };
 use log::*;
@@ -43,17 +43,22 @@ pub const OPERATION_SPEED_MM_PS: f32 = 1.0;
 /// TODO: Motor speed for 1 revolution per second
 pub const SPEED_REV_PS: f32 = 1.0;
 
+const STEPS_PER_INTERVAL: u32 = 10; // Steps per interval (interval n = n RMT pulses before re-arm)
+const MINIMUM_SPS: Duration = Duration::from_hz(100); // SPS
+const MAXIMUM_SPS: Duration = Duration::from_hz(20_000); // SPS
+const ACCEL_PER_INTERVAL: Duration = Duration::from_hz(100); // SPS in/decrease per interval
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct StepperCommand {
     pub dir: MotorDirection,
-    pub interval: Duration, // derived from Velocity
-    pub running: bool,      // false = hold position / coast
+    pub period: Duration, // derived from Velocity
+    pub running: bool,    // false = hold position / coast
 }
 
 impl StepperCommand {
     pub const STOPPED: Self = Self {
         dir: MotorDirection::Forward,
-        interval: Duration::from_millis(10),
+        period: MINIMUM_SPS,
         running: false,
     };
 }
@@ -105,7 +110,7 @@ pub async fn control_knife_motor() {
                     MotorCommand::MoveVelocity(MotorVelocitySetpoint { dir, speed }) => {
                         StepperCommand {
                             dir,
-                            interval: velocity_to_interval(speed),
+                            period: velocity_to_interval(speed),
                             running: true,
                         }
                     }
@@ -114,7 +119,7 @@ pub async fn control_knife_motor() {
                         home_tx.send(home_status.clone());
                         StepperCommand {
                             dir: HOMING_DIRECTION,
-                            interval: velocity_to_interval(Velocity::new::<millimeter_per_second>(
+                            period: velocity_to_interval(Velocity::new::<millimeter_per_second>(
                                 HOMING_SPEED_MM_PS,
                             )),
                             running: true,
@@ -139,7 +144,7 @@ pub async fn control_knife_motor() {
 
                             StepperCommand {
                                 dir,
-                                interval: velocity_to_interval(speed),
+                                period: velocity_to_interval(speed),
                                 running: true,
                             }
                         }
@@ -160,7 +165,7 @@ pub async fn control_knife_motor() {
                     // Move back untill switch disengages
                     current_cmd = StepperCommand {
                         dir: HOMING_DIRECTION.get_opposite(),
-                        interval: velocity_to_interval(Velocity::new::<millimeter_per_second>(
+                        period: velocity_to_interval(Velocity::new::<millimeter_per_second>(
                             HOMING_SPEED_MM_PS,
                         )),
                         running: true,
@@ -221,15 +226,19 @@ fn position_to_steps(target: Length) -> Steps {
 }
 
 fn velocity_to_interval(_speed: Velocity) -> Duration {
-    warn!("TODO: velocity_to_interval");
-    Duration::from_hz(100)
+    MAXIMUM_SPS
 }
 
 // Stepper task
 #[embassy_executor::task]
 pub async fn stepper_task(p: StepperPeripherals) {
     // --- hardware init ---
-    let rmt_driver = TxRmtDriver::new(p.rmt_channel, p.step_rmt_pin, &TxRmtConfig::new()).unwrap();
+    // RMT Clock divider, RMT takes base AHB clock, which defaults to 80MHz
+    // Maximum RMT pulse width = u16::Max, which together with clock divider above determines maximum frequency
+    // For clock_divider of 80 -> minimum pulse width = 1us and min frequency of ~15Hz
+    let clock_divider = 80;
+    let rmt_cfg = TxRmtConfig::new().clock_divider(clock_divider);
+    let rmt_driver = TxRmtDriver::new(p.rmt_channel, p.step_rmt_pin, &rmt_cfg).unwrap();
     let dir_pin = PinDriver::output(p.dir_pin).unwrap();
     let mut driver = RmtStepper::new("KNIFE", rmt_driver, dir_pin, Delay);
 
@@ -237,39 +246,62 @@ pub async fn stepper_task(p: StepperPeripherals) {
     let mut pos_reset_rx = KNIFE_MOTOR_POS_RESET.receiver().unwrap();
     let mut cmd_rx = STEPPER_CMD.receiver().unwrap();
 
+    let accel_per_step = ACCEL_PER_INTERVAL / STEPS_PER_INTERVAL;
     let mut cmd = StepperCommand::STOPPED;
+    let mut current_step_period = MINIMUM_SPS;
     let mut position = Steps(0);
     pos_tx.send(position);
+
+    let mut enable = PinDriver::output(p.enable_pin).unwrap();
+    let _ = enable.set_high();
 
     // Main stepper control loop, functions in parallel:
     // 1. Check for new stepper command
     // 2. Service current stepper command by stepping at the correct period
     // 3. Listen for position reset requests
     loop {
-        let step_timer = Timer::after(cmd.interval);
+        current_step_period =
+            calculate_step_period(current_step_period, cmd.period, accel_per_step);
+        driver.set_step_period(
+            current_step_period
+                .as_micros()
+                .try_into()
+                .unwrap_or(MINIMUM_SPS.as_micros() as u16),
+        );
+
+        let step_timer = Timer::after(current_step_period * STEPS_PER_INTERVAL);
 
         match select3(cmd_rx.changed(), step_timer, pos_reset_rx.changed()).await {
             // New step command requested -> set new direction and re-arm timer
             Either3::First(new_cmd) => {
                 if new_cmd.dir != cmd.dir {
-                    driver.set_direction(new_cmd.dir.clone()).await;
+                    let _ = driver.set_direction(new_cmd.dir.clone()).await;
                 }
+
                 if !new_cmd.running {
                     driver.stop();
+                    let _ = enable.set_high();
+                } else {
+                    let _ = enable.set_low();
                 }
+
                 cmd = new_cmd;
             }
 
-            // Set timer expired -> re-arm RMT STEP sequence
-            // track step and re-arm timer
+            // Set timer expired ->
+            // Re-arm RMT
+            // Attempt to track steps
             Either3::Second(()) => {
                 if cmd.running {
-                    driver.step_once().await;
+                    let _ = driver.do_n_steps(STEPS_PER_INTERVAL).await;
+                    // let _ = driver.step_once().await;
 
                     // Assume we stepped; Update position
                     position.0 += match cmd.dir {
-                        MotorDirection::Forward => 1,
-                        MotorDirection::Reverse => -1,
+                        MotorDirection::Forward => STEPS_PER_INTERVAL as i32,
+                        MotorDirection::Reverse => -(STEPS_PER_INTERVAL as i32),
+                        // MotorDirection::Forward => 1 as i32,
+                        // MotorDirection::Reverse => -(1 as i32),
                     };
                     pos_tx.send(position);
                 }
@@ -284,4 +316,38 @@ pub async fn stepper_task(p: StepperPeripherals) {
             }
         }
     }
+}
+
+fn calculate_step_period(
+    current_step_speed: Duration,
+    requested_speed: Duration,
+    accel_per_step: Duration,
+) -> Duration {
+    let mut out = Duration::from_hz(1);
+    if current_step_speed == requested_speed {
+        // Target speed reached -> hold
+        out = current_step_speed;
+    } else if requested_speed < current_step_speed {
+        // Ramp up to target speed
+        out = (current_step_speed + accel_per_step).max(MINIMUM_SPS);
+
+        log::info!(
+            "requested_speed {} < current_step_speed {} -> {}",
+            requested_speed.as_micros(),
+            current_step_speed.as_micros(),
+            out.as_micros(),
+        );
+    } else {
+        // Ramp down to target speed
+        out = (current_step_speed + accel_per_step).min(MAXIMUM_SPS);
+
+        log::info!(
+            "requested_speed {} > current_step_speed {} -> {}",
+            requested_speed.as_micros(),
+            current_step_speed.as_micros(),
+            out.as_micros(),
+        );
+    }
+
+    out
 }

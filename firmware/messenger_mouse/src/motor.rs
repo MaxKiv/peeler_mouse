@@ -5,7 +5,7 @@ use uom::si::{
     velocity::millimeter_per_second,
 };
 
-#[derive(Deserialize, Serialize, Clone, Debug, Default)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub enum MotorCommand {
     #[default]
@@ -37,7 +37,7 @@ pub enum KnifeManager {
 }
 
 /// Velocity movement setpoint
-#[derive(Deserialize, Serialize, Clone, Debug, Default)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
 pub struct MotorVelocitySetpoint {
     /// Direction of axis rotation
     pub dir: MotorDirection,
@@ -46,7 +46,7 @@ pub struct MotorVelocitySetpoint {
 }
 
 /// Position movement setpoint
-#[derive(Deserialize, Serialize, Clone, Debug, Default)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
 pub struct MotorPositionSetpoint {
     /// Position target wrt home position
     pub target: Length,

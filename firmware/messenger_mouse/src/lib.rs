@@ -38,7 +38,7 @@ pub struct Report {
     pub measurements: Measurements,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default, PartialEq)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub struct Setpoint {
     pub knife_manager: KnifeManager,
@@ -63,7 +63,7 @@ pub struct Measurements {
     pub current_knife_state: KnifeState,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default, PartialEq)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub struct LedSetpoint {
     pub brightness: f32, // Percentage brightness [0.0, 1.0]

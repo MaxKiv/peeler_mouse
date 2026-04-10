@@ -42,7 +42,7 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     let _ = spawner;
     esp_idf_svc::sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
-    // log::set_max_level(log::LevelFilter::Error);
+    // log::set_max_level(log::LevelFilter::Info);
 
     let version = unsafe { esp_idf_sys::esp_get_idf_version() };
     let version = unsafe { CStr::from_ptr(version) };
@@ -58,8 +58,7 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     let watchdog = disable_watchdog(peripherals.twdt)?;
     log::info!("Watchdog disabled");
 
-    log::info!("Initialize Camera freertos task");
-
+    // log::info!("Initialize Camera freertos task");
     // let camera_peripherals = CameraPeripherals {
     //     pin_xclk: peripherals.pins.gpio15,
     //     pin_d0: peripherals.pins.gpio11,
@@ -76,16 +75,14 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     //     pin_sda: peripherals.pins.gpio4,
     //     pin_scl: peripherals.pins.gpio5,
     // };
-    //
     // camera::camera_freertos_task::setup_freertos(camera_peripherals);
 
-    let comms_peri = CommsPeripherals {
-        uart: peripherals.uart2,
-        tx: peripherals.pins.gpio43,
-        rx: peripherals.pins.gpio44,
-    };
-
-    comms::comms_task::run(spawner, comms_peri)?;
+    // let comms_peri = CommsPeripherals {
+    //     uart: peripherals.uart2,
+    //     tx: peripherals.pins.gpio43,
+    //     rx: peripherals.pins.gpio44,
+    // };
+    // comms::comms_task::run(spawner, comms_peri)?;
 
     // Spawn auxilary SD writing task, when enabled
     #[cfg(feature = "sd")]
@@ -126,30 +123,28 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
         }
     }
 
-    let encoder_peri = EncoderPeripherals {
-        spi: peripherals.spi3,
-        sclk: peripherals.pins.gpio1,
-        serial_out: peripherals.pins.gpio2,
-        serial_in: peripherals.pins.gpio21,
-        cs: peripherals.pins.gpio47,
-    };
-
-    log::info!("Initialize encoder task");
-    // Attempt to start up the control loop + dependencies
-    encoder::encoder_task::run(spawner, encoder_peri)?;
+    // let encoder_peri = EncoderPeripherals {
+    //     spi: peripherals.spi3,
+    //     sclk: peripherals.pins.gpio1,
+    //     serial_out: peripherals.pins.gpio2,
+    //     serial_in: peripherals.pins.gpio21,
+    //     cs: peripherals.pins.gpio47,
+    // };
+    // log::info!("Initialize encoder task");
+    // // Attempt to start up the control loop + dependencies
+    // encoder::encoder_task::run(spawner, encoder_peri)?;
 
     let stepper_peri = StepperPeripherals {
         timer: peripherals.ledc.timer1,
         rmt_channel: peripherals.rmt.channel0,
         step_rmt_pin: peripherals.pins.gpio41,
         dir_pin: peripherals.pins.gpio42,
+        enable_pin: peripherals.pins.gpio40,
     };
-
     let motor_peri = MotorPeripherals {
         stepper: stepper_peri,
         limit_switch: peripherals.pins.gpio45,
     };
-
     actuation::stepper::motor_task::run(spawner, motor_peri)?;
 
     let control_peri = ControlPeripherals {
