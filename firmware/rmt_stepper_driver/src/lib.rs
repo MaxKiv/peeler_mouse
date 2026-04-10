@@ -49,8 +49,8 @@ where
             rmt,
             dir_pin,
             delay,
-            step_high_ticks: 1, // 20µs using default clock divider of 80 (1 µs tick)
-            step_period_ticks: 100, // 1ms period (1khz)
+            step_high_ticks: 1, // 1µs using default clock divider of 80 (1 µs tick)
+            step_period_ticks: 10, // 1ms period (1khz)
             direction: Direction::Forward,
             running: false,
         }
@@ -123,12 +123,11 @@ where
 
         let high: Pulse = Pulse::new(
             PinState::High,
-            PulseTicks::new((self.step_high_ticks) as u16)
-                .expect("unable to construct pulseticks HIGH"),
+            PulseTicks::new(self.step_high_ticks).expect("unable to construct pulseticks HIGH"),
         );
         let low: Pulse = Pulse::new(
             PinState::Low,
-            PulseTicks::new((self.step_period_ticks - self.step_high_ticks) as u16)
+            PulseTicks::new(self.step_period_ticks - self.step_high_ticks)
                 .expect("unable to construct pulseticks LOW"),
         );
 

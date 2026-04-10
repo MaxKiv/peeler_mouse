@@ -45,8 +45,8 @@ pub const SPEED_REV_PS: f32 = 1.0;
 
 const STEPS_PER_INTERVAL: u32 = 10; // Steps per interval (interval n = n RMT pulses before re-arm)
 const MINIMUM_SPS: Duration = Duration::from_hz(100); // SPS
-const MAXIMUM_SPS: Duration = Duration::from_hz(20_000); // SPS
-const ACCEL_PER_INTERVAL: Duration = Duration::from_hz(100); // SPS in/decrease per interval
+const MAXIMUM_SPS: Duration = Duration::from_hz(10_000); // SPS
+                                                         // const ACCEL_PER_INTERVAL: Duration = Duration::from_micros(200); // SPS in/decrease per interval
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct StepperCommand {
@@ -246,7 +246,7 @@ pub async fn stepper_task(p: StepperPeripherals) {
     let mut pos_reset_rx = KNIFE_MOTOR_POS_RESET.receiver().unwrap();
     let mut cmd_rx = STEPPER_CMD.receiver().unwrap();
 
-    let accel_per_step = ACCEL_PER_INTERVAL / STEPS_PER_INTERVAL;
+    // let accel_per_step = ACCEL_PER_INTERVAL / STEPS_PER_INTERVAL;
     let mut cmd = StepperCommand::STOPPED;
     let mut current_step_period = MINIMUM_SPS;
     let mut position = Steps(0);
@@ -260,8 +260,7 @@ pub async fn stepper_task(p: StepperPeripherals) {
     // 2. Service current stepper command by stepping at the correct period
     // 3. Listen for position reset requests
     loop {
-        current_step_period =
-            calculate_step_period(current_step_period, cmd.period, accel_per_step);
+        current_step_period = calculate_step_period(current_step_period, cmd.period);
         driver.set_step_period(
             current_step_period
                 .as_micros()
@@ -319,35 +318,47 @@ pub async fn stepper_task(p: StepperPeripherals) {
 }
 
 fn calculate_step_period(
-    current_step_speed: Duration,
-    requested_speed: Duration,
-    accel_per_step: Duration,
+    current_step_period: Duration,
+    requested_period: Duration,
+    // accel_per_period: Duration,
 ) -> Duration {
-    let mut out = Duration::from_hz(1);
-    if current_step_speed == requested_speed {
-        // Target speed reached -> hold
-        out = current_step_speed;
-    } else if requested_speed < current_step_speed {
-        // Ramp up to target speed
-        out = (current_step_speed + accel_per_step).max(MINIMUM_SPS);
+    const ACCEL: f64 = 0.01;
 
-        log::info!(
-            "requested_speed {} < current_step_speed {} -> {}",
-            requested_speed.as_micros(),
-            current_step_speed.as_micros(),
-            out.as_micros(),
-        );
+    if current_step_period == requested_period {
+        // Target speed reached -> hold
+        current_step_period
+    } else if requested_period < current_step_period {
+        // Ramp up to target speed
+        let out = (current_step_period
+            - Duration::from_ticks((ACCEL * current_step_period.as_ticks() as f64) as u64 + 1))
+        .max(MAXIMUM_SPS);
+
+        // log::info!(
+        //     "requested_period {}us < current_step_period {}us -> {}us",
+        //     requested_period.as_micros(),
+        //     current_step_period.as_micros(),
+        //     // accel_per_period.as_micros(),
+        //     out.as_micros(),
+        // );
+
+        out
     } else {
         // Ramp down to target speed
-        out = (current_step_speed + accel_per_step).min(MAXIMUM_SPS);
 
-        log::info!(
-            "requested_speed {} > current_step_speed {} -> {}",
-            requested_speed.as_micros(),
-            current_step_speed.as_micros(),
-            out.as_micros(),
-        );
+        let out = (current_step_period
+            + Duration::from_ticks((ACCEL * current_step_period.as_ticks() as f64) as u64 + 1))
+        .min(MINIMUM_SPS);
+
+        // let out = (current_step_period + 0.1 * current_step_period).min(MINIMUM_SPS);
+
+        // log::info!(
+        //     "requested_period {}us > current_step_period {}us (accel {})-> {}us",
+        //     requested_period.as_micros(),
+        //     current_step_period.as_micros(),
+        //     accel_per_period.as_micros(),
+        //     out.as_micros(),
+        // );
+
+        out
     }
-
-    out
 }

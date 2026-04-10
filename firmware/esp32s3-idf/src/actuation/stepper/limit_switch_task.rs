@@ -1,6 +1,7 @@
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, watch::Watch};
 use embassy_time::{Duration, Timer};
 use esp_idf_hal::gpio::{self, Level, PinDriver, Pull};
+use log::info;
 
 pub static LIMIT_EVENT: Watch<CriticalSectionRawMutex, LimitSwitchState, 1> = Watch::new();
 pub const LIMIT_SWITCH_ENGAGE_LEVEL: gpio::Level = Level::Low;
@@ -42,6 +43,7 @@ pub async fn manage_limit_switch(pin: esp_idf_hal::gpio::Gpio45) {
 
         if limit.get_level() == edge {
             // Legit press: inform others
+            info!("LIMIT SWITCH {:?}", edge);
             tx.send(edge.into());
         }
     }
