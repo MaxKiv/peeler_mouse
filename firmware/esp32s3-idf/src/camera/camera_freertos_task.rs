@@ -141,22 +141,6 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
                 log::warn!("CAMERA: gen={} dropped: {:?}", gen, err);
             }
 
-            // log::info!("Starting FB copy for control loop");
-            // let start = Instant::now();
-            // // Copy framebuffer, continue if this fails
-            // if let Some(fb_copy) = FrameBuffer::try_from_esp(&frame, fps, timestamp_us) {
-            //     // Send to ControlLoop task
-            //     control_loop_tx.sender().send(fb_copy);
-            // } else {
-            //     log::error!("unable to make FB copy for control loop");
-            // }
-            // log::info!(
-            //     "Finished FB copy for control loop in {}ms",
-            //     Instant::now()
-            //         .duration_since(start)
-            //         .as_millis(),
-            // );
-
             // If webserver is enabled, copy the framebuffer for consumption there
             // Note: each FB copy takes ~30ms, this directly impacts control loop perf
             #[cfg(feature = "webserver")]

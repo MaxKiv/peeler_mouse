@@ -78,7 +78,7 @@ pub fn simple_average(frame: FrameBufferView) -> u64 {
 
 // 3x3 Convolution with horizontal sobel kernel to determine midline point
 pub fn complex_algo(frame: FrameBufferView) -> u64 {
-    let mut out = 0;
+    let out = 0;
 
     log::info!("VISION: starting for GEN {}", frame.generation);
 

@@ -46,10 +46,12 @@ l9110 = { path = "../l9110" }
 # Simple stepper driver
 simple-stepper-driver = { path = "../simple_stepper_driver" }
 rmt-stepper-driver = { path = "../rmt_stepper_driver" }
+embedded-hal = { version = "1.0.0" }
 
 # Encoder
 as5048a-async = "0.1"
 embedded-hal-async = "1.0"
+
 
 [build-dependencies]
 embuild = "0.33"

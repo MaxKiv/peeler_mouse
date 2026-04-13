@@ -2,15 +2,10 @@ use embassy_executor::Spawner;
 use embassy_futures::select::{select, select3, Either, Either3};
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, watch::Watch};
 use embassy_time::{Delay, Duration, Instant, Timer};
-use esp_idf_hal::{
-    gpio::{Level, Output, PinDriver, Pull},
-    rmt::{TxRmtConfig, TxRmtDriver},
-};
 use log::*;
 use messenger_mouse::motor::{
     MotorCommand, MotorDirection, MotorPositionSetpoint, MotorVelocitySetpoint,
 };
-use rmt_stepper_driver::RmtStepper;
 use uom::si::{
     f32::{Length, Velocity},
     length::millimeter,
@@ -18,7 +13,8 @@ use uom::si::{
 };
 
 use crate::actuation::stepper::{
-    limit_switch_task::{manage_limit_switch, LimitSwitchState, LIMIT_EVENT},
+    limit_switch_task::{LimitSwitchState, LIMIT_EVENT},
+    low_level::{low_level_task::STEPPER_CMD, state_machine::SPS},
     peripherals::{MotorPeripherals, StepperPeripherals},
     HomeStatus, MotorAction, PositionModeStatus, Steps,
 };
@@ -33,8 +29,6 @@ pub static KNFIE_MOTOR_POS_STATUS: Watch<CriticalSectionRawMutex, PositionModeSt
 /// Public: live step-position (0 = home)
 pub static KNIFE_MOTOR_POS: Watch<CriticalSectionRawMutex, Steps, 2> = Watch::new();
 pub static KNIFE_MOTOR_POS_RESET: Watch<CriticalSectionRawMutex, (), 1> = Watch::new();
-/// Internal: motor control task -> stepper task
-static STEPPER_CMD: Watch<CriticalSectionRawMutex, StepperCommand, 1> = Watch::new();
 
 /// Homing speed in mm/s
 pub const HOMING_SPEED_MM_PS: f32 = 0.1;
@@ -43,35 +37,31 @@ pub const OPERATION_SPEED_MM_PS: f32 = 1.0;
 /// TODO: Motor speed for 1 revolution per second
 pub const SPEED_REV_PS: f32 = 1.0;
 
-const STEPS_PER_INTERVAL: u32 = 10; // Steps per interval (interval n = n RMT pulses before re-arm)
-const MINIMUM_SPS: Duration = Duration::from_hz(100); // SPS
-const MAXIMUM_SPS: Duration = Duration::from_hz(10_000); // SPS
-                                                         // const ACCEL_PER_INTERVAL: Duration = Duration::from_micros(200); // SPS in/decrease per interval
+/// const MINIMUM_SPS: Duration = Duration::from_hz(100); // SPS
+pub const MINIMUM_SPS: SPS = SPS(100);
+/// pub const MINIMUM_SPS: Duration = Duration::from_hz(100); // SPS
+pub const MAXIMUM_SPS: SPS = SPS(10_000); // SPS
+/// Minimum SPS to switch direction
+pub const MINIMUM_TRANSITION_SPS: SPS = SPS(200);
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct StepperCommand {
-    pub dir: MotorDirection,
-    pub period: Duration, // derived from Velocity
-    pub running: bool,    // false = hold position / coast
+pub enum StepperCommand {
+    Coast,
+    Holding,
+    SingleStep,
+    Velocity(Velocity),
 }
 
 impl StepperCommand {
-    pub const STOPPED: Self = Self {
-        dir: MotorDirection::Forward,
-        period: MINIMUM_SPS,
-        running: false,
-    };
+    pub fn stopped() -> Self {
+        Self::Coast
+    }
 }
 
-// Spawn all COMMS & FRAMING tasks required for external communications
-pub fn run(spawner: &Spawner, p: MotorPeripherals) -> anyhow::Result<()> {
-    log::info!("initialising knife motor task");
-
-    spawner.spawn(manage_limit_switch(p.limit_switch))?;
-    spawner.spawn(control_knife_motor())?;
-    spawner.spawn(stepper_task(p.stepper))?;
-
-    Ok(())
+#[derive(Clone, Debug, PartialEq)]
+pub struct VelocityCommand {
+    pub dir: MotorDirection,
+    pub velocity: Velocity,
 }
 
 // Control task
@@ -87,12 +77,12 @@ pub async fn control_knife_motor() {
     let mut pos_rx = KNIFE_MOTOR_POS.receiver().unwrap();
 
     // Start stopped and lost
-    cmd_tx.send(StepperCommand::STOPPED);
+    cmd_tx.send(StepperCommand::stopped());
     home_tx.send(HomeStatus::Lost);
     pos_tx.send(PositionModeStatus::Reached);
 
     let mut current_action = MotorCommand::default();
-    let mut current_cmd = StepperCommand::STOPPED;
+    let mut current_cmd = StepperCommand::stopped();
     let mut home_status = HomeStatus::Lost;
     let mut current_pos_steps = pos_rx.get().await;
     let mut target_pos_steps = Steps(0);
@@ -106,7 +96,7 @@ pub async fn control_knife_motor() {
             Either3::First(cmd) => {
                 info!("MOTOR: new command received: {:?}", cmd);
                 let next_cmd = match cmd.clone() {
-                    MotorCommand::Halt => StepperCommand::STOPPED,
+                    MotorCommand::Halt => StepperCommand::stopped(),
                     MotorCommand::MoveVelocity(MotorVelocitySetpoint { dir, speed }) => {
                         StepperCommand {
                             dir,
@@ -175,7 +165,7 @@ pub async fn control_knife_motor() {
                 } else {
                     // Limit switch disengaged, we are now Homed
                     // Stop stepping
-                    cmd_tx.send(StepperCommand::STOPPED);
+                    cmd_tx.send(StepperCommand::stopped());
 
                     // Record home
                     info!("KNIFE: home confirmed");
@@ -202,7 +192,7 @@ pub async fn control_knife_motor() {
                         pos_tx.send(PositionModeStatus::Reached);
 
                         // Position target reached -> stop motors
-                        cmd_tx.send(StepperCommand::STOPPED);
+                        cmd_tx.send(StepperCommand::stopped());
                     }
                 }
             }
@@ -225,140 +215,21 @@ fn position_to_steps(target: Length) -> Steps {
     Steps(out as i32)
 }
 
-fn velocity_to_interval(_speed: Velocity) -> Duration {
-    MAXIMUM_SPS
-}
+fn velocity_to_interval(speed: Velocity) -> Duration {
+    use messenger_mouse::encoder::*;
+    let mm_ps = speed.get::<millimeter_per_second>();
 
-// Stepper task
-#[embassy_executor::task]
-pub async fn stepper_task(p: StepperPeripherals) {
-    // --- hardware init ---
-    // RMT Clock divider, RMT takes base AHB clock, which defaults to 80MHz
-    // Maximum RMT pulse width = u16::Max, which together with clock divider above determines maximum frequency
-    // For clock_divider of 80 -> minimum pulse width = 1us and min frequency of ~15Hz
-    let clock_divider = 80;
-    let rmt_cfg = TxRmtConfig::new().clock_divider(clock_divider);
-    let rmt_driver = TxRmtDriver::new(p.rmt_channel, p.step_rmt_pin, &rmt_cfg).unwrap();
-    let dir_pin = PinDriver::output(p.dir_pin).unwrap();
-    let mut driver = RmtStepper::new("KNIFE", rmt_driver, dir_pin, Delay);
+    let sps = (mm_ps / KNIFE_AXIS_LEAD_MM)
+        * KNIFE_AXIS_GEAR_RATIO
+        * KNIFE_AXIS_MICROSTEPS_PER_STEP
+        * KNIFE_AXIS_STEPS_PER_ROTATION;
+    let sps = sps.abs();
 
-    let pos_tx = KNIFE_MOTOR_POS.sender();
-    let mut pos_reset_rx = KNIFE_MOTOR_POS_RESET.receiver().unwrap();
-    let mut cmd_rx = STEPPER_CMD.receiver().unwrap();
+    info!("velocity_to_interval: target {}mm/s -> {}sps", mm_ps, sps);
 
-    // let accel_per_step = ACCEL_PER_INTERVAL / STEPS_PER_INTERVAL;
-    let mut cmd = StepperCommand::STOPPED;
-    let mut current_step_period = MINIMUM_SPS;
-    let mut position = Steps(0);
-    pos_tx.send(position);
-
-    let mut enable = PinDriver::output(p.enable_pin).unwrap();
-    let _ = enable.set_high();
-
-    // Main stepper control loop, functions in parallel:
-    // 1. Check for new stepper command
-    // 2. Service current stepper command by stepping at the correct period
-    // 3. Listen for position reset requests
-    loop {
-        current_step_period = calculate_step_period(current_step_period, cmd.period);
-        driver.set_step_period(
-            current_step_period
-                .as_micros()
-                .try_into()
-                .unwrap_or(MINIMUM_SPS.as_micros() as u16),
-        );
-
-        let step_timer = Timer::after(current_step_period * STEPS_PER_INTERVAL);
-
-        match select3(cmd_rx.changed(), step_timer, pos_reset_rx.changed()).await {
-            // New step command requested -> set new direction and re-arm timer
-            Either3::First(new_cmd) => {
-                if new_cmd.dir != cmd.dir {
-                    let _ = driver.set_direction(new_cmd.dir.clone()).await;
-                }
-
-                if !new_cmd.running {
-                    driver.stop();
-                    let _ = enable.set_high();
-                } else {
-                    let _ = enable.set_low();
-                }
-
-                cmd = new_cmd;
-            }
-
-            // Set timer expired ->
-            // Re-arm RMT
-            // Attempt to track steps
-            Either3::Second(()) => {
-                if cmd.running {
-                    let _ = driver.do_n_steps(STEPS_PER_INTERVAL).await;
-                    // let _ = driver.step_once().await;
-
-                    // Assume we stepped; Update position
-                    position.0 += match cmd.dir {
-                        MotorDirection::Forward => STEPS_PER_INTERVAL as i32,
-                        MotorDirection::Reverse => -(STEPS_PER_INTERVAL as i32),
-                        // MotorDirection::Forward => 1 as i32,
-                        // MotorDirection::Reverse => -(1 as i32),
-                    };
-                    pos_tx.send(position);
-                }
-            }
-
-            // Position reset requested
-            Either3::Third(()) => {
-                // Reset position
-                position = Steps(0);
-                // Inform upstream
-                pos_tx.send(position);
-            }
-        }
-    }
-}
-
-fn calculate_step_period(
-    current_step_period: Duration,
-    requested_period: Duration,
-    // accel_per_period: Duration,
-) -> Duration {
-    const ACCEL: f64 = 0.01;
-
-    if current_step_period == requested_period {
-        // Target speed reached -> hold
-        current_step_period
-    } else if requested_period < current_step_period {
-        // Ramp up to target speed
-        let out = (current_step_period
-            - Duration::from_ticks((ACCEL * current_step_period.as_ticks() as f64) as u64 + 1))
-        .max(MAXIMUM_SPS);
-
-        // log::info!(
-        //     "requested_period {}us < current_step_period {}us -> {}us",
-        //     requested_period.as_micros(),
-        //     current_step_period.as_micros(),
-        //     // accel_per_period.as_micros(),
-        //     out.as_micros(),
-        // );
-
-        out
+    if sps < 0.1 {
+        Duration::MAX
     } else {
-        // Ramp down to target speed
-
-        let out = (current_step_period
-            + Duration::from_ticks((ACCEL * current_step_period.as_ticks() as f64) as u64 + 1))
-        .min(MINIMUM_SPS);
-
-        // let out = (current_step_period + 0.1 * current_step_period).min(MINIMUM_SPS);
-
-        // log::info!(
-        //     "requested_period {}us > current_step_period {}us (accel {})-> {}us",
-        //     requested_period.as_micros(),
-        //     current_step_period.as_micros(),
-        //     accel_per_period.as_micros(),
-        //     out.as_micros(),
-        // );
-
-        out
+        Duration::from_hz(sps as u64)
     }
 }

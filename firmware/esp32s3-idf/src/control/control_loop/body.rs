@@ -75,11 +75,11 @@ pub async fn control_loop(
         // ----- Fetch Control Input -----
         if let Some(new_setpoint) = setpoint_receiver.try_get() {
             if new_setpoint != latest_setpoint {
-                info!("CONTROL: NEW setpoint: {:?}", new_setpoint);
+                // info!("CONTROL: NEW setpoint: {:?}", new_setpoint);
                 latest_setpoint = new_setpoint;
             }
         } else {
-            info!("CONTROL: CURRENT setpoint: {:?}", latest_setpoint);
+            // info!("CONTROL: CURRENT setpoint: {:?}", latest_setpoint);
         }
         let led_brightness = latest_setpoint.led_setpoint.brightness;
 
@@ -88,7 +88,7 @@ pub async fn control_loop(
             log::error!("CONTROL: unable to get valid knife state, using default...");
             KnifeState::new()
         });
-        info!("CONTROL: Encoder state: {:?}", current_knife_state);
+        // info!("CONTROL: Encoder state: {:?}", current_knife_state);
 
         // update appstate
         let mut current_appstate = match latest_setpoint.knife_manager {
@@ -99,7 +99,7 @@ pub async fn control_loop(
         let (motor_cmd, vision_data) = match latest_setpoint.knife_manager.clone() {
             KnifeManager::Manual => {
                 // Translate knife motor command to
-                info!("CONTROL: MANUAL setpoint: {:?}", latest_setpoint);
+                // info!("CONTROL: MANUAL setpoint: {:?}", latest_setpoint);
                 let motor_cmd = latest_setpoint.knife_setpoint.clone();
 
                 (motor_cmd, None)
@@ -113,7 +113,7 @@ pub async fn control_loop(
                 let gen = frame.generation;
                 let camera_fps = frame.fps;
 
-                info!("CONTROL: got framebuffer gen {}", gen);
+                // info!("CONTROL: got framebuffer gen {}", gen);
 
                 // Tearing detection
                 let current_gen = frame.generation;
@@ -128,10 +128,10 @@ pub async fn control_loop(
                 // Convert into motor command
                 let motor_cmd = vision_output_to_motorcommand(vision_output.clone());
 
-                info!(
-                    "CONTROL: VISION frame {} -> vision alg: {:?} -> control effort: {:?}",
-                    gen, vision_output, motor_cmd,
-                );
+                // info!(
+                //     "CONTROL: VISION frame {} -> vision alg: {:?} -> control effort: {:?}",
+                //     gen, vision_output, motor_cmd,
+                // );
 
                 let vision_data = VisionData {
                     generation: gen,

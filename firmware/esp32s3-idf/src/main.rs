@@ -42,7 +42,7 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     let _ = spawner;
     esp_idf_svc::sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
-    // log::set_max_level(log::LevelFilter::Info);
+    log::set_max_level(log::LevelFilter::Error);
 
     let version = unsafe { esp_idf_sys::esp_get_idf_version() };
     let version = unsafe { CStr::from_ptr(version) };
@@ -58,31 +58,31 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     let watchdog = disable_watchdog(peripherals.twdt)?;
     log::info!("Watchdog disabled");
 
-    // log::info!("Initialize Camera freertos task");
-    // let camera_peripherals = CameraPeripherals {
-    //     pin_xclk: peripherals.pins.gpio15,
-    //     pin_d0: peripherals.pins.gpio11,
-    //     pin_d1: peripherals.pins.gpio9,
-    //     pin_d2: peripherals.pins.gpio8,
-    //     pin_d3: peripherals.pins.gpio10,
-    //     pin_d4: peripherals.pins.gpio12,
-    //     pin_d5: peripherals.pins.gpio18,
-    //     pin_d6: peripherals.pins.gpio17,
-    //     pin_d7: peripherals.pins.gpio16,
-    //     pin_vsync: peripherals.pins.gpio6,
-    //     pin_href: peripherals.pins.gpio7,
-    //     pin_pclk: peripherals.pins.gpio13,
-    //     pin_sda: peripherals.pins.gpio4,
-    //     pin_scl: peripherals.pins.gpio5,
-    // };
-    // camera::camera_freertos_task::setup_freertos(camera_peripherals);
+    log::info!("Initialize Camera freertos task");
+    let camera_peripherals = CameraPeripherals {
+        pin_xclk: peripherals.pins.gpio15,
+        pin_d0: peripherals.pins.gpio11,
+        pin_d1: peripherals.pins.gpio9,
+        pin_d2: peripherals.pins.gpio8,
+        pin_d3: peripherals.pins.gpio10,
+        pin_d4: peripherals.pins.gpio12,
+        pin_d5: peripherals.pins.gpio18,
+        pin_d6: peripherals.pins.gpio17,
+        pin_d7: peripherals.pins.gpio16,
+        pin_vsync: peripherals.pins.gpio6,
+        pin_href: peripherals.pins.gpio7,
+        pin_pclk: peripherals.pins.gpio13,
+        pin_sda: peripherals.pins.gpio4,
+        pin_scl: peripherals.pins.gpio5,
+    };
+    camera::camera_freertos_task::setup_freertos(camera_peripherals);
 
-    // let comms_peri = CommsPeripherals {
-    //     uart: peripherals.uart2,
-    //     tx: peripherals.pins.gpio43,
-    //     rx: peripherals.pins.gpio44,
-    // };
-    // comms::comms_task::run(spawner, comms_peri)?;
+    let comms_peri = CommsPeripherals {
+        uart: peripherals.uart2,
+        tx: peripherals.pins.gpio19,
+        rx: peripherals.pins.gpio20,
+    };
+    comms::comms_task::run(spawner, comms_peri)?;
 
     // Spawn auxilary SD writing task, when enabled
     #[cfg(feature = "sd")]
@@ -123,16 +123,16 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
         }
     }
 
-    // let encoder_peri = EncoderPeripherals {
-    //     spi: peripherals.spi3,
-    //     sclk: peripherals.pins.gpio1,
-    //     serial_out: peripherals.pins.gpio2,
-    //     serial_in: peripherals.pins.gpio21,
-    //     cs: peripherals.pins.gpio47,
-    // };
-    // log::info!("Initialize encoder task");
-    // // Attempt to start up the control loop + dependencies
-    // encoder::encoder_task::run(spawner, encoder_peri)?;
+    let encoder_peri = EncoderPeripherals {
+        spi: peripherals.spi3,
+        sclk: peripherals.pins.gpio1,
+        serial_out: peripherals.pins.gpio2,
+        serial_in: peripherals.pins.gpio21,
+        cs: peripherals.pins.gpio47,
+    };
+    log::info!("Initialize encoder task");
+    // Attempt to start up the control loop + dependencies
+    encoder::encoder_task::run(spawner, encoder_peri)?;
 
     let stepper_peri = StepperPeripherals {
         timer: peripherals.ledc.timer1,

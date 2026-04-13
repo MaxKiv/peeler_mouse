@@ -20,7 +20,7 @@ use crate::{
 };
 use messenger_mouse::encoder::KnifeState;
 
-const DURATION: Duration = Duration::from_hz(1);
+const DURATION: Duration = Duration::from_secs(5);
 
 pub static KNIFE_STATE: Watch<Cs, KnifeState, 2> = Watch::new();
 

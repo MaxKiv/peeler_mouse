@@ -32,18 +32,29 @@ pub fn run(spawner: &Spawner, comms_peri: CommsPeripherals) -> anyhow::Result<()
     log::info!("initialising Comms task");
 
     log::info!("Initialising Comms Async UART");
+
     let config = config::Config::new().baudrate(Hertz(115_200));
-    let uart = UART_DRIVER.init(
-        AsyncUartDriver::new(
-            comms_peri.uart,
-            comms_peri.tx,
-            comms_peri.rx,
-            Option::<gpio::Gpio0>::None,
-            Option::<gpio::Gpio1>::None,
-            &config,
-        )
-        .expect("UART init failed"),
-    );
+
+    log::info!("Config done");
+
+    let uart = match AsyncUartDriver::new(
+        comms_peri.uart,
+        comms_peri.tx,
+        comms_peri.rx,
+        Option::<gpio::Gpio0>::None,
+        Option::<gpio::Gpio1>::None,
+        &config,
+    ) {
+        Ok(uart) => {
+            log::info!("UART: OK");
+            uart
+        }
+        Err(err) => {
+            log::error!("UART: unable to construct uart driver: {}", err);
+            panic!("UART: unable to construct uart driver: {}", err);
+        }
+    };
+    let uart = UART_DRIVER.init(uart);
 
     let (tx, rx) = uart.split();
 
