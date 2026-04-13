@@ -5,7 +5,8 @@ use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Wa
 use embassy_time::Timer;
 use messenger_mouse::Setpoint;
 use messenger_mouse::motor::{KnifeManager, MotorCommand, MotorDirection, MotorVelocitySetpoint};
-use uom::si::f32::Velocity;
+use uom::si::f32::{Length, Velocity};
+use uom::si::length::{micrometer, millimeter};
 use uom::si::velocity::millimeter_per_second;
 
 use crate::motor::controller::KNIFE_OPERATIONAL_SPEED_MM_PS;
@@ -90,13 +91,19 @@ pub async fn supervise_hmi() {
             }
             // Encoder count change -> Change current motor speed
             Either6::Sixth(encoder_data) => {
+                let encoder_count = encoder_data.count;
+                let (encoder_pos, encoder_delta) =
+                    get_encoder_pos_delta(encoder_count, app_state.encoder_pos);
+
+                info!(
+                    "SV: encoder_count: {} - encoder_pos: {} - delta: {}",
+                    encoder_count, encoder_pos, encoder_delta
+                );
+
                 match app_state.hmi_state {
                     HmiState::NoSelection => {
-                        let encoder_count = encoder_data.count;
-
                         // Select motor based on encoder position
-                        app_state
-                            .selected_motor_idx(get_menu_idx_from_encoder_count(encoder_count));
+                        app_state.selected_motor_idx(encoder_pos);
                     }
                     HmiState::MotorSelected => {
                         let current_setpoint = app_state.get_current_motor_setpoint();
@@ -111,7 +118,7 @@ pub async fn supervise_hmi() {
                                 // Change target velocity based on encoder delta
                                 let new_setpoint = calculate_new_motor_speed(
                                     sp.speed,
-                                    encoder_data.filtered_delta,
+                                    encoder_delta,
                                     app_state.get_selected_motor(),
                                 );
 
@@ -127,15 +134,23 @@ pub async fn supervise_hmi() {
                                     new_setpoint.dir
                                 );
                             }
-                            MotorCommand::MovePosition(_sp) => {
+                            MotorCommand::MovePosition(mut sp) => {
                                 // TODO: in/decrease position based on encoder delta
+                                sp.target +=
+                                    Length::new::<micrometer>((encoder_delta * 100).into());
+                                sp.speed = Velocity::new::<millimeter_per_second>(
+                                    messenger_mouse::motor::POSITION_MODE_VELOCITY_MM_PS,
+                                );
+
+                                app_state
+                                    .set_current_motor_setpoint(MotorCommand::MovePosition(sp));
                             }
                         }
                     }
                 };
 
                 // Keep track of encoder position
-                app_state.last_encoder_pos += encoder_data.filtered_delta;
+                app_state.encoder_pos = encoder_pos;
             }
         }
 
@@ -178,16 +193,27 @@ pub fn calculate_new_motor_speed(
     out
 }
 
-pub fn get_menu_idx_from_encoder_count(count: u16) -> i16 {
+pub fn get_encoder_pos_delta(count: u16, last_pos: i16) -> (i16, i16) {
     const COUNT_MAP: [u16; 25] = [
         0, 4, 8, 12, 16, 20, 23, 27, 31, 35, 39, 43, 47, 51, 55, 59, 63, 67, 71, 75, 79, 83, 87,
         91, 95,
     ];
+    const LEN: i16 = COUNT_MAP.len() as i16;
 
     let val = count % COUNT_MAP[COUNT_MAP.len() - 1];
 
-    COUNT_MAP
+    let new_pos = COUNT_MAP
         .iter()
         .position(|&x| val < x)
-        .unwrap_or(COUNT_MAP.len() - 1) as i16
+        .unwrap_or(COUNT_MAP.len() - 1) as i16;
+
+    let mut delta = new_pos - last_pos;
+
+    if delta > LEN / 2 {
+        delta -= LEN;
+    } else if delta < -LEN / 2 {
+        delta += LEN;
+    }
+
+    (new_pos, delta)
 }

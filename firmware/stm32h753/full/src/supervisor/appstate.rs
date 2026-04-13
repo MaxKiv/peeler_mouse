@@ -24,7 +24,7 @@ pub struct Appstate {
     pub rotation_setpoint: MotorCommand,
     pub knife_setpoint: MotorCommand,
     pub knife_manager: KnifeManager,
-    pub last_encoder_pos: i16,
+    pub encoder_pos: i16,
     pub enable: bool,
 }
 
@@ -94,7 +94,7 @@ impl Default for Appstate {
             hmi_state: Default::default(),
             selected_motor: Default::default(),
             knife_manager: Default::default(),
-            last_encoder_pos: Default::default(),
+            encoder_pos: Default::default(),
             enable: Default::default(),
         }
     }

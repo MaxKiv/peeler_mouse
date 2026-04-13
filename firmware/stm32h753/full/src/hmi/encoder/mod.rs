@@ -81,11 +81,6 @@ async fn manage_encoder(encoder: QuadratureEncoder) {
             0
         };
 
-        // Make sure to in/decrement based on encoder direction
-        // pos += match dir {
-        //     Direction::Increased => 1,
-        //     Direction::Decreased => -1,
-        // } * increase;
         pos += filtered_delta;
 
         let state = EncoderData {

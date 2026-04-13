@@ -37,6 +37,6 @@ impl Default for EncoderData {
 
 #[derive(Clone, Debug, defmt::Format)]
 pub struct EncoderData {
-    pub dir: Direction,
+    pub delta: i16,
     pub pos: i16,
 }

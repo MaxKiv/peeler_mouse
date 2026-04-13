@@ -198,7 +198,8 @@ fn get_cmd_str<const N: usize>(
         .unwrap(),
         MotorCommand::MovePosition(sp) => format!(
             N;
-            "{}mm {}mm/s",
+
+            "{:>2.1}mm {:>4.1}mm/s",
             sp.target.get::<millimeter>(),
             sp.speed.get::<millimeter_per_second>(),
         )
