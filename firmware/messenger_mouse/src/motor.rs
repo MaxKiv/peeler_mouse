@@ -84,7 +84,7 @@ impl MotorVelocitySetpoint {
     }
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
+#[derive(Deserialize, Serialize, Clone, Copy, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub enum MotorDirection {
     #[default]

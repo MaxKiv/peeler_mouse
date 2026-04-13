@@ -1,4 +1,5 @@
 use crate::actuation::stepper::{
+    low_level::{IntervalConfig, STEP_INTERVAL},
     motor_task::{StepperCommand, MAXIMUM_SPS, MINIMUM_SPS, MINIMUM_TRANSITION_SPS},
     Steps,
 };
@@ -20,6 +21,7 @@ pub struct StepperStateMachine<DirPin, Delay> {
     enable: PinDriver<'static, Gpio40, Output>,
     position: Steps,
     pub vel_state: VelocityState,
+    interval_cfg: IntervalConfig,
 }
 
 impl<DirPin, Delay> StepperStateMachine<DirPin, Delay>
@@ -37,6 +39,7 @@ where
             state: StepperState::Coast,
             position: Steps(0),
             vel_state: VelocityState::new(),
+            interval_cfg: IntervalConfig::default(),
         }
     }
 
@@ -119,6 +122,44 @@ where
         let ticks_per_step = Duration::from_hz(self.vel_state.current_speed.0 as u64).as_ticks();
 
         (interval_ticks / ticks_per_step) as u32
+    }
+
+    /// Get number of steps and microseconds per step for this interval based on current speed
+    pub fn set_interval_config(&self) {
+        let interval_ticks = STEP_INTERVAL.as_ticks();
+        let micros_per_step = Duration::from_hz(self.vel_state.current_speed.0 as u64).as_micros();
+
+        self.interval_cfg = IntervalConfig {
+            micros_per_step,
+            steps: (interval_ticks / micros_per_step) as u32,
+        };
+
+        self.update_rmt_pulse_period();
+    }
+
+    /// Set driver RMT step pulse period for this interval
+    fn update_rmt_pulse_period(&mut self) {
+        let step_pulse_period_micros: u16 = self
+            .interval_cfg
+            .micros_per_step
+            .try_into()
+            .unwrap_or(u16::MAX);
+
+        self.driver
+            .set_step_pulse_period_micros(step_pulse_period_micros);
+    }
+
+    /// Re-arm RMT step pulses, increment position counter
+    pub async fn on_step_timer_expire(&mut self) {
+        // Re-arm RMT step pulses
+        let steps = self.interval_cfg.steps;
+        let _ = self.driver.arm_n_steps(steps).await;
+
+        // Assume we stepped N times; Update position
+        self.position.0 += match self.vel_state.current_dir {
+            MotorDirection::Forward => steps as i32,
+            MotorDirection::Reverse => -(steps as i32),
+        };
     }
 }
 

@@ -10,7 +10,10 @@ use messenger_mouse::motor::MotorDirection;
 use rmt_stepper_driver::RmtStepper;
 
 use crate::actuation::stepper::{
-    low_level::state_machine::{RampState, StepperState, StepperStateMachine},
+    low_level::{
+        state_machine::{RampState, StepperState, StepperStateMachine},
+        STEP_INTERVAL,
+    },
     motor_task::{
         StepperCommand, KNIFE_MOTOR_POS, KNIFE_MOTOR_POS_RESET, MAXIMUM_SPS, MINIMUM_SPS,
         MINIMUM_TRANSITION_SPS,
@@ -21,8 +24,6 @@ use crate::actuation::stepper::{
 
 /// Internal: motor control task -> stepper task
 pub static STEPPER_CMD: Watch<CriticalSectionRawMutex, StepperCommand, 1> = Watch::new();
-/// How often should the stepper be serviced?
-const STEP_INTERVAL: Duration = Duration::from_hz(10); // 100ms per interval
 const STEPS_PER_INTERVAL: u32 = 10; // Steps per interval (interval n = n RMT pulses before re-arm)
 
 /// Low level stepper task
@@ -41,7 +42,7 @@ pub async fn low_lvl_stepper_task(p: StepperPeripherals) {
     let rmt_cfg = TxRmtConfig::new().clock_divider(clock_divider);
     let rmt_driver = TxRmtDriver::new(p.rmt_channel, p.step_rmt_pin, &rmt_cfg).unwrap();
     let dir_pin = PinDriver::output(p.dir_pin).unwrap();
-    let mut driver = RmtStepper::new("KNIFE", rmt_driver, dir_pin, Delay);
+    let mut driver = RmtStepper::new("KNIFE", rmt_driver, dir_pin, Delay, clock_divider);
 
     // --- Communication channels ----
     let pos_tx = KNIFE_MOTOR_POS.sender();
@@ -65,9 +66,8 @@ pub async fn low_lvl_stepper_task(p: StepperPeripherals) {
     // 2. Service current stepper command by stepping at the correct period
     // 3. Listen for position reset requests
     loop {
-        // Construct new step timer
-        // This is only required in velocity mode
-        let step_timer = if let StepperState::Velocity = sm.state {
+        // Velocity mode specific; Calculate steps to do this interval
+        let interval_cfg = if let StepperState::Velocity = sm.state {
             // Check if we are required to switch direction
             if sm.vel_state.ramp_state == RampState::Decelerating {
                 // Check if we are ready to switch direction
@@ -79,19 +79,25 @@ pub async fn low_lvl_stepper_task(p: StepperPeripherals) {
 
             // Update current velocity using ramping state and acceleration
             let sps = sm.update_velocity();
-            // Calculate how many steps to take this interval
-            let steps_in_this_interval = sm.calculate_steps_in_interval(STEP_INTERVAL);
 
-            driver.set_step_period_rmt_ticks(
-                sps.0
-                    .as_micros()
-                    .try_into()
-                    .unwrap_or(MINIMUM_SPS.as_micros() as u16),
-            );
-            Timer::after(current_step_period * STEPS_PER_INTERVAL)
+            // Calculate how many steps to take & ticks per step for this interval
+            // Update the RMT driver step pulse period duration
+            let interval_cfg = sm.set_interval_config();
+
+            Some(interval_cfg)
+        } else {
+            // We are not in velocity mode, but the ergonomics of select3 force us to return
+            // something here
+            None
+        };
+
+        // Velocity mode specific; Set up timer to re-arm RMT
+        let step_timer = if let StepperState::Velocity = sm.state {
+            // In velocity mode; Set up RMT driver to perform steps
+            Timer::after(STEP_INTERVAL)
         } else {
             // We are not in velocity mode, we don't want to do any steps
-            // Infinite duration timer avoids type and future boxing headaches
+            // Infinite duration timer avoids type and future boxing headache
             Timer::after(Duration::MAX)
         };
 
@@ -105,21 +111,13 @@ pub async fn low_lvl_stepper_task(p: StepperPeripherals) {
                 sm.transition_to(new_cmd);
             }
 
-            // Set timer expired ->
+            // Velocity mode step timer expired ->
             // Re-arm RMT
             // Attempt to track steps
             Either3::Second(()) => {
-                if cmd.running {
-                    let _ = driver.do_n_steps(STEPS_PER_INTERVAL).await;
-                    // let _ = driver.step_once().await;
-
-                    // Assume we stepped; Update position
-                    position.0 += match cmd.dir {
-                        MotorDirection::Forward => STEPS_PER_INTERVAL as i32,
-                        MotorDirection::Reverse => -(STEPS_PER_INTERVAL as i32),
-                        // MotorDirection::Forward => 1 as i32,
-                        // MotorDirection::Reverse => -(1 as i32),
-                    };
+                // A RMT STEP pulse timer expired, we should be in velocity mode
+                if let Some(interval_cfg) = interval_cfg {
+                    sm.on_step_timer_expire();
                     pos_tx.send(position);
                 }
             }
@@ -132,28 +130,5 @@ pub async fn low_lvl_stepper_task(p: StepperPeripherals) {
                 pos_tx.send(position);
             }
         }
-    }
-}
-
-fn calculate_step_period(
-    current_step_period: Duration,
-    requested_period: Duration,
-    // accel_per_period: Duration,
-) -> Duration {
-    const ACCEL: f64 = 0.01;
-
-    if current_step_period == requested_period {
-        // Target speed reached -> hold
-        current_step_period
-    } else if requested_period < current_step_period {
-        // Ramp up to target speed
-        (current_step_period
-            - Duration::from_ticks((ACCEL * current_step_period.as_ticks() as f64) as u64 + 1))
-        .max(MAXIMUM_SPS)
-    } else {
-        // Ramp down to target speed
-        (current_step_period
-            + Duration::from_ticks((ACCEL * current_step_period.as_ticks() as f64) as u64 + 1))
-        .min(MINIMUM_SPS)
     }
 }

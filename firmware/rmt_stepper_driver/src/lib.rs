@@ -4,7 +4,10 @@
 
 use embedded_hal::digital::OutputPin;
 use embedded_hal_async::delay::DelayNs;
-use esp_idf_hal::rmt::{FixedLengthSignal, PinState, Pulse, PulseTicks, TxRmtDriver};
+use esp_idf_hal::{
+    rmt::{FixedLengthSignal, PinState, Pulse, PulseTicks, TxRmtDriver},
+    sys::rmt_clock_source_t,
+};
 use thiserror::Error;
 
 use log::*;
@@ -26,6 +29,8 @@ pub struct RmtStepper<DirPin, Delay> {
     dir_pin: DirPin,
     delay: Delay,
 
+    rmt_clock_divider: u8,
+
     step_high_ticks: u16,
     step_period_ticks: u16,
 
@@ -43,6 +48,7 @@ where
         rmt: TxRmtDriver<'static>,
         dir_pin: DirPin,
         delay: Delay,
+        rmt_clock_divider: u8,
     ) -> Self {
         Self {
             name,
@@ -53,11 +59,13 @@ where
             step_period_ticks: 10, // 1ms period (1khz)
             direction: Direction::Forward,
             running: false,
+            rmt_clock_divider, // Note: Currently assumed this is 80 to get 1us per RMT tick
         }
     }
 
-    pub fn set_step_period(&mut self, step_period_ticks: u16) {
-        self.step_period_ticks = step_period_ticks;
+    /// Set STEP pulse period in microseconds
+    pub fn set_step_pulse_period_micros(&mut self, step_pulse_period_micros: u16) {
+        self.step_period_ticks = step_pulse_period_micros;
     }
 
     pub async fn set_direction(&mut self, dir: Direction) -> Result<(), StepperError> {
@@ -105,8 +113,8 @@ where
         Ok(())
     }
 
-    /// Single step using RMT pulse
-    pub async fn do_n_steps(&mut self, n: u32) -> Result<(), StepperError> {
+    /// Set up RMT to perform N steps
+    pub async fn arm_n_steps(&mut self, n: u32) -> Result<(), StepperError> {
         let signal = self.create_signal()?;
 
         self.rmt
