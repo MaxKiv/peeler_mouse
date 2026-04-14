@@ -5,25 +5,32 @@ use uom::si::{
     velocity::millimeter_per_second,
 };
 
+pub const POSITION_EPSILON_MM: f32 = 0.03;
+pub const VELOCITY_EPSILON_MM_PS: f32 = 0.03;
+
+pub const POSITION_MODE_VELOCITY_MM_PS: f32 = 1.0;
+
 #[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
-pub enum MotorCommand {
+pub enum MotorAction {
     #[default]
-    Halt,
+    Coast,
+    Hold,
     Home,
     MoveVelocity(MotorVelocitySetpoint),
     MovePosition(MotorPositionSetpoint),
 }
 
-impl MotorCommand {
+impl MotorAction {
     pub fn next(&self) -> Self {
         match self {
-            MotorCommand::Halt => MotorCommand::Home,
-            MotorCommand::Home => MotorCommand::MoveVelocity(MotorVelocitySetpoint::new_safe()),
-            MotorCommand::MoveVelocity(_) => {
-                MotorCommand::MovePosition(MotorPositionSetpoint::new_safe())
+            MotorAction::Coast => MotorAction::Hold,
+            MotorAction::Hold => MotorAction::Home,
+            MotorAction::Home => MotorAction::MoveVelocity(MotorVelocitySetpoint::new_safe()),
+            MotorAction::MoveVelocity(_) => {
+                MotorAction::MovePosition(MotorPositionSetpoint::new_safe())
             }
-            MotorCommand::MovePosition(_) => MotorCommand::Halt,
+            MotorAction::MovePosition(_) => MotorAction::Coast,
         }
     }
 }
@@ -37,7 +44,7 @@ pub enum KnifeManager {
 }
 
 /// Velocity movement setpoint
-#[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default)]
 pub struct MotorVelocitySetpoint {
     /// Direction of axis rotation
     pub dir: MotorDirection,
@@ -46,12 +53,80 @@ pub struct MotorVelocitySetpoint {
 }
 
 /// Position movement setpoint
-#[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default)]
 pub struct MotorPositionSetpoint {
     /// Position target wrt home position
     pub target: Length,
     /// Speed of the motor
+    /// NOTE: Sign determines direction for velocity movements
     pub speed: Velocity,
+}
+
+/// Position movement setpoint
+#[derive(Deserialize, Serialize, Clone, Debug, Default)]
+pub struct StepperPositionSetpoint {
+    /// Position target wrt home position
+    pub target: Steps,
+    /// Speed of the motor
+    /// NOTE: this is considered absolute for position movements
+    pub speed: Velocity,
+}
+
+#[derive(Copy, PartialEq, PartialOrd, Deserialize, Serialize, Clone, Debug, Default)]
+pub struct Steps(pub i32);
+
+impl Steps {
+    const TARGET_REACHED_EPSILON: Steps = Steps(10);
+    const TARGET_CLOSE_EPSILON: Steps = Steps(500);
+
+    pub fn is_close_to(&self, other: &Steps) -> bool {
+        self.is_within_range_of(other, &Self::TARGET_CLOSE_EPSILON)
+    }
+    pub fn target_is_reached(&self, other: &Steps) -> bool {
+        self.is_within_range_of(other, &Self::TARGET_REACHED_EPSILON)
+    }
+    pub fn is_within_range_of(&self, other: &Steps, epsilon: &Steps) -> bool {
+        self.0.abs_diff(other.0) <= epsilon.0.abs() as u32
+    }
+}
+
+/// Custom PartialEq to avoid f32 rounding issues
+impl PartialEq for StepperPositionSetpoint {
+    fn eq(&self, other: &Self) -> bool {
+        self.target.target_is_reached(&other.target)
+            && f32_approx_eq(
+                self.speed.get::<millimeter_per_second>(),
+                other.speed.get::<millimeter_per_second>(),
+                VELOCITY_EPSILON_MM_PS,
+            )
+    }
+}
+
+/// Custom PartialEq to avoid f32 rounding issues
+impl PartialEq for MotorPositionSetpoint {
+    fn eq(&self, other: &Self) -> bool {
+        f32_approx_eq(
+            self.target.get::<millimeter>(),
+            other.target.get::<millimeter>(),
+            POSITION_EPSILON_MM,
+        ) && f32_approx_eq(
+            self.speed.get::<millimeter_per_second>(),
+            other.speed.get::<millimeter_per_second>(),
+            VELOCITY_EPSILON_MM_PS,
+        )
+    }
+}
+
+/// Custom PartialEq to avoid f32 rounding issues
+impl PartialEq for MotorVelocitySetpoint {
+    fn eq(&self, other: &Self) -> bool {
+        self.dir == other.dir
+            && f32_approx_eq(
+                self.speed.get::<millimeter_per_second>(),
+                other.speed.get::<millimeter_per_second>(),
+                VELOCITY_EPSILON_MM_PS,
+            )
+    }
 }
 
 impl MotorPositionSetpoint {
@@ -134,4 +209,8 @@ impl defmt::Format for MotorPositionSetpoint {
             self.speed.get::<millimeter_per_second>(),
         );
     }
+}
+
+pub fn f32_approx_eq(lhs: f32, rhs: f32, eps: f32) -> bool {
+    (lhs - rhs).abs() < eps
 }

@@ -77,7 +77,7 @@ pub async fn encoder_task(p: EncoderPeripherals) {
                 match sensor.angle().await {
                     // Happy path
                     Ok(angle) => {
-                        info!("ENCODER: got angle {}", angle);
+                        // info!("ENCODER: got angle {}", angle);
 
                         knife_state.encoder_state.update(angle);
                     }

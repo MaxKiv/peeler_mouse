@@ -19,7 +19,7 @@ use embedded_graphics::{pixelcolor::BinaryColor, prelude::Point};
 use heapless::{String, format};
 use messenger_mouse::{
     Report,
-    motor::{KnifeManager, MotorCommand, MotorDirection},
+    motor::{KnifeManager, MotorAction, MotorDirection},
 };
 use oled_async::{displays::ssd1309::Ssd1309_128_64, mode::GraphicsMode};
 use uom::si::length::millimeter;
@@ -183,20 +183,21 @@ fn draw_ui(
 }
 
 fn get_cmd_str<const N: usize>(
-    setpoint: &MotorCommand,
+    setpoint: &MotorAction,
     motor_movement_direction: MotorMovementDirection,
 ) -> String<N> {
     match setpoint {
-        MotorCommand::Halt => format!(N; "HALT").unwrap(),
-        MotorCommand::Home => format!(N; "HOMING").unwrap(),
-        MotorCommand::MoveVelocity(sp) => format!(
+        MotorAction::Hold => format!(N; "HOLD").unwrap(),
+        MotorAction::Coast => format!(N; "COAST").unwrap(),
+        MotorAction::Home => format!(N; "HOMING").unwrap(),
+        MotorAction::MoveVelocity(sp) => format!(
             N;
             "{} {:>4.1}mm/s",
             get_movement_dir_str(motor_movement_direction, sp.dir.clone()),
             sp.speed.get::<millimeter_per_second>(),
         )
         .unwrap(),
-        MotorCommand::MovePosition(sp) => format!(
+        MotorAction::MovePosition(sp) => format!(
             N;
 
             "{:>2.1}mm {:>4.1}mm/s",

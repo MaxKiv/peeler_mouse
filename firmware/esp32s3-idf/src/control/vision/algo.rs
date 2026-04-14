@@ -1,4 +1,4 @@
-use messenger_mouse::{motor::MotorCommand, VisionAlgorithmOutput};
+use messenger_mouse::{motor::MotorAction, VisionAlgorithmOutput};
 use uom::si::{f32::Velocity, velocity::millimeter_per_second};
 
 use crate::{
@@ -18,16 +18,16 @@ const LOW_THRESHOLD: u64 = 100;
 
 const VISION_KNIFE_SPEED_MM_PS: f32 = 1.0;
 
-pub fn vision_output_to_motorcommand(algo_out: VisionAlgorithmOutput) -> MotorCommand {
+pub fn vision_output_to_motorcommand(algo_out: VisionAlgorithmOutput) -> MotorAction {
     match algo_out {
-        VisionAlgorithmOutput::Hold => MotorCommand::Halt,
+        VisionAlgorithmOutput::Hold => MotorAction::Hold,
         VisionAlgorithmOutput::Up => {
-            MotorCommand::MoveVelocity(messenger_mouse::motor::MotorVelocitySetpoint::new_forward(
+            MotorAction::MoveVelocity(messenger_mouse::motor::MotorVelocitySetpoint::new_forward(
                 Velocity::new::<millimeter_per_second>(VISION_KNIFE_SPEED_MM_PS),
             ))
         }
         VisionAlgorithmOutput::Down => {
-            MotorCommand::MoveVelocity(messenger_mouse::motor::MotorVelocitySetpoint::new_reverse(
+            MotorAction::MoveVelocity(messenger_mouse::motor::MotorVelocitySetpoint::new_reverse(
                 Velocity::new::<millimeter_per_second>(VISION_KNIFE_SPEED_MM_PS),
             ))
         }

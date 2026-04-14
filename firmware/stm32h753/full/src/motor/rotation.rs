@@ -7,14 +7,14 @@ use embassy_stm32::{Peri, peripherals::*};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::watch::Watch;
 use embassy_time::Delay;
-use messenger_mouse::motor::MotorCommand;
+use messenger_mouse::motor::MotorAction;
 use tb6600::Tb6600;
 use uom::si::f32::Velocity;
 use uom::si::velocity::millimeter_per_second;
 
 use crate::hmi::button::BUTTON_WATCH_SIZE;
 
-pub static ROTATION_SETPOINT: Watch<CriticalSectionRawMutex, MotorCommand, 2> = Watch::new();
+pub static ROTATION_SETPOINT: Watch<CriticalSectionRawMutex, MotorAction, 2> = Watch::new();
 
 pub struct RotationMotorPeripherals {
     pub pwm: SimplePwm<'static, TIM4>,
@@ -41,26 +41,33 @@ pub async fn manage_rotational_motor(mut tb: Tb6600<TIM4, Output<'static>, Delay
     let mut rx = ROTATION_SETPOINT
         .receiver()
         .expect("increase ROTATION_WATCH N");
+    let mut prev = None;
 
     loop {
         let cmd = rx.changed().await;
 
-        match cmd {
-            MotorCommand::Halt => tb.stop(),
-            MotorCommand::Home => {
-                error!("Home not implemented yet");
-            }
-            MotorCommand::MoveVelocity(sp) => {
-                let freq = rotational_speed_to_step_freq(sp.speed);
+        if let Some(previous_cmd) = prev {
+            if previous_cmd != cmd {
+                match &cmd {
+                    MotorAction::Hold => tb.stop(),
+                    MotorAction::Coast => tb.stop(),
+                    MotorAction::Home => {
+                        error!("Home not implemented yet");
+                    }
+                    MotorAction::MoveVelocity(sp) => {
+                        let freq = rotational_speed_to_step_freq(sp.speed);
 
-                if let Err(err) = tb.run_hertz(freq, sp.dir).await {
-                    error!("Unable to MoveVelocity: {:?}", err);
-                }
+                        if let Err(err) = tb.run_hertz(freq, sp.dir).await {
+                            error!("Unable to MoveVelocity: {:?}", err);
+                        }
+                    }
+                    MotorAction::MovePosition(_sp) => {
+                        error!("MovePosition not implemented yet");
+                    }
+                };
             }
-            MotorCommand::MovePosition(_sp) => {
-                error!("MovePosition not implemented yet");
-            }
-        };
+        }
+        prev = Some(cmd);
     }
 }
 

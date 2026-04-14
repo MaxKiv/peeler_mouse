@@ -4,7 +4,8 @@ use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, watch::Watch};
 use embassy_time::{Delay, Duration, Instant, Timer};
 use log::*;
 use messenger_mouse::motor::{
-    MotorCommand, MotorDirection, MotorPositionSetpoint, MotorVelocitySetpoint,
+    MotorAction, MotorDirection, MotorPositionSetpoint, MotorVelocitySetpoint,
+    StepperPositionSetpoint, Steps, POSITION_MODE_VELOCITY_MM_PS,
 };
 use uom::si::{
     f32::{Length, Velocity},
@@ -14,13 +15,16 @@ use uom::si::{
 
 use crate::actuation::stepper::{
     limit_switch_task::{LimitSwitchState, LIMIT_EVENT},
-    low_level::{low_level_task::STEPPER_CMD, state_machine::SPS},
-    peripherals::{MotorPeripherals, StepperPeripherals},
-    HomeStatus, MotorAction, PositionModeStatus, Steps,
+    low_level::{
+        low_level_task::{position_to_steps, STEPPER_ACTION},
+        state_machine::SPS,
+        StepperAction,
+    },
+    HomeStatus, PositionModeStatus,
 };
 
 /// Public: callers write MotorAction here
-pub static KNIFE_MOTOR_SETPOINT: Watch<CriticalSectionRawMutex, MotorCommand, 2> = Watch::new();
+pub static KNIFE_MOTOR_SETPOINT: Watch<CriticalSectionRawMutex, MotorAction, 2> = Watch::new();
 /// Public: anyone can read homing status
 pub static KNIFE_MOTOR_HOME_STATUS: Watch<CriticalSectionRawMutex, HomeStatus, 2> = Watch::new();
 /// Public: upstream position mode status
@@ -31,7 +35,7 @@ pub static KNIFE_MOTOR_POS: Watch<CriticalSectionRawMutex, Steps, 2> = Watch::ne
 pub static KNIFE_MOTOR_POS_RESET: Watch<CriticalSectionRawMutex, (), 1> = Watch::new();
 
 /// Homing speed in mm/s
-pub const HOMING_SPEED_MM_PS: f32 = 0.1;
+pub const HOMING_SPEED_MM_PS: f32 = 10.0;
 pub const HOMING_DIRECTION: MotorDirection = MotorDirection::Forward;
 pub const OPERATION_SPEED_MM_PS: f32 = 1.0;
 /// TODO: Motor speed for 1 revolution per second
@@ -42,47 +46,28 @@ pub const MINIMUM_SPS: SPS = SPS(100);
 /// pub const MINIMUM_SPS: Duration = Duration::from_hz(100); // SPS
 pub const MAXIMUM_SPS: SPS = SPS(10_000); // SPS
 /// Minimum SPS to switch direction
-pub const MINIMUM_TRANSITION_SPS: SPS = SPS(200);
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum StepperCommand {
-    Coast,
-    Holding,
-    SingleStep,
-    Velocity(Velocity),
-}
-
-impl StepperCommand {
-    pub fn stopped() -> Self {
-        Self::Coast
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct VelocityCommand {
-    pub dir: MotorDirection,
-    pub velocity: Velocity,
-}
+pub const MINIMUM_TRANSITION_SPS: SPS = SPS(500);
 
 // Control task
 #[embassy_executor::task]
 pub async fn control_knife_motor() {
-    info!("MOTOR: control_knife_motor entry");
+    log::info!("MOTOR: initialising HIGH level control task");
 
-    let cmd_tx = STEPPER_CMD.sender();
+    let cmd_tx = STEPPER_ACTION.sender();
     let home_tx = KNIFE_MOTOR_HOME_STATUS.sender();
     let pos_tx = KNFIE_MOTOR_POS_STATUS.sender();
     let mut limit_rx = LIMIT_EVENT.receiver().unwrap();
     let mut action_rx = KNIFE_MOTOR_SETPOINT.receiver().unwrap();
     let mut pos_rx = KNIFE_MOTOR_POS.receiver().unwrap();
+    let mut pos_reset_tx = KNIFE_MOTOR_POS_RESET.sender();
 
     // Start stopped and lost
-    cmd_tx.send(StepperCommand::stopped());
+    cmd_tx.send(StepperAction::new_stopped());
     home_tx.send(HomeStatus::Lost);
     pos_tx.send(PositionModeStatus::Reached);
 
-    let mut current_action = MotorCommand::default();
-    let mut current_cmd = StepperCommand::stopped();
+    let mut current_action = MotorAction::default();
+    let mut current_cmd = StepperAction::new_stopped();
     let mut home_status = HomeStatus::Lost;
     let mut current_pos_steps = pos_rx.get().await;
     let mut target_pos_steps = Steps(0);
@@ -93,97 +78,124 @@ pub async fn control_knife_motor() {
     loop {
         match select3(action_rx.changed(), limit_rx.changed(), pos_rx.changed()).await {
             // New motor command received
-            Either3::First(cmd) => {
-                info!("MOTOR: new command received: {:?}", cmd);
-                let next_cmd = match cmd.clone() {
-                    MotorCommand::Halt => StepperCommand::stopped(),
-                    MotorCommand::MoveVelocity(MotorVelocitySetpoint { dir, speed }) => {
-                        StepperCommand {
-                            dir,
-                            period: velocity_to_interval(speed),
-                            running: true,
-                        }
-                    }
-                    MotorCommand::Home => {
-                        home_status = HomeStatus::Lost;
-                        home_tx.send(home_status.clone());
-                        StepperCommand {
-                            dir: HOMING_DIRECTION,
-                            period: velocity_to_interval(Velocity::new::<millimeter_per_second>(
-                                HOMING_SPEED_MM_PS,
-                            )),
-                            running: true,
-                        }
-                    }
-                    MotorCommand::MovePosition(MotorPositionSetpoint { target, speed }) => {
-                        target_pos_steps = position_to_steps(target);
+            Either3::First(action) => {
+                // Note: Only act when a new action is requested
+                // This state tracking is ergonomic to do here due to the nature of UART comms
 
-                        if target_pos_steps == current_pos_steps {
-                            // Target already reached, inform upstream and stop stepper
-                            pos_tx.send(PositionModeStatus::Reached);
-                            StepperCommand::STOPPED
-                        } else {
-                            let dir = if target_pos_steps > current_pos_steps {
-                                MotorDirection::Forward
-                            } else {
-                                MotorDirection::Reverse
-                            };
+                debug!(
+                    "MOTOR: RX motor action: {:?} {} {:?} OLD motor action",
+                    action,
+                    if action != current_action { "!=" } else { "==" },
+                    current_action
+                );
 
-                            // Inform upstream we are starting a new position mode action
-                            pos_tx.send(PositionModeStatus::InProgress);
+                // Are we homed?
+                if let HomeStatus::Homed { position: _ } = home_status {
+                    // Is this a new action?
+                    // Note: custom implementation of MotorVelocitySetpoint/MotorPositionSetpoint PartialEq
+                    if action != current_action {
+                        let next_cmd = match action.clone() {
+                            MotorAction::Hold => StepperAction::new_stopped(),
 
-                            StepperCommand {
-                                dir,
-                                period: velocity_to_interval(speed),
-                                running: true,
+                            MotorAction::MoveVelocity(sp) => StepperAction::MoveVelocity(sp),
+
+                            MotorAction::Home => {
+                                // Home command; Reset home status
+                                home_status = HomeStatus::Lost;
+                                home_tx.send(home_status.clone());
+
+                                StepperAction::new_homing()
                             }
-                        }
-                    }
-                };
 
-                // Send new StepperCommand & Bookkeeping
-                current_cmd = next_cmd;
-                cmd_tx.send(current_cmd.clone());
-                current_action = cmd;
+                            MotorAction::MovePosition(MotorPositionSetpoint { target, speed }) => {
+                                let target_pos_steps = position_to_steps(target);
+
+                                // Inform upstream we are starting a new position mode action
+                                pos_tx.send(PositionModeStatus::InProgress);
+
+                                StepperAction::MovePosition(StepperPositionSetpoint {
+                                    target: target_pos_steps,
+                                    speed,
+                                })
+                            }
+
+                            MotorAction::Coast => StepperAction::Coast,
+                        };
+
+                        // Send new StepperCommand & Bookkeeping
+                        info!("MOTOR: send NEW steppercmd -> low lvl {:?}", next_cmd);
+                        current_cmd = next_cmd;
+                        cmd_tx.send(current_cmd.clone());
+                        current_action = action;
+                    }
+                } else {
+                    if current_action != MotorAction::Home {
+                        // Currently lost -> Home motor
+                        info!("MOTOR: Homing status == LOST -> homing motor");
+                        current_action = MotorAction::Home;
+                        current_cmd = StepperAction::new_homing();
+                        cmd_tx.send(current_cmd.clone());
+                    }
+                }
             }
 
             // limit_switch event
             Either3::Second(level) => {
-                info!("MOTOR: Limit switch event: {:?}", level);
                 if level == LimitSwitchState::Active {
-                    info!("KNIFE: home switch active detected, moving back");
+                    home_status = HomeStatus::Lost;
+                    home_tx.send(home_status);
+
+                    match current_action {
+                        MotorAction::Home => {
+                            // All good
+                            info!("MOTOR: HOMING limit switch active detected, moving back");
+                        }
+                        _ => {
+                            // Woops; We are not doing a homing action but hit the limit switch
+                            warn!("MOTOR: Limit switch hit but NOT in homing mode");
+                        }
+                    }
+
                     // Move back untill switch disengages
-                    current_cmd = StepperCommand {
-                        dir: HOMING_DIRECTION.get_opposite(),
-                        period: velocity_to_interval(Velocity::new::<millimeter_per_second>(
-                            HOMING_SPEED_MM_PS,
-                        )),
-                        running: true,
+                    // Notice we move in reverse homing direction
+                    let home_vel = match HOMING_DIRECTION {
+                        MotorDirection::Forward => -HOMING_SPEED_MM_PS,
+                        MotorDirection::Reverse => HOMING_SPEED_MM_PS,
                     };
+                    current_action = MotorAction::Home;
+                    current_cmd = StepperAction::MoveVelocity(MotorVelocitySetpoint {
+                        dir: HOMING_DIRECTION.get_opposite(),
+                        speed: Velocity::new::<millimeter_per_second>(home_vel),
+                    });
 
                     cmd_tx.send(current_cmd.clone());
                 } else {
                     // Limit switch disengaged, we are now Homed
                     // Stop stepping
-                    cmd_tx.send(StepperCommand::stopped());
+                    cmd_tx.send(StepperAction::new_stopped());
+                    current_action = MotorAction::Hold;
 
                     // Record home
-                    info!("KNIFE: home confirmed");
+                    info!("MOTOR: HOME CONFIRMED");
                     home_status = HomeStatus::Homed { position: 0 };
                     home_tx.send(home_status.clone());
 
-                    // Stay stopped _> caller must send next MotorAction
+                    // Ask low level stepper task to reset position to zero
+                    pos_reset_tx.send(());
+
+                    // Stay stopped -> upstream controller must send next MotorAction
                 }
             }
 
             // Track position information from stepper task
+            // Update
             Either3::Third(new_pos) => {
                 // info!("MOTOR: new position information: {:?}", new_pos);
                 // Track current pos
                 current_pos_steps = new_pos;
 
                 // Are we doing a position mode action?
-                if let MotorCommand::MovePosition(_) = current_action {
+                if let MotorAction::MovePosition(_) = current_action {
                     // Did we reach position target?
                     if current_pos_steps == target_pos_steps {
                         info!("MOTOR: Reached target position: {:?}", target_pos_steps);
@@ -192,44 +204,14 @@ pub async fn control_knife_motor() {
                         pos_tx.send(PositionModeStatus::Reached);
 
                         // Position target reached -> stop motors
-                        cmd_tx.send(StepperCommand::stopped());
+                        cmd_tx.send(StepperAction::new_stopped());
+
+                        // Stay at target position until further notice; Transition to halt command
+                        current_action = MotorAction::Hold;
+                        cmd_tx.send(StepperAction::new_stopped());
                     }
                 }
             }
         }
-    }
-}
-
-/// Converts a position target (distance from home) into step pulses for the stepper driver
-fn position_to_steps(target: Length) -> Steps {
-    use messenger_mouse::encoder::*;
-    let mm = target.get::<millimeter>();
-
-    let out = (mm / KNIFE_AXIS_LEAD_MM)
-        * KNIFE_AXIS_GEAR_RATIO
-        * KNIFE_AXIS_MICROSTEPS_PER_STEP
-        * KNIFE_AXIS_STEPS_PER_ROTATION;
-
-    info!("target_mm_to_steps: target {}mm -> {}steps", mm, out);
-
-    Steps(out as i32)
-}
-
-fn velocity_to_interval(speed: Velocity) -> Duration {
-    use messenger_mouse::encoder::*;
-    let mm_ps = speed.get::<millimeter_per_second>();
-
-    let sps = (mm_ps / KNIFE_AXIS_LEAD_MM)
-        * KNIFE_AXIS_GEAR_RATIO
-        * KNIFE_AXIS_MICROSTEPS_PER_STEP
-        * KNIFE_AXIS_STEPS_PER_ROTATION;
-    let sps = sps.abs();
-
-    info!("velocity_to_interval: target {}mm/s -> {}sps", mm_ps, sps);
-
-    if sps < 0.1 {
-        Duration::MAX
-    } else {
-        Duration::from_hz(sps as u64)
     }
 }

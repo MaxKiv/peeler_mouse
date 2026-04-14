@@ -2,11 +2,13 @@
 
 #![no_std]
 
+use core::fmt;
+
 use embedded_hal::digital::OutputPin;
 use embedded_hal_async::delay::DelayNs;
 use esp_idf_hal::{
     rmt::{FixedLengthSignal, PinState, Pulse, PulseTicks, TxRmtDriver},
-    sys::rmt_clock_source_t,
+    sys::{EspError, esp, rmt_clock_source_t},
 };
 use thiserror::Error;
 
@@ -14,10 +16,15 @@ use log::*;
 
 use messenger_mouse::motor::MotorDirection as Direction;
 
+/// Imposed by esps RMT driver
+const LOOP_LIMIT: u32 = 1022;
+
 #[derive(Error, Debug)]
 pub enum StepperError {
     #[error("RMT error")]
     Rmt,
+    #[error("ESP error {0}")]
+    Esp(EspError),
     #[error("Direction pin error")]
     DirPin,
 }
@@ -95,7 +102,19 @@ where
     }
 
     /// Stop Indefinite RMT pulse stepping
-    pub async fn stop_stepping(&mut self) -> Result<(), StepperError> {
+    /// Note: Driver should stop stepping here, but doing so directly will break RMT
+    /// sometimes, as our version of the esp-hal RMT TX driver has a bug where it does not
+    /// release a tx_ready semaphore when in loop mode and cancelled before loops run to
+    /// completion.
+    /// -> Early stopping is out of the question, we have to finish the current TX Loop
+    pub fn stop_stepping(&mut self) -> Result<(), StepperError> {
+        // Wait for previous TX to complete before touching RMT registers
+        if let Err(e) = esp!(unsafe { esp_idf_hal::sys::rmt_wait_tx_done(self.rmt.channel(), 10) })
+        {
+            error!("RMT: wait_tx_done error in stop_stepping: {:?}", e);
+            return Err(StepperError::Esp(e));
+        }
+
         self.rmt.stop().map_err(|_| StepperError::Rmt)?;
         Ok(())
     }
@@ -114,14 +133,36 @@ where
     }
 
     /// Set up RMT to perform N steps
-    pub async fn arm_n_steps(&mut self, n: u32) -> Result<(), StepperError> {
+    pub async fn arm_n_steps(&mut self, mut n: u32) -> Result<(), StepperError> {
+        // Release RMT lock to allow new signal cfg
+        self.rmt.stop().map_err(|_| StepperError::Rmt)?;
+
+        n = n.min(LOOP_LIMIT);
+
+        // Wait for previous TX to complete before touching RMT registers
+        if let Err(e) = esp!(unsafe { esp_idf_hal::sys::rmt_wait_tx_done(self.rmt.channel(), 10) })
+        {
+            error!("RMT: wait_tx_done error in arm_n_steps: {:?}", e);
+            return Err(StepperError::Esp(e));
+        }
+
+        // info!(
+        //     "arm_n_steps: {:?} - {}us period - {}hi us - {}n",
+        //     self.direction, self.step_period_ticks, self.step_high_ticks, n
+        // );
+
         let signal = self.create_signal()?;
+        // info!("create_signal exit");
 
         self.rmt
             .set_looping(esp_idf_hal::rmt::config::Loop::Count(n))
             .map_err(|_| StepperError::Rmt)?;
 
+        // info!("set_looping exit");
+
         self.rmt.start(signal).map_err(|_| StepperError::Rmt)?;
+
+        // info!("arm_n_steps exit");
 
         Ok(())
     }
@@ -131,12 +172,12 @@ where
 
         let high: Pulse = Pulse::new(
             PinState::High,
-            PulseTicks::new(self.step_high_ticks).expect("unable to construct pulseticks HIGH"),
+            PulseTicks::new(self.step_high_ticks).unwrap_or(PulseTicks::zero()),
         );
         let low: Pulse = Pulse::new(
             PinState::Low,
-            PulseTicks::new(self.step_period_ticks - self.step_high_ticks)
-                .expect("unable to construct pulseticks LOW"),
+            PulseTicks::new(self.step_period_ticks.saturating_sub(self.step_high_ticks))
+                .unwrap_or(PulseTicks::max()),
         );
 
         signal.set(0, &(high, low)).map_err(|_| StepperError::Rmt)?;

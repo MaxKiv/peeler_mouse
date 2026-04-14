@@ -2,12 +2,12 @@ use defmt::*;
 use embassy_time::{Duration, Ticker};
 use messenger_mouse::{
     LedSetpoint, Setpoint,
-    motor::{KnifeManager, MotorCommand},
+    motor::{KnifeManager, MotorAction},
 };
 
 use crate::{comms::task::SETPOINT_WATCH, supervisor::task::APPSTATE_WATCH};
 
-const TASK_PERIOD: Duration = Duration::from_millis(1000);
+const TASK_PERIOD: Duration = Duration::from_millis(300);
 
 /// Uses latest appstate to instruct ESP32
 #[embassy_executor::task]
@@ -40,13 +40,10 @@ pub async fn supervise_esp() {
             // and if not what the knife motor should be doing.
             setpoint_tx.send(Setpoint {
                 knife_manager: state.knife_manager,
-                // Hack: Only ask the knife to do anything if global appstate enable = true
-                // This friction comes from the broad scope of MotorCommand, which the HMI is unable to
-                // handle atm
                 knife_setpoint: if state.enable {
                     state.knife_setpoint
                 } else {
-                    MotorCommand::Halt
+                    MotorAction::Coast
                 },
                 led_setpoint: LedSetpoint { brightness: 0.0 },
             });

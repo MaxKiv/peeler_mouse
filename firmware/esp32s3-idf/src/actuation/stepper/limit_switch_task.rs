@@ -27,6 +27,7 @@ impl From<gpio::Level> for LimitSwitchState {
 // Informs others about these changes
 #[embassy_executor::task]
 pub async fn manage_limit_switch(pin: esp_idf_hal::gpio::Gpio45) {
+    log::info!("MOTOR: initialising limit switch task");
     let mut limit = PinDriver::input(pin).unwrap();
     limit.set_pull(Pull::Up).unwrap();
 
@@ -37,6 +38,8 @@ pub async fn manage_limit_switch(pin: esp_idf_hal::gpio::Gpio45) {
         limit.wait_for_any_edge().await;
         // Save current state
         let edge = limit.get_level();
+
+        info!("LIMIT SWITCH {:?}", edge);
 
         // Debounce this limit switch press
         Timer::after(LIMIT_SWITCH_DEBOUNCE_DURATION).await;

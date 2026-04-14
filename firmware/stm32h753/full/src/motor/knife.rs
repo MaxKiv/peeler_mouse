@@ -6,11 +6,11 @@ use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::watch::Watch;
 use embassy_time::Delay;
 use l9110::L9110;
-use messenger_mouse::motor::MotorCommand;
+use messenger_mouse::motor::MotorAction;
 
 use crate::motor::{MotorDirection, MotorState};
 
-pub static CUT_SETPOINT: Watch<CriticalSectionRawMutex, MotorCommand, 2> = Watch::new();
+pub static CUT_SETPOINT: Watch<CriticalSectionRawMutex, MotorAction, 2> = Watch::new();
 
 pub struct CutMotorPeripherals {
     /// PWM driver to control L9110, requires minimum 2 channels

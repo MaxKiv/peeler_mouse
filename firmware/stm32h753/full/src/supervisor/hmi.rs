@@ -4,7 +4,7 @@ use embassy_futures::select::Either6;
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Watch};
 use embassy_time::Timer;
 use messenger_mouse::Setpoint;
-use messenger_mouse::motor::{KnifeManager, MotorCommand, MotorDirection, MotorVelocitySetpoint};
+use messenger_mouse::motor::{KnifeManager, MotorAction, MotorDirection, MotorVelocitySetpoint};
 use uom::si::f32::{Length, Velocity};
 use uom::si::length::{micrometer, millimeter};
 use uom::si::velocity::millimeter_per_second;
@@ -60,7 +60,7 @@ pub async fn supervise_hmi() {
             Either6::Second(_) => {
                 match app_state.hmi_state {
                     HmiState::MotorSelected => {
-                        // Cycles to next type of MotorCommand
+                        // Cycles to next type of MotorAction
                         let current_setpoint = app_state.get_current_motor_setpoint();
                         app_state.set_current_motor_setpoint(current_setpoint.next());
                     }
@@ -108,13 +108,10 @@ pub async fn supervise_hmi() {
                     HmiState::MotorSelected => {
                         let current_setpoint = app_state.get_current_motor_setpoint();
                         match current_setpoint {
-                            MotorCommand::Halt => {
-                                // Halt mode -> turning encoder does nothing
+                            MotorAction::Hold | MotorAction::Coast | MotorAction::Home => {
+                                // Turning encoder does nothing
                             }
-                            MotorCommand::Home => {
-                                // TODO: maybe set homing velocity here?
-                            }
-                            MotorCommand::MoveVelocity(sp) => {
+                            MotorAction::MoveVelocity(sp) => {
                                 // Change target velocity based on encoder delta
                                 let new_setpoint = calculate_new_motor_speed(
                                     sp.speed,
@@ -122,7 +119,7 @@ pub async fn supervise_hmi() {
                                     app_state.get_selected_motor(),
                                 );
 
-                                app_state.set_current_motor_setpoint(MotorCommand::MoveVelocity(
+                                app_state.set_current_motor_setpoint(MotorAction::MoveVelocity(
                                     new_setpoint.clone(),
                                 ));
 
@@ -134,7 +131,7 @@ pub async fn supervise_hmi() {
                                     new_setpoint.dir
                                 );
                             }
-                            MotorCommand::MovePosition(mut sp) => {
+                            MotorAction::MovePosition(mut sp) => {
                                 // TODO: in/decrease position based on encoder delta
                                 sp.target +=
                                     Length::new::<micrometer>((encoder_delta * 100).into());
@@ -142,8 +139,7 @@ pub async fn supervise_hmi() {
                                     messenger_mouse::motor::POSITION_MODE_VELOCITY_MM_PS,
                                 );
 
-                                app_state
-                                    .set_current_motor_setpoint(MotorCommand::MovePosition(sp));
+                                app_state.set_current_motor_setpoint(MotorAction::MovePosition(sp));
                             }
                         }
                     }

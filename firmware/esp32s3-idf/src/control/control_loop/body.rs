@@ -1,30 +1,29 @@
 use std::time::Instant;
 
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Receiver};
-use embassy_time::{Duration, Ticker, Timer, WithTimeout};
+use embassy_time::{Duration, Ticker, WithTimeout};
 use esp_idf_hal::ledc::LedcDriver;
 use log::*;
 use messenger_mouse::{
     encoder::KnifeState,
-    motor::{KnifeManager, MotorCommand},
+    motor::{KnifeManager, MotorAction},
     AppState, Setpoint, VisionAlgorithmOutput, VisionData,
 };
 
 use crate::{
     actuation::stepper::{
         motor_task::{KNIFE_MOTOR_HOME_STATUS, KNIFE_MOTOR_SETPOINT},
-        HomeStatus, MotorAction,
+        HomeStatus,
     },
     camera::{
-        camera_freertos_task::FRAMEBUFFER_CONTROL_LOOP_CHANNEL, framebuffer::FrameBuffer,
-        framebuffer_view::FrameBufferView,
+        camera_freertos_task::FRAMEBUFFER_CONTROL_LOOP_CHANNEL, framebuffer_view::FrameBufferView,
     },
     comms::comms_task::REPORT_WATCH,
     control::vision::algo::{calculate_control_effort, vision_output_to_motorcommand},
     encoder::encoder_task::KNIFE_STATE,
 };
 
-const CONTROL_LOOP_FREQUENCY: Duration = Duration::from_millis(1000);
+const CONTROL_LOOP_FREQUENCY: Duration = Duration::from_millis(500);
 const HOME_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[embassy_executor::task]
@@ -44,7 +43,7 @@ pub async fn control_loop(
     let mut ticker = Ticker::every(CONTROL_LOOP_FREQUENCY);
 
     // Latest framebuffer signal
-    let mut framebuffer_rx = FRAMEBUFFER_CONTROL_LOOP_CHANNEL.receiver();
+    let framebuffer_rx = FRAMEBUFFER_CONTROL_LOOP_CHANNEL.receiver();
 
     let mut encoder_rx = KNIFE_STATE.receiver().expect("not enough KNIFE_STATE rx N");
 
@@ -52,12 +51,11 @@ pub async fn control_loop(
     let mut motor_home_rx = KNIFE_MOTOR_HOME_STATUS
         .receiver()
         .expect("not enough KNIFE_MOTOR_HOME N");
-    let report_tx = REPORT_WATCH.sender();
 
     // Startup: Ask motor controller to start homing
     info!("CONTROL: Startup -> Homing motor");
-    motor_tx.send(MotorCommand::Home);
     loop {
+        motor_tx.send(MotorAction::Home);
         let home_status = motor_home_rx.changed().with_timeout(HOME_TIMEOUT).await;
         info!(
             "CONTROL: Startup -> Received home status: {:?}",
@@ -70,17 +68,18 @@ pub async fn control_loop(
         }
     }
 
+    let report_tx = REPORT_WATCH.sender();
+
     // Main Control loop
     loop {
         // ----- Fetch Control Input -----
         if let Some(new_setpoint) = setpoint_receiver.try_get() {
             if new_setpoint != latest_setpoint {
-                // info!("CONTROL: NEW setpoint: {:?}", new_setpoint);
+                debug!("CONTROL: NEW setpoint: {:?}", new_setpoint);
                 latest_setpoint = new_setpoint;
             }
-        } else {
-            // info!("CONTROL: CURRENT setpoint: {:?}", latest_setpoint);
         }
+
         let led_brightness = latest_setpoint.led_setpoint.brightness;
 
         // Get latest encoder value
@@ -128,10 +127,10 @@ pub async fn control_loop(
                 // Convert into motor command
                 let motor_cmd = vision_output_to_motorcommand(vision_output.clone());
 
-                // info!(
-                //     "CONTROL: VISION frame {} -> vision alg: {:?} -> control effort: {:?}",
-                //     gen, vision_output, motor_cmd,
-                // );
+                info!(
+                    "CONTROL: VISION frame {} -> vision alg: {:?} -> control effort: {:?}",
+                    gen, vision_output, motor_cmd,
+                );
 
                 let vision_data = VisionData {
                     generation: gen,
@@ -149,6 +148,7 @@ pub async fn control_loop(
         };
 
         // Actuate Knife adjustment motor
+        info!("CONTROL: MOTOR CMD {:?}", motor_cmd,);
         motor_tx.send(motor_cmd);
 
         // Actuate LED

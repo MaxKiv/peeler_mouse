@@ -154,6 +154,7 @@ pub async fn serialise_setpoints(
 
                     if n == 0 {
                         // Pipe is full, yield until space is available
+                        warn!("COMMS serialize_setpoint -> pipe full");
                         Timer::after(embassy_time::Duration::from_millis(1)).await;
                         continue;
                     }

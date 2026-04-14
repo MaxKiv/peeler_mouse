@@ -19,7 +19,7 @@ pub enum MotorState {
 
 // /// Commands all motors can accept
 // #[derive(Debug, Clone, Default)]
-// pub struct MotorCommand {
+// pub struct MotorAction {
 //     /// Operational state of the motor, i.e. is it enabled? Is it braking?
 //     pub state: MotorState,
 //     /// Direction of axis rotation
@@ -38,7 +38,7 @@ pub enum MotorState {
 //     }
 // }
 //
-// impl fmt::Display for MotorCommand {
+// impl fmt::Display for MotorAction {
 //     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 //         match self.state {
 //             MotorState::Enabled => {

@@ -7,12 +7,12 @@ use embassy_stm32::{Peri, peripherals::*};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::watch::Watch;
 use embassy_time::Delay;
-use messenger_mouse::motor::MotorCommand;
+use messenger_mouse::motor::MotorAction;
 use tb6600::Tb6600;
 use uom::si::f32::Velocity;
 use uom::si::velocity::millimeter_per_second;
 
-pub static TRANSLATION_SETPOINT: Watch<CriticalSectionRawMutex, MotorCommand, 2> = Watch::new();
+pub static TRANSLATION_SETPOINT: Watch<CriticalSectionRawMutex, MotorAction, 2> = Watch::new();
 
 pub struct TranslationMotorPeripherals {
     pub pwm: SimplePwm<'static, TIM8>,
@@ -43,19 +43,20 @@ pub async fn manage_translational_motor(mut tb: Tb6600<TIM8, Output<'static>, De
         let cmd = rx.changed().await;
 
         match cmd {
-            MotorCommand::Halt => tb.stop(),
-            MotorCommand::Home => {
+            MotorAction::Hold => tb.stop(),
+            MotorAction::Coast => tb.stop(),
+            MotorAction::Home => {
                 error!("Home not implemented yet");
             }
 
-            MotorCommand::MoveVelocity(sp) => {
+            MotorAction::MoveVelocity(sp) => {
                 let freq = translational_speed_to_step_freq(sp.speed);
 
                 if let Err(err) = tb.run_hertz(freq, sp.dir).await {
                     error!("Unable to MoveVelocity: {:?}", err);
                 }
             }
-            MotorCommand::MovePosition(sp) => {
+            MotorAction::MovePosition(sp) => {
                 error!("MovePosition not implemented yet");
             }
         };

@@ -1,5 +1,5 @@
 use defmt::warn;
-use messenger_mouse::motor::{KnifeManager, MotorCommand, MotorVelocitySetpoint};
+use messenger_mouse::motor::{KnifeManager, MotorAction, MotorVelocitySetpoint};
 use uom::si::{f32::Velocity, velocity::millimeter_per_second};
 
 use crate::{
@@ -20,9 +20,9 @@ const MOTORS: [SelectedMotor; 3] = [
 pub struct Appstate {
     pub hmi_state: HmiState,
     pub selected_motor: SelectedMotor,
-    pub translation_setpoint: MotorCommand,
-    pub rotation_setpoint: MotorCommand,
-    pub knife_setpoint: MotorCommand,
+    pub translation_setpoint: MotorAction,
+    pub rotation_setpoint: MotorAction,
+    pub knife_setpoint: MotorAction,
     pub knife_manager: KnifeManager,
     pub encoder_pos: i16,
     pub enable: bool,
@@ -47,7 +47,7 @@ impl Appstate {
         self.hmi_state = hmi_state;
     }
 
-    pub fn set_current_motor_setpoint(&mut self, setpoint: MotorCommand) {
+    pub fn set_current_motor_setpoint(&mut self, setpoint: MotorAction) {
         match self.selected_motor {
             SelectedMotor::Translation => self.translation_setpoint = setpoint,
             SelectedMotor::Rotation => self.rotation_setpoint = setpoint,
@@ -55,7 +55,7 @@ impl Appstate {
         }
     }
 
-    pub fn get_current_motor_setpoint(&self) -> MotorCommand {
+    pub fn get_current_motor_setpoint(&self) -> MotorAction {
         match self.selected_motor {
             SelectedMotor::Translation => self.translation_setpoint.clone(),
             SelectedMotor::Rotation => self.rotation_setpoint.clone(),
@@ -78,9 +78,9 @@ impl Appstate {
 
     pub fn reset_all(&mut self) {
         self.hmi_state = HmiState::default();
-        self.translation_setpoint = MotorCommand::MoveVelocity(MotorVelocitySetpoint::new_safe());
-        self.rotation_setpoint = MotorCommand::MoveVelocity(MotorVelocitySetpoint::new_safe());
-        self.knife_setpoint = MotorCommand::MoveVelocity(MotorVelocitySetpoint::new_safe());
+        self.translation_setpoint = MotorAction::MoveVelocity(MotorVelocitySetpoint::new_safe());
+        self.rotation_setpoint = MotorAction::MoveVelocity(MotorVelocitySetpoint::new_safe());
+        self.knife_setpoint = MotorAction::MoveVelocity(MotorVelocitySetpoint::new_safe());
         self.stop_all();
     }
 }
@@ -88,9 +88,9 @@ impl Appstate {
 impl Default for Appstate {
     fn default() -> Self {
         Self {
-            translation_setpoint: MotorCommand::MoveVelocity(MotorVelocitySetpoint::new_safe()),
-            rotation_setpoint: MotorCommand::MoveVelocity(MotorVelocitySetpoint::new_safe()),
-            knife_setpoint: MotorCommand::MoveVelocity(MotorVelocitySetpoint::new_safe()),
+            translation_setpoint: MotorAction::MoveVelocity(MotorVelocitySetpoint::new_safe()),
+            rotation_setpoint: MotorAction::MoveVelocity(MotorVelocitySetpoint::new_safe()),
+            knife_setpoint: MotorAction::MoveVelocity(MotorVelocitySetpoint::new_safe()),
             hmi_state: Default::default(),
             selected_motor: Default::default(),
             knife_manager: Default::default(),

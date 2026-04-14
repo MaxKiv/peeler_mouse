@@ -1,3 +1,5 @@
+#![feature(let_chains)]
+
 pub mod actuation;
 pub mod camera;
 pub mod comms;
@@ -42,6 +44,7 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     let _ = spawner;
     esp_idf_svc::sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
+    log::set_max_level(log::LevelFilter::Trace);
     log::set_max_level(log::LevelFilter::Error);
 
     let version = unsafe { esp_idf_sys::esp_get_idf_version() };
@@ -145,7 +148,7 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
         stepper: stepper_peri,
         limit_switch: peripherals.pins.gpio45,
     };
-    actuation::stepper::motor_task::run(spawner, motor_peri)?;
+    actuation::stepper::run(spawner, motor_peri)?;
 
     let control_peri = ControlPeripherals {
         led_timer: peripherals.ledc.timer0,
