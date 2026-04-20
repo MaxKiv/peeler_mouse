@@ -62,6 +62,7 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     log::info!("Watchdog disabled");
 
     log::info!("Initialize Camera freertos task");
+    #[cfg(feature = "devkit")]
     let camera_peripherals = CameraPeripherals {
         pin_xclk: peripherals.pins.gpio15,
         pin_d0: peripherals.pins.gpio11,
@@ -78,17 +79,43 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
         pin_sda: peripherals.pins.gpio4,
         pin_scl: peripherals.pins.gpio5,
     };
+
+    #[cfg(feature = "pcb")]
+    let camera_peripherals = CameraPeripherals {
+        pin_xclk: peripherals.pins.gpio10,
+        pin_d0: peripherals.pins.gpio15,
+        pin_d1: peripherals.pins.gpio17,
+        pin_d2: peripherals.pins.gpio18,
+        pin_d3: peripherals.pins.gpio16,
+        pin_d4: peripherals.pins.gpio14,
+        pin_d5: peripherals.pins.gpio12,
+        pin_d6: peripherals.pins.gpio11,
+        pin_d7: peripherals.pins.gpio48,
+        pin_vsync: peripherals.pins.gpio38,
+        pin_href: peripherals.pins.gpio47,
+        pin_pclk: peripherals.pins.gpio13,
+        pin_sda: peripherals.pins.gpio40,
+        pin_scl: peripherals.pins.gpio39,
+    };
     camera::camera_freertos_task::setup_freertos(camera_peripherals);
 
+    #[cfg(feature = "devkit")]
     let comms_peri = CommsPeripherals {
         uart: peripherals.uart2,
         tx: peripherals.pins.gpio19,
         rx: peripherals.pins.gpio20,
     };
+    #[cfg(feature = "pcb")]
+    let comms_peri = CommsPeripherals {
+        uart: peripherals.uart2,
+        tx: peripherals.pins.gpio43,
+        rx: peripherals.pins.gpio44,
+    };
+
     comms::comms_task::run(spawner, comms_peri)?;
 
     // Spawn auxilary SD writing task, when enabled
-    #[cfg(feature = "sd")]
+    #[cfg(all(feature = "sd", feature = "devkit"))]
     {
         let sd_peri = SDPeripherals {
             slot: peripherals.sdmmc1,
@@ -103,7 +130,7 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     }
 
     // Spawn auxilary Webserver task and wifi stack, when enabled
-    #[cfg(feature = "webserver")]
+    #[cfg(all(feature = "webserver", feature = "devkit"))]
     {
         log::info!("Initialize Wifi task");
         if let Err(err) = spawner.spawn(wifi::wifi_task(
@@ -126,6 +153,7 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
         }
     }
 
+    #[cfg(feature = "devkit")]
     let encoder_peri = EncoderPeripherals {
         spi: peripherals.spi3,
         sclk: peripherals.pins.gpio1,
@@ -133,10 +161,20 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
         serial_in: peripherals.pins.gpio21,
         cs: peripherals.pins.gpio47,
     };
+    #[cfg(feature = "pcb")]
+    let encoder_peri = EncoderPeripherals {
+        spi: peripherals.spi3,
+        sclk: peripherals.pins.gpio7,
+        serial_out: peripherals.pins.gpio9,
+        serial_in: peripherals.pins.gpio8,
+        cs: peripherals.pins.gpio6,
+    };
+
     log::info!("Initialize encoder task");
     // Attempt to start up the control loop + dependencies
     encoder::encoder_task::run(spawner, encoder_peri)?;
 
+    #[cfg(feature = "devkit")]
     let stepper_peri = StepperPeripherals {
         timer: peripherals.ledc.timer1,
         rmt_channel: peripherals.rmt.channel0,
@@ -144,16 +182,38 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
         dir_pin: peripherals.pins.gpio42,
         enable_pin: peripherals.pins.gpio40,
     };
+    #[cfg(feature = "devkit")]
     let motor_peri = MotorPeripherals {
         stepper: stepper_peri,
         limit_switch: peripherals.pins.gpio45,
     };
+    #[cfg(feature = "pcb")]
+    let stepper_peri = StepperPeripherals {
+        timer: peripherals.ledc.timer1,
+        rmt_channel: peripherals.rmt.channel0,
+        step_rmt_pin: peripherals.pins.gpio3,
+        dir_pin: peripherals.pins.gpio2,
+        enable_pin: peripherals.pins.gpio4,
+    };
+    #[cfg(feature = "pcb")]
+    let motor_peri = MotorPeripherals {
+        stepper: stepper_peri,
+        limit_switch: peripherals.pins.gpio1,
+    };
+
     actuation::stepper::run(spawner, motor_peri)?;
 
+    #[cfg(feature = "devkit")]
     let control_peri = ControlPeripherals {
         led_timer: peripherals.ledc.timer0,
         led_ch: peripherals.ledc.channel0,
         led_pin: peripherals.pins.gpio48,
+    };
+    #[cfg(feature = "pcb")]
+    let control_peri = ControlPeripherals {
+        led_timer: peripherals.ledc.timer0,
+        led_ch: peripherals.ledc.channel0,
+        led_pin: peripherals.pins.gpio5,
     };
 
     #[cfg(not(feature = "streaming"))]

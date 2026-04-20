@@ -8,7 +8,8 @@ use crate::actuation::stepper::{
 use embassy_time::Duration;
 use embedded_hal::digital::OutputPin;
 use embedded_hal_async::delay::DelayNs;
-use esp_idf_hal::gpio::{Gpio40, Output, PinDriver};
+#[cfg(feature = "pcb")]
+use esp_idf_hal::gpio::*;
 use log::*;
 use messenger_mouse::motor::{MotorDirection, Steps};
 use rmt_stepper_driver::RmtStepper;
@@ -24,7 +25,12 @@ use uom::{
 pub struct StepperStateMachine<DirPin, Delay> {
     pub state: StepperState,
     driver: RmtStepper<DirPin, Delay>,
+    #[cfg(feature = "devkit")]
     enable: PinDriver<'static, Gpio40, Output>,
+
+    #[cfg(feature = "pcb")]
+    enable: PinDriver<'static, Gpio4, Output>,
+
     pub target_position: Steps,
     pub current_position: Steps,
     pub vel_state: VelocityState,
@@ -38,7 +44,8 @@ where
 {
     pub fn new(
         driver: RmtStepper<DirPin, Delay>,
-        enable: PinDriver<'static, Gpio40, Output>,
+        #[cfg(feature = "devkit")] enable: PinDriver<'static, Gpio40, Output>,
+        #[cfg(feature = "pcb")] enable: PinDriver<'static, Gpio4, Output>,
     ) -> Self {
         Self {
             enable,

@@ -10,7 +10,9 @@ harness = false # do not use the built in cargo test harness -> resolve rust-ana
 
 [features]
 # default = ["sd", "webserver"]
-default = []
+default = ["pcb"]
+devkit = []
+pcb = []
 sd = []
 webserver = []
 streaming = ["webserver"]
