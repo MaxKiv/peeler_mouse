@@ -164,23 +164,39 @@ pub fn calculate_new_motor_speed(
     encoder_delta: i16,
     selected_motor: SelectedMotor,
 ) -> MotorVelocitySetpoint {
-    const STEP_MM_PS: f32 = 0.1;
+    const ROT_STEP_MM_PS: f32 = 0.1;
+    const LIN_STEP_MM_PS: f32 = 0.01;
+    const CUT_STEP_MM_PS: f32 = 0.1;
 
-    let (min, max) = match selected_motor {
+    let (min, max, step) = match selected_motor {
         SelectedMotor::Translation => (
             -MAX_TRANSLATION_VELOCITY_MM_PS,
             MAX_TRANSLATION_VELOCITY_MM_PS,
+            LIN_STEP_MM_PS,
         ),
-        SelectedMotor::Rotation => (-MAX_ROTATION_VELOCITY_MM_PS, MAX_ROTATION_VELOCITY_MM_PS),
-        SelectedMotor::Cut => (-MAX_CUT_VELOCITY_MM_PS, MAX_CUT_VELOCITY_MM_PS),
+        SelectedMotor::Rotation => (
+            -MAX_ROTATION_VELOCITY_MM_PS,
+            MAX_ROTATION_VELOCITY_MM_PS,
+            ROT_STEP_MM_PS,
+        ),
+        SelectedMotor::Cut => (
+            -MAX_CUT_VELOCITY_MM_PS,
+            MAX_CUT_VELOCITY_MM_PS,
+            CUT_STEP_MM_PS,
+        ),
     };
 
-    let speed = (current_speed.get::<millimeter_per_second>()
-        + (STEP_MM_PS * encoder_delta as f32))
+    let mut speed = (current_speed.get::<millimeter_per_second>() + (step * encoder_delta as f32))
         .clamp(min, max);
+
+    // Hysteresis
+    if speed.abs() < step / 2.0 {
+        speed = 0.0;
+    }
+
     let dir = match speed {
-        _ if speed >= 0.0 => MotorDirection::Reverse,
-        _ => MotorDirection::Forward,
+        _ if speed >= 0.0 => MotorDirection::Forward,
+        _ => MotorDirection::Reverse,
     };
     let speed = Velocity::new::<millimeter_per_second>(speed);
 

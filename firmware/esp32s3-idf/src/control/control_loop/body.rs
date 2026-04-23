@@ -5,7 +5,7 @@ use embassy_time::{Duration, Ticker, WithTimeout};
 use esp_idf_hal::ledc::LedcDriver;
 use log::*;
 use messenger_mouse::{
-    encoder::KnifeState,
+    encoder::EncoderState,
     motor::{KnifeManager, MotorAction},
     AppState, Setpoint, VisionAlgorithmOutput, VisionData,
 };
@@ -20,7 +20,7 @@ use crate::{
     },
     comms::comms_task::REPORT_WATCH,
     control::vision::algo::{calculate_control_effort, vision_output_to_motorcommand},
-    encoder::encoder_task::KNIFE_STATE,
+    encoder::encoder_task::ENCODER_STATE,
 };
 
 const CONTROL_LOOP_FREQUENCY: Duration = Duration::from_millis(500);
@@ -45,7 +45,9 @@ pub async fn control_loop(
     // Latest framebuffer signal
     let framebuffer_rx = FRAMEBUFFER_CONTROL_LOOP_CHANNEL.receiver();
 
-    let mut encoder_rx = KNIFE_STATE.receiver().expect("not enough KNIFE_STATE rx N");
+    let mut encoder_rx = ENCODER_STATE
+        .receiver()
+        .expect("not enough ENCODER_STATE rx N");
 
     let motor_tx = KNIFE_MOTOR_SETPOINT.sender();
     let mut motor_home_rx = KNIFE_MOTOR_HOME_STATUS
@@ -57,13 +59,13 @@ pub async fn control_loop(
     loop {
         motor_tx.send(MotorAction::Home);
         let home_status = motor_home_rx.changed().with_timeout(HOME_TIMEOUT).await;
-        info!(
+        error!(
             "CONTROL: Startup -> Received home status: {:?}",
             home_status
         );
 
         if let Ok(HomeStatus::Homed { position: _ }) = home_status {
-            info!("CONTROL: Motor indicates succesful homing, running main loop");
+            error!("CONTROL: Motor indicates succesful homing, running main loop");
             break;
         }
     }
@@ -83,11 +85,11 @@ pub async fn control_loop(
         let led_brightness = latest_setpoint.led_setpoint.brightness;
 
         // Get latest encoder value
-        let current_knife_state = encoder_rx.try_get().unwrap_or_else(|| {
-            log::error!("CONTROL: unable to get valid knife state, using default...");
-            KnifeState::new()
+        let knife_encoder_state = encoder_rx.try_get().unwrap_or_else(|| {
+            warn!("CONTROL: unable to get encoder state, position mode unreliable!");
+            EncoderState::new()
         });
-        // info!("CONTROL: Encoder state: {:?}", current_knife_state);
+        info!("CONTROL: Encoder state: {:?}", knife_encoder_state);
 
         // update appstate
         let mut current_appstate = match latest_setpoint.knife_manager {
@@ -161,7 +163,7 @@ pub async fn control_loop(
         // Collect & Send Report to stm32
         let measurements = messenger_mouse::Measurements {
             vision_data,
-            current_knife_state,
+            knife_encoder_state,
         };
 
         // Combine into report

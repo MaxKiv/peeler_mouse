@@ -28,7 +28,7 @@ pub fn vision_output_to_motorcommand(algo_out: VisionAlgorithmOutput) -> MotorAc
         }
         VisionAlgorithmOutput::Down => {
             MotorAction::MoveVelocity(messenger_mouse::motor::MotorVelocitySetpoint::new_reverse(
-                Velocity::new::<millimeter_per_second>(VISION_KNIFE_SPEED_MM_PS),
+                Velocity::new::<millimeter_per_second>(-VISION_KNIFE_SPEED_MM_PS),
             ))
         }
     }

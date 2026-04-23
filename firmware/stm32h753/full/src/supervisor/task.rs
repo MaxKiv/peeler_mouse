@@ -31,8 +31,8 @@ pub static ENCODER_DATA: Watch<Cs, EncoderData, 2> = Watch::new();
 
 pub const MOTOR_SPEED_STEPS: usize = 10;
 pub const MAX_ROTATION_VELOCITY_MM_PS: f32 = 10.0;
-pub const MAX_TRANSLATION_VELOCITY_MM_PS: f32 = 1.0;
-pub const MAX_CUT_VELOCITY_MM_PS: f32 = 1.4;
+pub const MAX_TRANSLATION_VELOCITY_MM_PS: f32 = 2.0;
+pub const MAX_CUT_VELOCITY_MM_PS: f32 = 10.0;
 
 pub fn setup(spawner: &Spawner) {
     info!("Setting up Supervisor");

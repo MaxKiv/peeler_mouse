@@ -6,7 +6,7 @@ pub mod motor;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    encoder::KnifeState,
+    encoder::EncoderState,
     motor::{KnifeManager, MotorAction},
 };
 
@@ -60,7 +60,7 @@ impl Setpoint {
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub struct Measurements {
     pub vision_data: Option<VisionData>,
-    pub current_knife_state: KnifeState,
+    pub knife_encoder_state: EncoderState,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default, PartialEq)]

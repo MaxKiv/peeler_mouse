@@ -104,7 +104,7 @@ pub async fn low_lvl_stepper_task(p: StepperPeripherals) {
                 sm.update_velocity();
 
                 // Set up RMT re-arm timer to perform steps
-                Timer::after(STEP_INTERVAL + Duration::from_millis(10))
+                Timer::after(STEP_INTERVAL)
             }
             _ => {
                 // We are not in velocity mode, we don't want to do any steps

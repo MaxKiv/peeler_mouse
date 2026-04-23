@@ -18,11 +18,11 @@ use crate::{
     actuation::stepper::{motor_task::KNIFE_MOTOR_HOME_STATUS, HomeStatus},
     encoder::peripherals::EncoderPeripherals,
 };
-use messenger_mouse::encoder::KnifeState;
+use messenger_mouse::encoder::EncoderState;
 
-const DURATION: Duration = Duration::from_secs(5);
+const DURATION: Duration = Duration::from_hz(100);
 
-pub static KNIFE_STATE: Watch<Cs, KnifeState, 2> = Watch::new();
+pub static ENCODER_STATE: Watch<Cs, EncoderState, 2> = Watch::new();
 
 // Spawn all COMMS & FRAMING tasks required for external communications
 pub fn run(spawner: &Spawner, p: EncoderPeripherals) -> anyhow::Result<()> {
@@ -62,8 +62,8 @@ pub async fn encoder_task(p: EncoderPeripherals) {
     let mut sensor = As5048a::new(&mut spi_device);
 
     // Initialize encoder state
-    let mut knife_state = KnifeState::new();
-    let tx = KNIFE_STATE.sender();
+    let mut encoder_state = EncoderState::new();
+    let tx = ENCODER_STATE.sender();
     let mut home_status_rx = KNIFE_MOTOR_HOME_STATUS.receiver().unwrap();
 
     log::info!("Encoder: Initialisation done, starting loop");
@@ -79,31 +79,31 @@ pub async fn encoder_task(p: EncoderPeripherals) {
                     Ok(angle) => {
                         // info!("ENCODER: got angle {}", angle);
 
-                        knife_state.encoder_state.update(angle);
+                        encoder_state.encoder_data.update(angle);
                     }
 
                     // Shit hit the fan
                     Err(err) => {
-                        error!("ENCODER: Error {:?}", err);
+                        debug!("ENCODER: Error {:?}", err);
 
                         // Investigate problem, not much we can do but continue however
                         match err {
                             Error::Communication(_) => {
                                 // SPI error, likely unrecoverable
-                                knife_state.validity =
+                                encoder_state.validity =
                                     EncoderValidity::EncoderError(EncoderError::Communication)
                             }
                             Error::ParityError => {
                                 // Parity or Sensor error, likely something wrong with SPI Bus, might recover
                                 if let Err(err) = sensor.clear_error_flag().await {
-                                    knife_state.validity =
+                                    encoder_state.validity =
                                         EncoderValidity::EncoderError(EncoderError::ParityError)
                                 }
                             }
                             Error::SensorError => {
                                 // Parity or Sensor error, likely something wrong with SPI Bus, might recover
-                                if let Err(err) = sensor.clear_error_flag().await {
-                                    knife_state.validity =
+                                if let Err(_) = sensor.clear_error_flag().await {
+                                    encoder_state.validity =
                                         EncoderValidity::EncoderError(EncoderError::SensorError)
                                 }
                             }
@@ -112,18 +112,18 @@ pub async fn encoder_task(p: EncoderPeripherals) {
                 }
 
                 // Make latest state available for consumers
-                tx.send(knife_state.clone());
+                tx.send(encoder_state.clone());
             }
 
             // Reset signal received, reset the encoder state
             Either::Second(new_home_status) => match new_home_status {
                 HomeStatus::Lost => {
                     info!("ENCODER: On Home Lost");
-                    knife_state.on_home_lost();
+                    encoder_state.on_home_lost();
                 }
                 HomeStatus::Homed { position: _ } => {
                     info!("ENCODER: HOMED -> reset counter");
-                    knife_state.on_homed();
+                    encoder_state.on_homed();
                 }
             },
         }

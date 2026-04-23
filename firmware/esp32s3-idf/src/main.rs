@@ -44,8 +44,8 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     let _ = spawner;
     esp_idf_svc::sys::link_patches();
     esp_idf_svc::log::EspLogger::initialize_default();
-    log::set_max_level(log::LevelFilter::Trace);
-    log::set_max_level(log::LevelFilter::Error);
+    // log::set_max_level(log::LevelFilter::Trace);
+    log::set_max_level(log::LevelFilter::Warn);
 
     let version = unsafe { esp_idf_sys::esp_get_idf_version() };
     let version = unsafe { CStr::from_ptr(version) };

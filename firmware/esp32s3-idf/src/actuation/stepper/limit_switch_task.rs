@@ -1,11 +1,12 @@
+use embassy_futures::select::select;
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, watch::Watch};
 use embassy_time::{Duration, Timer};
-use esp_idf_hal::gpio::{self, Level, PinDriver, Pull};
-use log::info;
+use esp_idf_hal::gpio::{self, Gpio1, Input, InterruptType, Level, PinDriver, Pull};
+use log::*;
 
 pub static LIMIT_EVENT: Watch<CriticalSectionRawMutex, LimitSwitchState, 1> = Watch::new();
 pub const LIMIT_SWITCH_ENGAGE_LEVEL: gpio::Level = Level::Low;
-pub const LIMIT_SWITCH_DEBOUNCE_DURATION: Duration = Duration::from_millis(5);
+pub const LIMIT_SWITCH_DEBOUNCE_DURATION: Duration = Duration::from_millis(10);
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum LimitSwitchState {
@@ -36,21 +37,36 @@ pub async fn manage_limit_switch(
 
     let tx = LIMIT_EVENT.sender();
 
+    let mut current = limit.get_level();
+    if LimitSwitchState::Active == current.into() {
+        tx.send(current.into());
+    }
+    warn!("LIMIT SWITCH: Start main routine with lvl {:?}", current);
     loop {
-        // Wait for any state change
-        let _ = limit.wait_for_any_edge().await;
-        // Save current state
-        let edge = limit.get_level();
+        let target = match current {
+            Level::High => Level::Low, // happy path: seek active
+            Level::Low => Level::High, // unhappy path: back off first
+        };
 
-        info!("LIMIT SWITCH {:?}", edge);
+        wait_for_level(&mut limit, target).await;
+        error!("DETECTED LIMIT SWITCH {:?}", target);
+        tx.send(target.into());
 
-        // Debounce this limit switch press
+        current = target;
+    }
+}
+
+async fn wait_for_level(limit: &mut PinDriver<'static, Gpio1, Input>, target: Level) {
+    loop {
+        let _ = match target {
+            Level::Low => limit.wait_for_falling_edge().await,
+            Level::High => limit.wait_for_rising_edge().await,
+        };
+
+        // Debounce
         Timer::after(LIMIT_SWITCH_DEBOUNCE_DURATION).await;
-
-        if limit.get_level() == edge {
-            // Legit press: inform others
-            info!("LIMIT SWITCH {:?}", edge);
-            tx.send(edge.into());
+        if limit.get_level() == target {
+            return;
         }
     }
 }

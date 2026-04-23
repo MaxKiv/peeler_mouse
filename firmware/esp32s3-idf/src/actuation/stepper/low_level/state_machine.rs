@@ -101,6 +101,8 @@ where
                 // enable driver
                 let _ = self.enable.set_low();
 
+                warn!("MOTOR LOW LVL: New velocity setpoint: {:?}", sp,);
+
                 self.vel_state.update_target_velocity(sp.speed);
             }
             (StepperAction::MovePosition(sp), _) => {
@@ -113,6 +115,12 @@ where
                 } else {
                     (sp.speed).abs()
                 };
+
+                warn!(
+                    "MOTOR LOW LVL: New position setpoint: {:?} -> new speed {}mm/s",
+                    sp,
+                    new_speed.get::<millimeter_per_second>()
+                );
 
                 // update target velocity and position
                 self.vel_state.update_target_velocity(new_speed);
@@ -142,8 +150,6 @@ where
         }
         // Start acceleration again
         self.vel_state.ramp_state = RampState::Accelerating;
-
-        info!("{:?}", self.vel_state);
     }
 
     /// Update velocity based on ramp state
@@ -184,6 +190,8 @@ where
 
         // Update interval cfg to reflect new velocity changes
         self.set_interval_config();
+
+        debug!("{:?} - {:?}", self.vel_state, self.interval_cfg);
     }
 
     pub fn calculate_steps_in_interval(&self, interval_duration: Duration) -> u32 {
@@ -197,18 +205,11 @@ where
     /// Sets the RMT TX driver STEP pulse period in RMT ticks/microseconds
     fn set_interval_config(&mut self) {
         if matches!(self.state, StepperState::Velocity | StepperState::Position) {
-            if self.vel_state.target_speed < MINIMUM_SPS {
-                warn!("set_interval_config -> self.vel_state.target_speed < MINIMUM_SPS");
-            }
-            if self.vel_state.current_speed < MINIMUM_SPS {
-                warn!("set_interval_config -> self.vel_state.current_speed < MINIMUM_SPS");
-            }
-
             // Are we in position mode?
             let interval_ticks = if let StepperState::Position = self.state
                 && self.target_is_close()
             {
-                error!("within APPROACHING distance of target, reducing RMT interval");
+                debug!("within APPROACHING distance of target, reducing RMT interval");
                 APPROACHING_STEP_INTERVAL.as_ticks()
             } else {
                 STEP_INTERVAL.as_ticks()
@@ -245,7 +246,7 @@ where
     /// Re-arm RMT step pulses, increment position counter
     pub async fn on_step_timer_expire(&mut self) {
         if let Some(cfg) = &self.interval_cfg {
-            error!(
+            debug!(
                 "on_step_timer_expire entry: {:?} - {:?}",
                 cfg, self.vel_state
             );
@@ -272,8 +273,8 @@ where
                 let distance_remaining = self.current_position.0.abs_diff(self.target_position.0);
 
                 if self.get_braking_distance() >= distance_remaining {
-                    error!(
-                        "ZZZ {:?} -> {:?} = withing braking distance: {} => Velocity::ZERO",
+                    info!(
+                        "{:?} -> {:?} = withing braking distance: {} => Velocity::ZERO",
                         self.current_position,
                         self.target_position,
                         self.get_braking_distance()
@@ -284,7 +285,7 @@ where
                 }
             }
 
-            info!("on_step_timer_expire EXIT: {:?}", cfg);
+            debug!("on_step_timer_expire EXIT: {:?}", cfg);
         }
     }
 
@@ -393,7 +394,13 @@ impl VelocityState {
     }
 
     pub fn reset(&mut self) {
-        *self = Self::new();
+        *self = Self {
+            current_speed: SPS::ZERO,
+            target_speed: SPS::ZERO,
+            ramp_state: RampState::Cruising,
+            current_dir: self.current_dir,
+            target_dir: self.target_dir,
+        }
     }
 
     pub fn update_target_velocity(&mut self, new_speed: Velocity) {
@@ -428,9 +435,9 @@ impl VelocityState {
             }
         };
 
-        error!(
-            "SM update_target - current {}sps - target {}sps -> ramping {:?}",
-            self.current_speed.0, new_target.0, self.ramp_state
+        debug!(
+            "SM update_target_velocity - current {:?}-{}sps - target {:?}-{}sps -> ramping {:?}",
+            self.current_dir, self.current_speed.0, self.target_dir, new_target.0, self.ramp_state
         );
 
         self.target_speed = new_target;

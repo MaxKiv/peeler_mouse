@@ -41,12 +41,12 @@ pub enum EncoderError {
 
 #[derive(Deserialize, Serialize, Clone, Debug, Default)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
-pub struct EncoderState {
+pub struct EncoderData {
     pub angle: i32,
     pub revolution: i32,
 }
 
-impl EncoderState {
+impl EncoderData {
     pub fn new() -> Self {
         Self {
             angle: 0,
@@ -81,21 +81,21 @@ impl EncoderState {
 
 #[derive(Deserialize, Serialize, Clone, Debug, Default)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
-pub struct KnifeState {
-    pub encoder_state: EncoderState,
+pub struct EncoderState {
+    pub encoder_data: EncoderData,
     pub validity: EncoderValidity,
 }
 
-impl KnifeState {
+impl EncoderState {
     pub fn new() -> Self {
         Self {
-            encoder_state: EncoderState::new(),
+            encoder_data: EncoderData::new(),
             validity: EncoderValidity::NotHomedYet,
         }
     }
 
     pub fn get_position(&self) -> KnifePosition {
-        let abs = self.encoder_state.absolute_count();
+        let abs = self.encoder_data.absolute_count();
         let mm = abs as f32 * KNIFE_AXIS_LEAD_MM;
 
         mm
@@ -103,7 +103,7 @@ impl KnifeState {
 
     pub fn on_homed(&mut self) {
         self.validity = EncoderValidity::Valid;
-        self.encoder_state.reset();
+        self.encoder_data.reset();
     }
 
     pub fn on_home_lost(&mut self) {

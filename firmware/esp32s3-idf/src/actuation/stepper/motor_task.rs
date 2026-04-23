@@ -97,7 +97,10 @@ pub async fn control_knife_motor() {
                         let next_cmd = match action.clone() {
                             MotorAction::Hold => StepperAction::new_stopped(),
 
-                            MotorAction::MoveVelocity(sp) => StepperAction::MoveVelocity(sp),
+                            MotorAction::MoveVelocity(sp) => {
+                                debug!("MOTOR HI: new velocity setpoint: {:?}", sp);
+                                StepperAction::MoveVelocity(sp)
+                            }
 
                             MotorAction::Home => {
                                 // Home command; Reset home status
@@ -142,6 +145,8 @@ pub async fn control_knife_motor() {
             // limit_switch event
             Either3::Second(level) => {
                 if level == LimitSwitchState::Active {
+                    error!("Limit switch ACTIVE");
+
                     home_status = HomeStatus::Lost;
                     home_tx.send(home_status);
 
@@ -167,6 +172,8 @@ pub async fn control_knife_motor() {
                         dir: HOMING_DIRECTION.get_opposite(),
                         speed: Velocity::new::<millimeter_per_second>(home_vel),
                     });
+
+                    error!("Limit switch hit outside of HOMING mode, sending HOMING cmd");
 
                     cmd_tx.send(current_cmd.clone());
                 } else {

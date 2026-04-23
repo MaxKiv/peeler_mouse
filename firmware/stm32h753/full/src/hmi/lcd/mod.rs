@@ -151,7 +151,7 @@ fn draw_ui(
         }
         KnifeManager::Vision => {
             format!(128; "Cut | ESP: {}",
-                report.measurements.current_knife_state.encoder_state.absolute_count())
+                report.measurements.knife_encoder_state.encoder_data.absolute_count())
             .expect("cut cmd string doesn't fit heapless string")
         }
     };
@@ -192,7 +192,7 @@ fn get_cmd_str<const N: usize>(
         MotorAction::Home => format!(N; "HOMING").unwrap(),
         MotorAction::MoveVelocity(sp) => format!(
             N;
-            "{} {:>4.1}mm/s",
+            "{} {:>4.2}mm/s",
             get_movement_dir_str(motor_movement_direction, sp.dir.clone()),
             sp.speed.get::<millimeter_per_second>(),
         )
@@ -200,7 +200,7 @@ fn get_cmd_str<const N: usize>(
         MotorAction::MovePosition(sp) => format!(
             N;
 
-            "{:>2.1}mm {:>4.1}mm/s",
+            "{:>2.1}mm {:>4.2}mm/s",
             sp.target.get::<millimeter>(),
             sp.speed.get::<millimeter_per_second>(),
         )
