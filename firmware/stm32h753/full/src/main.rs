@@ -141,7 +141,6 @@ async fn main(spawner: Spawner) {
     };
 
     // ---- HMI Task Construction -----
-
     hmi::button::DebouncedButton::run(
         green_button,
         &supervisor::task::BUTTON_D,

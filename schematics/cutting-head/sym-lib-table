@@ -1,0 +1,5 @@
+(sym_lib_table
+	(version 7)
+	(lib (name "Seeed_Studio_XIAO_Series") (type "KiCad") (uri "${KIPRJMOD}/XIAO_Series_SCH_Symbols/Seeed_Studio_XIAO_Series.kicad_sym") (options "") (descr ""))
+	(lib (name "TMC2208_SILENTSTEPSTICK") (type "KiCad") (uri "${KIPRJMOD}/TMC2208/TMC2208_SILENTSTEPSTICK.kicad_sym") (options "") (descr ""))
+)
