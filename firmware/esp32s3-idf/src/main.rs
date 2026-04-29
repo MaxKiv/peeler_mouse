@@ -130,7 +130,7 @@ async fn main_fallible(spawner: &Spawner) -> Result<()> {
     }
 
     // Spawn auxilary Webserver task and wifi stack, when enabled
-    #[cfg(all(feature = "webserver", feature = "devkit"))]
+    #[cfg(feature = "webserver")]
     {
         log::info!("Initialize Wifi task");
         if let Err(err) = spawner.spawn(wifi::wifi_task(

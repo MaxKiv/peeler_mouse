@@ -12,7 +12,7 @@ pub fn handle_root(request: Request<&mut EspHttpConnection<'_>>) -> anyhow::Resu
             <br>
             <canvas id="camCanvas"></canvas>
             <br>
-            <button onclick="fetchFrame()">Refresh</button>
+            <button onclick="fetchFrame()">Take Picture</button>
 
             <script>
             async function fetchFrame() {

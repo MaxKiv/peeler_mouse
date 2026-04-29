@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::{sync::Arc, time::Instant};
 
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Receiver};
 use embassy_time::{Duration, Ticker, WithTimeout};
@@ -16,14 +16,15 @@ use crate::{
         HomeStatus,
     },
     camera::{
-        camera_freertos_task::FRAMEBUFFER_CONTROL_LOOP_CHANNEL, framebuffer_view::FrameBufferView,
+        camera_freertos_task::FRAMEBUFFER_CONTROL_LOOP_CHANNEL,
+        framebuffer_view::{FrameBufferView, FRAME_DONE_SIGNAL},
     },
     comms::comms_task::REPORT_WATCH,
     control::vision::algo::{calculate_control_effort, vision_output_to_motorcommand},
     encoder::encoder_task::ENCODER_STATE,
 };
 
-const CONTROL_LOOP_FREQUENCY: Duration = Duration::from_millis(500);
+const CONTROL_LOOP_FREQUENCY: Duration = Duration::from_hz(2);
 const HOME_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[embassy_executor::task]
@@ -106,9 +107,15 @@ pub async fn control_loop(
                 (motor_cmd, None)
             }
 
+            // Webserver is disabled; Run vision routine
+            // - Get latest framebuffer
+            // - Attempt to detect tearing
+            // - Calculating vision algorithm output
+            // - Transform this output into a MotorAction
             KnifeManager::Vision => {
                 // Get latest framebuffer from camera
                 let frame = framebuffer_rx.receive().await;
+                warn!("CONTROL: frame: {}", frame.generation);
 
                 let timestamp = frame.timestamp.clone();
                 let gen = frame.generation;
@@ -122,9 +129,14 @@ pub async fn control_loop(
                 let last_hash = frame.hash;
                 detect_tearing(current_gen, last_gen, current_hash, last_hash);
 
-                // ----- Calculate control effort -----
                 // Calculate control effort through vision algorithm
-                let vision_output = get_control_effort(frame).await;
+                let vision_output = {
+                    let result = get_control_effort(frame).await;
+                    result
+                };
+                // Processing is done; Tell the camera task
+                warn!("CONTORL: vision done -> signalling camera_freertos_task");
+                FRAME_DONE_SIGNAL.signal(());
 
                 // Convert into motor command
                 let motor_cmd = vision_output_to_motorcommand(vision_output.clone());
@@ -134,6 +146,7 @@ pub async fn control_loop(
                     gen, vision_output, motor_cmd,
                 );
 
+                // Export in nice type
                 let vision_data = VisionData {
                     generation: gen,
                     timestamp_s: timestamp.tv_sec,
@@ -160,23 +173,24 @@ pub async fn control_loop(
             current_appstate = AppState::Fault;
         }
 
-        // Collect & Send Report to stm32
+        // Collect measurement for report
         let measurements = messenger_mouse::Measurements {
             vision_data,
             knife_encoder_state,
         };
 
-        // Combine into report
+        // Combine with vision data into report
         let report = messenger_mouse::Report {
             setpoint: latest_setpoint.clone(),
             app_state: current_appstate,
             measurements,
         };
 
-        // ----- Reporting -----
-        info!("CONTROL: sending  report {:?}", report);
+        // Report to STM32
+        warn!("CONTROL: sending  report {:?}", report);
         report_tx.send(report);
 
+        // Throttle control loop
         ticker.next().await;
     }
 }
@@ -209,13 +223,13 @@ fn detect_tearing(current_gen: u32, last_gen: u32, current_hash: u32, last_hash:
 }
 
 // Calculate control effort + telemetry
-async fn get_control_effort(frame: FrameBufferView) -> VisionAlgorithmOutput {
+async fn get_control_effort(frame: Arc<FrameBufferView>) -> VisionAlgorithmOutput {
     let start = Instant::now();
 
     let out = calculate_control_effort(frame).await;
 
     let dur = Instant::now().duration_since(start);
-    log::info!(
+    log::warn!(
         "CONTROL: took {}ms to find new output: {:?}",
         dur.as_millis(),
         out,

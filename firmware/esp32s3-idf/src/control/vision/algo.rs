@@ -1,3 +1,8 @@
+use std::sync::{
+    atomic::{AtomicU32, Ordering},
+    Arc,
+};
+
 use messenger_mouse::{motor::MotorAction, VisionAlgorithmOutput};
 use uom::si::{f32::Velocity, velocity::millimeter_per_second};
 
@@ -34,7 +39,7 @@ pub fn vision_output_to_motorcommand(algo_out: VisionAlgorithmOutput) -> MotorAc
     }
 }
 
-pub async fn calculate_control_effort(frame: FrameBufferView) -> VisionAlgorithmOutput {
+pub async fn calculate_control_effort(frame: Arc<FrameBufferView>) -> VisionAlgorithmOutput {
     let out = match ALGO {
         Algo::SimpleAverage => simple_average(frame),
         Algo::Complex => complex_algo(frame),
@@ -53,23 +58,26 @@ pub async fn calculate_control_effort(frame: FrameBufferView) -> VisionAlgorithm
 }
 
 // Switches between moving up and down periodically
-pub fn periodic_encoder_test(_: FrameBufferView) -> u64 {
-    const HI: u64 = HIGH_THRESHOLD + 1;
-    const LO: u64 = LOW_THRESHOLD - 1;
-    static mut STATE: u64 = 0;
-    static mut OUT: u64 = (LOW_THRESHOLD - 1) as u64;
+pub fn periodic_encoder_test(_: Arc<FrameBufferView>) -> u64 {
+    const HI: u32 = HIGH_THRESHOLD as u32 + 1;
+    const LO: u32 = LOW_THRESHOLD as u32 - 1;
 
-    if unsafe { STATE } % 10 == 0 {
-        unsafe { OUT = if OUT == LO { HI } else { LO } }
+    static STATE: AtomicU32 = AtomicU32::new(0);
+    static OUT: AtomicU32 = AtomicU32::new(LO);
+
+    let state = STATE.fetch_add(1, Ordering::Relaxed);
+    log::debug!("state: {}", state);
+
+    if state % 10 == 0 {
+        let current = OUT.load(Ordering::Relaxed);
+        OUT.store(if current == LO { HI } else { LO }, Ordering::Relaxed);
     }
 
-    unsafe { STATE += 1 };
-
-    unsafe { OUT }
+    OUT.load(Ordering::Relaxed) as u64
 }
 
 // Simple average
-pub fn simple_average(frame: FrameBufferView) -> u64 {
+pub fn simple_average(frame: Arc<FrameBufferView>) -> u64 {
     let mut out = frame.data().into_iter().map(|x| *x as u64).sum::<u64>();
     let frame_size = (frame.height * frame.width) as u64;
     out = out / frame_size;
@@ -77,7 +85,7 @@ pub fn simple_average(frame: FrameBufferView) -> u64 {
 }
 
 // 3x3 Convolution with horizontal sobel kernel to determine midline point
-pub fn complex_algo(frame: FrameBufferView) -> u64 {
+pub fn complex_algo(frame: Arc<FrameBufferView>) -> u64 {
     let out = 0;
 
     log::info!("VISION: starting for GEN {}", frame.generation);

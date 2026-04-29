@@ -145,8 +145,6 @@ pub async fn control_knife_motor() {
             // limit_switch event
             Either3::Second(level) => {
                 if level == LimitSwitchState::Active {
-                    error!("Limit switch ACTIVE");
-
                     home_status = HomeStatus::Lost;
                     home_tx.send(home_status);
 

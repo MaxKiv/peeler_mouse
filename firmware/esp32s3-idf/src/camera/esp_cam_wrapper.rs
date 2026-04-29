@@ -1,4 +1,5 @@
 use std::marker::PhantomData;
+use std::mem::ManuallyDrop;
 
 use esp_idf_hal::gpio::*;
 use esp_idf_hal::peripheral::Peripheral;
@@ -9,50 +10,44 @@ use crate::camera::pixelformat::PixelFormat;
 
 #[derive(Debug, Clone)]
 pub struct EspCamFrameBuffer {
-    fb: *mut camera::camera_fb_t,
+    /// Internal Camera driver framebuffer pointer, should be [`Drop`] in the Camera freertos task
+    pub fb: ManuallyDrop<*mut camera::camera_fb_t>,
     pub generation: u32,
 }
 
 /// Safety: Pointer refers to PSRAM, managed by esp-camera driver
 /// Camera halts DMA until camera::esp_camera_fb_return() is called
-/// Meaning anyone slow owning this slows down camara FPS
-/// Invariant: No consumer may access framebuffer memory after the camera task has published the next generation.
 unsafe impl Send for EspCamFrameBuffer {}
 unsafe impl Sync for EspCamFrameBuffer {}
 
 impl EspCamFrameBuffer {
     pub fn data(&self) -> &[u8] {
-        unsafe { std::slice::from_raw_parts((*self.fb).buf, (*self.fb).len) }
+        unsafe { std::slice::from_raw_parts((*(*self.fb)).buf, (*(*self.fb)).len) }
     }
 
     pub fn width(&self) -> usize {
-        unsafe { (*self.fb).width }
+        unsafe { (*(*self.fb)).width }
     }
 
     pub fn height(&self) -> usize {
-        unsafe { (*self.fb).height }
+        unsafe { (*(*self.fb)).height }
     }
 
     pub fn len(&self) -> usize {
-        unsafe { (*self.fb).len }
+        unsafe { (*(*self.fb)).len }
     }
 
     pub fn format(&self) -> camera::pixformat_t {
-        unsafe { (*self.fb).format }
+        unsafe { (*(*self.fb)).format }
     }
 
     pub fn timestamp(&self) -> camera::timeval {
-        unsafe { (*self.fb).timestamp }
+        unsafe { (*(*self.fb)).timestamp }
     }
 
-    pub fn fb_return(&self) {
-        unsafe { camera::esp_camera_fb_return(self.fb) }
-    }
-}
-
-impl Drop for EspCamFrameBuffer {
-    fn drop(&mut self) {
-        self.fb_return();
+    /// SAFETY: Only call this from the camera task
+    pub unsafe fn return_to_driver(&self) {
+        camera::esp_camera_fb_return(*self.fb);
     }
 }
 
@@ -326,7 +321,7 @@ impl<'a> Camera<'a> {
         } else {
             self.generation += 1;
             Some(EspCamFrameBuffer {
-                fb,
+                fb: ManuallyDrop::new(fb),
                 generation: self.generation,
             })
         }

@@ -4,6 +4,7 @@ use embassy_sync::{
     pipe::{self, Pipe},
     watch::{self, Watch},
 };
+use embassy_time::Duration;
 use esp_idf_hal::{
     gpio,
     io::asynch::Write,
@@ -107,14 +108,26 @@ pub async fn tx_task(
 ) {
     info!("COMMS: Starting TX task");
     let mut buf = [0u8; 64];
+    for (idx, byte) in buf.iter_mut().enumerate() {
+        *byte = idx as u8;
+    }
+
+    let mut ticker = embassy_time::Ticker::every(Duration::from_hz(10));
 
     loop {
-        // Receive serialised report bytes
-        let x = report_pipe_rx.read(&mut buf).await;
-        // Send them across the wire
-        if let Err(err) = tx.write_all(&buf[..x]).await {
+        if let Err(err) = tx.write_all(&buf).await {
             error!("COMMS: TX error: {err}");
         }
+
+        ticker.next().await;
+        // {
+
+        // // Receive serialised report bytes
+        // let x = report_pipe_rx.read(&mut buf).await;
+        // // Send them across the wire
+        // if let Err(err) = tx.write_all(&buf[..x]).await {
+        //     error!("COMMS: TX error: {err}");
+        // }
     }
 }
 

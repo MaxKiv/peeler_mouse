@@ -1,6 +1,9 @@
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, signal::Signal};
 use esp_idf_sys::camera;
 
 use crate::{camera::esp_cam_wrapper::EspCamFrameBuffer, util::hash::fnv1a};
+
+pub static FRAME_DONE_SIGNAL: Signal<Cs, ()> = Signal::new();
 
 #[derive(Debug)]
 pub struct FrameBufferView {
@@ -11,7 +14,7 @@ pub struct FrameBufferView {
     pub fps: f64,                   // Approximate FPS at time of capture
     pub timestamp: EspCamTimeStamp, // microseconds_since_epoch
     pub hash: u32,                  // FNV-1A hash of buf
-    fb: EspCamFrameBuffer, // "Raw" framebuffer pointer, [`Drop`] this to release PSRAM memory back to esp-camera
+    pub fb: EspCamFrameBuffer, // "Raw" framebuffer pointer, [`Drop`] this to release PSRAM memory back to esp-camera
 }
 
 /// Safety: buf slice contains PSRAM pointer, memory owned by esp-camera driver
@@ -50,6 +53,12 @@ impl FrameBufferView {
 
     pub fn rows(&self) -> impl Iterator<Item = &[u8]> {
         self.data().chunks(self.width)
+    }
+
+    /// SAFETY: Only call this from the camera task when control loop is done
+    /// In doing so I'm accepting use-after-free in the webserver, which likely results in tearing
+    pub unsafe fn return_to_driver(&self) {
+        self.fb.return_to_driver();
     }
 }
 

@@ -1,32 +1,31 @@
 use crate::camera::camera_freertos_task::FRAMEBUFFER_WEBSERVER_CHANNEL;
 use esp_idf_hal::io::Write;
 use esp_idf_svc::http::server::{EspHttpConnection, Request};
+use esp_idf_sys::vTaskDelay;
 use log::*;
 
 pub fn handle_camera_grayscale(request: Request<&mut EspHttpConnection<'_>>) -> anyhow::Result<()> {
     // Get latest frame
-
     let mut rx = FRAMEBUFFER_WEBSERVER_CHANNEL
         .receiver()
         .expect("not enough FRAMEBUFFER_WEBSERVER_CHANNEL rx N");
 
-    let Some(frame) = rx.try_changed() else {
-        let mut resp = request.into_response(
-            503,
-            Some("Service Unavailable"),
-            &[("Content-Type", "text/plain")],
-        )?;
-        resp.write_all(b"No frame available yet")?;
-        resp.flush()?;
-        return Ok(());
+    let frame = loop {
+        if let Some(frame) = rx.try_changed() {
+            break frame;
+        }
+
+        unsafe {
+            vTaskDelay(10);
+        }
     };
 
-    log::info!(
-        "webserver got {}x{} framebuffer gen {} @ {:p}\n\n",
+    log::warn!(
+        "webserver /camera got {}x{} framebuffer gen {} @ {:p}\n\n",
         frame.width,
         frame.height,
         frame.generation,
-        &frame.data,
+        &frame.fb,
     );
 
     // PGM headers
@@ -39,7 +38,7 @@ pub fn handle_camera_grayscale(request: Request<&mut EspHttpConnection<'_>>) -> 
     // Draft response
     let mut response = request.into_response(200, Some("OK"), &headers)?;
     response.write_all(header.as_bytes())?;
-    response.write_all(&frame.data)?;
+    response.write_all(&frame.fb.data())?;
     response.flush()?;
 
     Ok(())
