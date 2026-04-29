@@ -105,19 +105,19 @@ async fn main(spawner: Spawner) {
     };
 
     // LED buttons
-    let green_button = ButtonPeripherals {
+    let button_d = ButtonPeripherals {
         pin: p.PD7,
         ch: p.EXTI7,
     };
-    let blue_button = ButtonPeripherals {
+    let button_a = ButtonPeripherals {
         pin: p.PD6,
         ch: p.EXTI6,
     };
-    let purple_button = ButtonPeripherals {
+    let button_b = ButtonPeripherals {
         pin: p.PD5,
         ch: p.EXTI5,
     };
-    let gray_button = ButtonPeripherals {
+    let button_c = ButtonPeripherals {
         pin: p.PD4,
         ch: p.EXTI4,
     };
@@ -142,7 +142,7 @@ async fn main(spawner: Spawner) {
 
     // ---- HMI Task Construction -----
     hmi::button::DebouncedButton::run(
-        green_button,
+        button_d,
         &supervisor::task::BUTTON_D,
         "green",
         ButtonMode::FallingEdge,
@@ -150,7 +150,7 @@ async fn main(spawner: Spawner) {
     );
 
     hmi::button::DebouncedButton::run(
-        blue_button,
+        button_a,
         &supervisor::task::BUTTON_A,
         "blue",
         ButtonMode::FallingEdge,
@@ -158,7 +158,7 @@ async fn main(spawner: Spawner) {
     );
 
     hmi::button::DebouncedButton::run(
-        purple_button,
+        button_b,
         &supervisor::task::BUTTON_B,
         "purple",
         ButtonMode::FallingEdge,
@@ -166,7 +166,7 @@ async fn main(spawner: Spawner) {
     );
 
     hmi::button::DebouncedButton::run(
-        gray_button,
+        button_c,
         &supervisor::task::BUTTON_C,
         "gray",
         ButtonMode::FallingEdge,

@@ -97,7 +97,13 @@ pub async fn manage_display(
 
         // Get latest state & report
         let state = appstate_rx.try_get().unwrap_or_default();
-        let report = report_rx.try_get().unwrap_or_default();
+        let report = match report_rx.try_get() {
+            Some(report) => report,
+            _ => {
+                warn!("Didn't get a report from ESP32 -> using default");
+                Report::default()
+            }
+        };
 
         // use appstate to draw display
         draw_ui(&mut display, state, report, &font_styles);
@@ -150,9 +156,19 @@ fn draw_ui(
                 .expect("cut cmd string doesn't fit heapless string")
         }
         KnifeManager::Vision => {
-            format!(128; "Cut | ESP: {}",
-                report.measurements.knife_encoder_state.encoder_data.absolute_count())
-            .expect("cut cmd string doesn't fit heapless string")
+            match report.measurements.vision_data {
+                Some(data) => {
+                    //
+                    format!(128; "Cut | ESP: {} -> {:?}", data.generation, data.vision_output)
+                        .expect("cut cmd string doesn't fit heapless string")
+                },
+                _ => {
+                    //
+                    format!(128; "Cut | ESP: None").expect("cut cmd string doesn't fit heapless string")
+                },
+
+            }
+
         }
     };
 

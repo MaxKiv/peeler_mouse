@@ -121,6 +121,7 @@ pub async fn frame_and_serialise_reports(
         for &byte in &buf[..n] {
             if byte == 0 {
                 if let Ok(report) = messenger_mouse::deserialize_report(&mut framing_buf) {
+                    error!("sending report: {:?}", report);
                     report_sender.send(report);
                 }
 
