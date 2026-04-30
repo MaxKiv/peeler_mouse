@@ -4,7 +4,6 @@ use embassy_sync::{
     pipe::{self, Pipe},
     watch::{self, Watch},
 };
-use embassy_time::Duration;
 use esp_idf_hal::{
     gpio,
     io::asynch::Write,
@@ -108,26 +107,14 @@ pub async fn tx_task(
 ) {
     info!("COMMS: Starting TX task");
     let mut buf = [0u8; 64];
-    for (idx, byte) in buf.iter_mut().enumerate() {
-        *byte = idx as u8;
-    }
-
-    let mut ticker = embassy_time::Ticker::every(Duration::from_hz(10));
 
     loop {
-        if let Err(err) = tx.write_all(&buf).await {
+        // Receive serialised report bytes
+        let x = report_pipe_rx.read(&mut buf).await;
+        // Send them across the wire
+        if let Err(err) = tx.write_all(&buf[..x]).await {
             error!("COMMS: TX error: {err}");
         }
-
-        ticker.next().await;
-        // {
-
-        // // Receive serialised report bytes
-        // let x = report_pipe_rx.read(&mut buf).await;
-        // // Send them across the wire
-        // if let Err(err) = tx.write_all(&buf[..x]).await {
-        //     error!("COMMS: TX error: {err}");
-        // }
     }
 }
 
@@ -141,18 +128,18 @@ pub async fn serialise_task(
     let mut buf = [0u8; messenger_mouse::REPORT_BYTES];
 
     loop {
-        // Wait for latest report
         let report = report_receiver.changed().await;
 
-        // serialize latest report
-        if let Err(err) = messenger_mouse::serialize_report(report, &mut buf) {
-            error!("FRAMING: error during serialisation of latest report: {err}");
-            continue;
-        };
-
-        // Send serialized report bytes to tx_task
-        if let Err(err) = report_pipe_tx.write_all(&mut buf).await {
-            error!("FRAMING: error when writing serialised bytes to pipe: {err}");
+        match messenger_mouse::serialize_report(report, &mut buf) {
+            Ok(serialised) => {
+                // Only send the bytes that were actually written
+                if let Err(err) = report_pipe_tx.write_all(serialised).await {
+                    error!("FRAMING: pipe write error: {err}");
+                }
+            }
+            Err(err) => {
+                error!("FRAMING: serialisation error: {err}");
+            }
         }
     }
 }

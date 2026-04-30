@@ -49,10 +49,7 @@ pub fn setup(spawner: &Spawner, p: CommsPeripherals) {
     spawner.spawn(rx_task(uart_rx, report_pipe_tx)).unwrap();
     spawner.spawn(tx_task(uart_tx, setpoint_pipe_rx)).unwrap();
     spawner
-        .spawn(frame_and_serialise_reports(
-            REPORT_WATCH.sender(),
-            report_pipe_rx,
-        ))
+        .spawn(deserialise_reports(REPORT_WATCH.sender(), report_pipe_rx))
         .unwrap();
     spawner
         .spawn(serialise_setpoints(
@@ -70,12 +67,13 @@ async fn rx_task(
     mut uart_rx: BufferedUartRx<'static>,
     mut report_pipe_tx: pipe::Writer<'static, Cs, { messenger_mouse::REPORT_BYTES * 4 }>,
 ) {
-    let mut buf = [0u8; messenger_mouse::REPORT_BYTES * 1];
+    let mut buf = [0u8; messenger_mouse::REPORT_BYTES * 2];
 
     loop {
         match uart_rx.read(&mut buf).await {
             Ok(n) => {
                 // Read N bytes, send along for framing
+                // debug!("read {} bytes: {:?}", n, &buf[..n]);
                 if let Err(err) = report_pipe_tx.write_all(&buf[..n]).await {
                     error!("COMMS: RX error: {:?}", err);
                 }
@@ -107,12 +105,12 @@ async fn tx_task(
 }
 
 #[embassy_executor::task]
-/// Frame received bytes into
-pub async fn frame_and_serialise_reports(
+/// Frame received bytes into a coherent [`Report`]
+pub async fn deserialise_reports(
     report_sender: watch::Sender<'static, Cs, Report, 1>,
     report_pipe_rx: pipe::Reader<'static, Cs, { messenger_mouse::REPORT_BYTES * 4 }>,
 ) {
-    let mut framing_buf = heapless::Vec::<u8, { messenger_mouse::REPORT_BYTES * 4 }>::new();
+    let mut framing_buf = heapless::Vec::<u8, { messenger_mouse::REPORT_BYTES * 2 }>::new();
     let mut buf = [0u8; messenger_mouse::REPORT_BYTES / 2];
 
     loop {
@@ -120,13 +118,22 @@ pub async fn frame_and_serialise_reports(
 
         for &byte in &buf[..n] {
             if byte == 0 {
-                if let Ok(report) = messenger_mouse::deserialize_report(&mut framing_buf) {
-                    error!("sending report: {:?}", report);
-                    report_sender.send(report);
+                if framing_buf.len() > 1 {
+                    // debug!("attempting to deserialize {:?}", framing_buf);
+                    match messenger_mouse::deserialize_report(&mut framing_buf) {
+                        Ok(report) => {
+                            // info!("sending report: {:?}", report);
+                            report_sender.send(report);
+                        }
+                        Err(e) => {
+                            error!("unable to deserialise report {:?}", e);
+                        }
+                    }
                 }
 
                 framing_buf.clear();
             } else if framing_buf.push(byte).is_err() {
+                error!("Pushing byte into full framing buffer");
                 framing_buf.clear();
             }
         }
@@ -134,8 +141,7 @@ pub async fn frame_and_serialise_reports(
 }
 
 #[embassy_executor::task]
-/// Deserialise the [`Report`]s collected from the control task into a UART byte stream to be
-/// picked up by the comms task
+/// Serialize setpoints into a cobs encoded stream of bytes
 pub async fn serialise_setpoints(
     mut setpoint_receiver: watch::Receiver<'static, Cs, Setpoint, 1>,
     setpoint_pipe_tx: pipe::Writer<'static, Cs, { messenger_mouse::SETPOINT_BYTES * 4 }>,

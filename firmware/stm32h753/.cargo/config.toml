@@ -1,6 +1,5 @@
 [target.thumbv7em-none-eabihf]
-# runner = 'probe-rs run --chip STM32H753ZITx'
-runner = 'probe-rs run --chip STM32H753ZITx'
+runner = 'probe-rs run --chip STM32H753ZITx --probe 0483:374e'
 
 [alias]
 attach = 'probe-rs attach --chip STM32H753ZITx'
