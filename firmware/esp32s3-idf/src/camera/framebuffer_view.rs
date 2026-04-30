@@ -14,7 +14,7 @@ pub struct FrameBufferView {
     pub fps: f64,                   // Approximate FPS at time of capture
     pub timestamp: EspCamTimeStamp, // microseconds_since_epoch
     pub hash: u32,                  // FNV-1A hash of buf
-    pub fb: EspCamFrameBuffer, // "Raw" framebuffer pointer, [`Drop`] this to release PSRAM memory back to esp-camera
+    pub fb: EspCamFrameBuffer,      // "Raw" framebuffer pointer
 }
 
 /// Safety: buf slice contains PSRAM pointer, memory owned by esp-camera driver

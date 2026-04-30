@@ -81,10 +81,10 @@ pub enum AppState {
 #[derive(Deserialize, Serialize, Clone, Debug, Default)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub enum VisionAlgorithmOutput {
-    Up,
+    Up(u8),
     #[default]
     Hold,
-    Down,
+    Down(u8),
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, Default)]

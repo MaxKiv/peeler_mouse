@@ -1,39 +1,52 @@
+pub mod average;
+pub mod encoder_test;
+pub mod joris;
+
 use std::sync::{
     atomic::{AtomicU32, Ordering},
     Arc,
 };
 
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Watch};
 use messenger_mouse::{motor::MotorAction, VisionAlgorithmOutput};
 use uom::si::{f32::Velocity, velocity::millimeter_per_second};
 
 use crate::{
+    actuation::stepper::motor_task::VISION_MAX_SPEED_MM_PS,
     camera::{framebuffer::FrameBuffer, framebuffer_view::FrameBufferView},
-    control::vision::HORIZONTAL_SOBEL_KERNEL,
+    control::vision::{
+        algo::{average::simple_average, encoder_test::periodic_encoder_test, joris::vision_joris},
+        HORIZONTAL_SOBEL_KERNEL,
+    },
 };
 
 enum Algo {
     PeriodicEncoderTest,
     SimpleAverage,
     Complex,
+    Joris,
 }
 
-const ALGO: Algo = Algo::PeriodicEncoderTest;
-const HIGH_THRESHOLD: u64 = 200;
-const LOW_THRESHOLD: u64 = 100;
+const ALGO: Algo = Algo::Joris;
 
-const VISION_KNIFE_SPEED_MM_PS: f32 = 1.0;
+const HIGH_THRESHOLD: u64 = (u8::MAX / 2 + 20) as u64;
+const LOW_THRESHOLD: u64 = (u8::MAX / 2 - 20) as u64;
 
 pub fn vision_output_to_motorcommand(algo_out: VisionAlgorithmOutput) -> MotorAction {
     match algo_out {
         VisionAlgorithmOutput::Hold => MotorAction::Hold,
-        VisionAlgorithmOutput::Up => {
+        VisionAlgorithmOutput::Up(speed) => {
             MotorAction::MoveVelocity(messenger_mouse::motor::MotorVelocitySetpoint::new_forward(
-                Velocity::new::<millimeter_per_second>(VISION_KNIFE_SPEED_MM_PS),
+                Velocity::new::<millimeter_per_second>(
+                    speed as f32 / u8::MAX as f32 * VISION_MAX_SPEED_MM_PS,
+                ),
             ))
         }
-        VisionAlgorithmOutput::Down => {
+        VisionAlgorithmOutput::Down(speed) => {
             MotorAction::MoveVelocity(messenger_mouse::motor::MotorVelocitySetpoint::new_reverse(
-                Velocity::new::<millimeter_per_second>(-VISION_KNIFE_SPEED_MM_PS),
+                Velocity::new::<millimeter_per_second>(
+                    -(speed as f32 / u8::MAX as f32 * VISION_MAX_SPEED_MM_PS),
+                ),
             ))
         }
     }
@@ -44,48 +57,20 @@ pub async fn calculate_control_effort(frame: Arc<FrameBufferView>) -> VisionAlgo
         Algo::SimpleAverage => simple_average(frame),
         Algo::Complex => complex_algo(frame),
         Algo::PeriodicEncoderTest => periodic_encoder_test(frame),
+        Algo::Joris => vision_joris(frame),
     };
 
-    // log::info!("\n\nVISION: {}\n\n", out);
-
-    if out > HIGH_THRESHOLD {
-        VisionAlgorithmOutput::Up
-    } else if out < LOW_THRESHOLD {
-        VisionAlgorithmOutput::Down
-    } else {
-        VisionAlgorithmOutput::Hold
+    match out {
+        Some(output) => output,
+        None => {
+            log::error!("VISION: Algorithm returned None -> using default HOLD");
+            VisionAlgorithmOutput::Hold
+        }
     }
-}
-
-// Switches between moving up and down periodically
-pub fn periodic_encoder_test(_: Arc<FrameBufferView>) -> u64 {
-    const HI: u32 = HIGH_THRESHOLD as u32 + 1;
-    const LO: u32 = LOW_THRESHOLD as u32 - 1;
-
-    static STATE: AtomicU32 = AtomicU32::new(0);
-    static OUT: AtomicU32 = AtomicU32::new(LO);
-
-    let state = STATE.fetch_add(1, Ordering::Relaxed);
-    log::debug!("state: {}", state);
-
-    if state % 10 == 0 {
-        let current = OUT.load(Ordering::Relaxed);
-        OUT.store(if current == LO { HI } else { LO }, Ordering::Relaxed);
-    }
-
-    OUT.load(Ordering::Relaxed) as u64
-}
-
-// Simple average
-pub fn simple_average(frame: Arc<FrameBufferView>) -> u64 {
-    let mut out = frame.data().into_iter().map(|x| *x as u64).sum::<u64>();
-    let frame_size = (frame.height * frame.width) as u64;
-    out = out / frame_size;
-    out
 }
 
 // 3x3 Convolution with horizontal sobel kernel to determine midline point
-pub fn complex_algo(frame: Arc<FrameBufferView>) -> u64 {
+pub fn complex_algo(frame: Arc<FrameBufferView>) -> Option<VisionAlgorithmOutput> {
     let out = 0;
 
     log::info!("VISION: starting for GEN {}", frame.generation);
@@ -124,7 +109,13 @@ pub fn complex_algo(frame: Arc<FrameBufferView>) -> u64 {
 
     log::info!("VISION: outputs {}", out);
 
-    out
+    if out > HIGH_THRESHOLD {
+        Some(VisionAlgorithmOutput::Up(100))
+    } else if out < LOW_THRESHOLD {
+        Some(VisionAlgorithmOutput::Down(100))
+    } else {
+        Some(VisionAlgorithmOutput::Hold)
+    }
 }
 
 // 3x3 Convolution

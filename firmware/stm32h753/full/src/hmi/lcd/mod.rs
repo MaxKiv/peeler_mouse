@@ -158,12 +158,10 @@ fn draw_ui(
         KnifeManager::Vision => {
             match report.measurements.vision_data {
                 Some(data) => {
-                    //
-                    format!(128; "Cut | ESP: {} -> {:?}", data.generation, data.vision_output)
+                    format!(128; "Cut | {:?} {:>2.1}Hz", data.vision_output, data.camera_fps)
                         .expect("cut cmd string doesn't fit heapless string")
                 },
                 _ => {
-                    //
                     format!(128; "Cut | ESP: None").expect("cut cmd string doesn't fit heapless string")
                 },
 

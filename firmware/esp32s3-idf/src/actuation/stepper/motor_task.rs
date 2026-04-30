@@ -38,6 +38,7 @@ pub static KNIFE_MOTOR_POS_RESET: Watch<CriticalSectionRawMutex, (), 1> = Watch:
 pub const HOMING_SPEED_MM_PS: f32 = 10.0;
 pub const HOMING_DIRECTION: MotorDirection = MotorDirection::Forward;
 pub const OPERATION_SPEED_MM_PS: f32 = 1.0;
+pub const VISION_MAX_SPEED_MM_PS: f32 = 0.2;
 /// TODO: Motor speed for 1 revolution per second
 pub const SPEED_REV_PS: f32 = 1.0;
 
