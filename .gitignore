@@ -52,3 +52,6 @@ Thumbs.db
 build/
 .direnv/
 .embuild/
+
+.history/
+*-backups*
