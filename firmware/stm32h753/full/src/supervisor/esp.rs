@@ -45,7 +45,7 @@ pub async fn supervise_esp() {
                 } else {
                     MotorAction::Coast
                 },
-                led_setpoint: LedSetpoint { brightness: 0.2 },
+                led_setpoint: LedSetpoint { brightness: 0.1 },
             });
         } else {
             setpoint_tx.send(Setpoint::new_safe());

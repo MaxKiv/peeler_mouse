@@ -3,6 +3,11 @@ name = "full"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "full"
+path = "src/main.rs"
+harness = false # do not use the built in cargo test harness -> resolve rust-analyzer errors
+
 [dependencies]
 embassy-stm32 = {version = "0.4.0", features = [ "defmt", "stm32h753zi", "time-driver-tim15", "rt", "memory-x", "unstable-pac", "chrono", "exti"]}
 embassy-sync = { version = "0.7.2", features = ["defmt"] }
@@ -45,3 +50,4 @@ l9110 = { version = "0.1.0", path = "../l9110" }
 # as5048-pwm = { version = "0.1.0", path = "../as5048-pwm" }
 
 messenger-mouse = { path = "../../messenger_mouse", features = ["use-defmt"]}
+
