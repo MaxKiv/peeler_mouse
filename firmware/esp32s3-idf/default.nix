@@ -126,6 +126,7 @@ let
     ];
 
     buildInputs = with pkgs; [
+      pkgs.llvmPackages_20.clang
       (rustPlatform.bindgenHook.override { inherit (pkgs.llvmPackages_20) clang; })
       openssl
       glibc_multi.dev

@@ -1,10 +1,11 @@
 use crate::actuation::stepper::{
     low_level::{
-        low_level_task::position_to_steps, IntervalConfig, StepperAction, ACCEL_SPS_PER_INTERVAL,
-        ACCEL_SPS_PER_SECOND, APPROACHING_STEP_INTERVAL, STEP_INTERVAL,
+        IntervalConfig, StepperAction, ACCEL_SPS_PER_INTERVAL, ACCEL_SPS_PER_SECOND,
+        APPROACHING_STEP_INTERVAL, STEP_INTERVAL,
     },
     motor_task::{MAXIMUM_SPS, MINIMUM_SPS, MINIMUM_TRANSITION_SPS},
 };
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, watch::Watch};
 use embassy_time::Duration;
 use embedded_hal::digital::OutputPin;
 use embedded_hal_async::delay::DelayNs;
@@ -14,9 +15,11 @@ use log::*;
 use messenger_mouse::motor::{MotorDirection, Steps};
 use rmt_stepper_driver::RmtStepper;
 use uom::{
-    si::{f32::Velocity, length::millimeter, velocity::millimeter_per_second},
+    si::{f32::Velocity, velocity::millimeter_per_second},
     ConstZero,
 };
+
+pub static LOW_LEVEL_STEPPER_STATE: Watch<CriticalSectionRawMutex, StepperState, 1> = Watch::new();
 
 /// Giant state machine that manages low level implementation details for controlling a stepper
 /// motor using the ESP-IDF RMT TX peripheral
@@ -59,10 +62,10 @@ where
     }
 
     /// Transition to requested state
-    pub async fn transition_to(&mut self, cmd: StepperAction) {
-        info!("SM: transition to {:?}", cmd);
+    pub async fn transition_to(&mut self, action: StepperAction) {
+        info!("SM: transition to {:?}", action);
 
-        match (&cmd, &mut self.state) {
+        match (&action, &mut self.state) {
             // Transition:
             // (Target cmd, Current state)
             (StepperAction::Coast, _) => {
@@ -128,8 +131,8 @@ where
             }
         }
 
-        // Update current state
-        self.state = StepperState::from_cmd(cmd);
+        // Update current state & inform others
+        self.switch_state_and_inform(action);
     }
 
     /// Are we ready to switch direction?
@@ -321,9 +324,17 @@ where
     pub fn target_is_close(&self) -> bool {
         self.target_position.is_close_to(&self.current_position)
     }
+
+    fn switch_state_and_inform(&mut self, action: StepperAction) {
+        // State transition due to a new action
+        self.state = StepperState::from_action(action);
+
+        // Inform others of state change
+        LOW_LEVEL_STEPPER_STATE.sender().send(self.state.clone());
+    }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub enum StepperState {
     Coast,
     Hold,
@@ -333,14 +344,17 @@ pub enum StepperState {
 }
 
 impl StepperState {
-    pub fn from_cmd(cmd: StepperAction) -> Self {
-        match cmd {
+    // Convert a given StepperAction to a StepperState
+    pub fn from_action(cmd: StepperAction) -> Self {
+        let state = match cmd {
             StepperAction::Coast => Self::Coast,
             StepperAction::Hold => Self::Hold,
             StepperAction::SingleStep => Self::SingleStep,
             StepperAction::MoveVelocity(_) => Self::Velocity,
             StepperAction::MovePosition(_) => Self::Position,
-        }
+        };
+
+        state
     }
 }
 

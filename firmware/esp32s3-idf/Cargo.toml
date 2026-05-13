@@ -10,11 +10,13 @@ harness = false # do not use the built in cargo test harness -> resolve rust-ana
 
 [features]
 # default = ["pcb"]
-default = ["pcb", "webserver"]
+default = ["pcb", "webserver", "limit_encoder"]
 devkit = []
 pcb = []
 sd = []
 webserver = []
+limit_encoder = []
+limit_switch = []
 streaming = ["webserver"]
 experimental = ["esp-idf-svc/experimental"]
 

@@ -14,13 +14,12 @@ use uom::si::{
 };
 
 use crate::actuation::stepper::{
-    limit_switch_task::{LimitSwitchState, LIMIT_EVENT},
     low_level::{
         low_level_task::{position_to_steps, STEPPER_ACTION},
         state_machine::SPS,
         StepperAction,
     },
-    HomeStatus, PositionModeStatus,
+    HomeStatus, LimitSwitchState, PositionModeStatus, LIMIT_EVENT,
 };
 
 /// Public: callers write MotorAction here

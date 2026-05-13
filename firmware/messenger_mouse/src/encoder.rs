@@ -19,7 +19,7 @@ pub const KNIFE_AXIS_STEPS_PER_ROTATION: f32 = 20.0;
 /// Knife position in mm
 pub type KnifePosition = f32;
 
-#[derive(Deserialize, Serialize, Clone, Debug, Default)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub enum EncoderValidity {
     #[default]
@@ -28,7 +28,7 @@ pub enum EncoderValidity {
     EncoderError(EncoderError),
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub enum EncoderError {
     /// Communication error with the sensor
@@ -39,7 +39,7 @@ pub enum EncoderError {
     SensorError,
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug, Default)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub struct EncoderData {
     pub angle: i32,
@@ -79,7 +79,7 @@ impl EncoderData {
     }
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug, Default)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub struct EncoderState {
     pub encoder_data: EncoderData,

@@ -4,15 +4,10 @@ use embassy_time::{Duration, Timer};
 use esp_idf_hal::gpio::{self, Gpio1, Input, InterruptType, Level, PinDriver, Pull};
 use log::*;
 
-pub static LIMIT_EVENT: Watch<CriticalSectionRawMutex, LimitSwitchState, 1> = Watch::new();
+use crate::actuation::stepper::{LimitSwitchState, LIMIT_EVENT};
+
 pub const LIMIT_SWITCH_ENGAGE_LEVEL: gpio::Level = Level::Low;
 pub const LIMIT_SWITCH_DEBOUNCE_DURATION: Duration = Duration::from_millis(10);
-
-#[derive(Clone, PartialEq, Debug)]
-pub enum LimitSwitchState {
-    Active,
-    Inactive,
-}
 
 impl From<gpio::Level> for LimitSwitchState {
     fn from(value: gpio::Level) -> Self {
