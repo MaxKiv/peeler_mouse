@@ -1,9 +1,10 @@
 use embassy_futures::select::select;
 use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex,
-    watch::{Receiver, Watch},
+    watch::{Receiver, Sender, Watch},
 };
 use embassy_time::{Duration, Timer};
+use messenger_mouse::encoder::EncoderState;
 
 use crate::{
     actuation::stepper::{
@@ -13,38 +14,88 @@ use crate::{
     encoder::encoder_task::ENCODER_STATE,
 };
 
-static STALL_EVENT: Watch<CriticalSectionRawMutex, StallEvent, 1> = Watch::new();
-const ENCODER_STALL_DEBOUNCE_DURATION: Duration = Duration::from_millis(100);
+pub static STALL_EVENT: Watch<CriticalSectionRawMutex, StallEvent, 1> = Watch::new();
+pub static START_STALL_MONITOR: Watch<CriticalSectionRawMutex, StallMonitorCmd, 1> = Watch::new();
+pub const ENCODER_STALL_DEBOUNCE_DURATION: Duration = Duration::from_millis(100);
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum StallMonitorCmd {
+    Start,
+    Stop,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum StallEvent {
     Stalled,
+    #[default]
     Resolved,
 }
 
-/// Watches encoder, yields StallEvents.
-/// Cancellation is handled by the caller via select().
+/// Starts disabled, enable via StallMonitorCmd::Start
+/// If enabled: Watches encoder, yields StallEvents.
+/// Can be canceled any time using StallMonitorCmd::Stop
 #[embassy_executor::task]
 pub async fn monitor_encoder_stall() {
-    log::info!("MOTOR: initialising monitor encoder stalls task");
+    log::info!("ENCODER STALL: initialising monitor encoder stalls task");
 
+    // Comms
+    let mut rx_cmd = START_STALL_MONITOR.receiver().unwrap();
     let mut rx_encoder = ENCODER_STATE.receiver().unwrap();
     let tx = STALL_EVENT.sender();
-    let mut stalled = false;
+
+    // State
+    let mut previously_stalled = false;
 
     loop {
-        let before = rx_encoder.try_get();
+        // Upstream indicates we need to start watching for stalls
+        wait_for_stall_command(&mut rx_cmd, StallMonitorCmd::Start).await;
+        log::info!("ENCODER STALL: Start watching for stalls");
+
+        // Race stall detection and cancelation command
+        select(
+            detect_stalls(&mut rx_encoder, &tx, &mut previously_stalled),
+            wait_for_stall_command(&mut rx_cmd, StallMonitorCmd::Stop),
+        )
+        .await;
+    }
+}
+
+/// Watch for encoder stalls, inform upstream through tx watch
+/// Infinite future, never completes
+async fn detect_stalls(
+    rx_encoder: &mut Receiver<'_, CriticalSectionRawMutex, EncoderState, 2>,
+    tx: &Sender<'_, CriticalSectionRawMutex, StallEvent, 1>,
+    previously_stalled: &mut bool,
+) {
+    loop {
+        // Race stall detection and upstream cancel command
+        let before = match rx_encoder.try_get() {
+            Some(before) => before,
+            None => {
+                log::error!("ENCODER STALL: unable to get encoder state");
+                continue;
+            }
+        };
         Timer::after(ENCODER_STALL_DEBOUNCE_DURATION).await;
-        let after = rx_encoder.try_get();
+
+        let after = match rx_encoder.try_get() {
+            Some(after) => after,
+            None => {
+                log::error!("ENCODER STALL: unable to get encoder state");
+                continue;
+            }
+        };
 
         let is_stalled = before == after;
 
-        if is_stalled && !stalled {
-            stalled = true;
+        if is_stalled && !(*previously_stalled) {
+            *previously_stalled = true;
             tx.send(StallEvent::Stalled);
-        } else if !is_stalled && stalled {
-            stalled = false;
+            log::warn!("ENCODER STALL: ~~~~ STALLED ~~~~");
+        } else if !is_stalled && *previously_stalled {
+            *previously_stalled = false;
             tx.send(StallEvent::Resolved);
+            log::warn!("ENCODER STALL: ~~~~ RESOLVED ~~~~");
         }
     }
 }
@@ -111,6 +162,21 @@ async fn wait_for_stall_event(
 ) {
     loop {
         if rx.changed().await == target {
+            return;
+        }
+    }
+}
+
+async fn wait_for_stall_command(
+    rx: &mut Receiver<'_, CriticalSectionRawMutex, StallMonitorCmd, 1>,
+    command: StallMonitorCmd,
+) {
+    if rx.try_get().is_some_and(|cmd| cmd == command) {
+        return;
+    }
+    loop {
+        let cmd = rx.changed().await;
+        if cmd == command {
             return;
         }
     }

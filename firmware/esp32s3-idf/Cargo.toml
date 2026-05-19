@@ -9,16 +9,15 @@ path = "src/main.rs"
 harness = false # do not use the built in cargo test harness -> resolve rust-analyzer errors
 
 [features]
-# default = ["pcb"]
-default = ["pcb", "webserver", "limit_encoder"]
-devkit = []
-pcb = []
-sd = []
-webserver = []
-limit_encoder = []
-limit_switch = []
-streaming = ["webserver"]
-experimental = ["esp-idf-svc/experimental"]
+default = ["pcb", "webserver", "home_encoder_stall"]
+devkit = [] # Use Devkit pin layout (esp32s3-camera-devit)
+pcb = [] # Use PCB pin layout (Seeed Studio XIAO ESP32-S3)
+sd = [] # Throttled logging of camera images to an SD card
+webserver = [] # Run a webserver to view camera images
+home_encoder_stall = [] # Use the encoder stall detection to home knife motor
+home_limit_switch = [] # Use a limit switch to home knife motor
+streaming = ["webserver"] # Enable streaming camera JPEG to webserver, DISABLES CONTROL TASK!
+experimental = ["esp-idf-svc/experimental"] # Use experimental esp-idf-svc features
 
 [dependencies]
 # shared = { path = "../shared" }

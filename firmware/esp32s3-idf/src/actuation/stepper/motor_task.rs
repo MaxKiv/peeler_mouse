@@ -1,6 +1,8 @@
-use embassy_executor::Spawner;
-use embassy_futures::select::{select, select3, Either, Either3};
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, watch::Watch};
+use embassy_futures::select::{select, select4, Either, Either4};
+use embassy_sync::{
+    blocking_mutex::raw::CriticalSectionRawMutex,
+    watch::{Sender, Watch},
+};
 use embassy_time::{Delay, Duration, Instant, Timer};
 use log::*;
 use messenger_mouse::motor::{
@@ -14,6 +16,7 @@ use uom::si::{
 };
 
 use crate::actuation::stepper::{
+    limit_encoder_task::{StallEvent, StallMonitorCmd},
     low_level::{
         low_level_task::{position_to_steps, STEPPER_ACTION},
         state_machine::SPS,
@@ -27,7 +30,7 @@ pub static KNIFE_MOTOR_SETPOINT: Watch<CriticalSectionRawMutex, MotorAction, 2> 
 /// Public: anyone can read homing status
 pub static KNIFE_MOTOR_HOME_STATUS: Watch<CriticalSectionRawMutex, HomeStatus, 2> = Watch::new();
 /// Public: upstream position mode status
-pub static KNFIE_MOTOR_POS_STATUS: Watch<CriticalSectionRawMutex, PositionModeStatus, 2> =
+pub static KNIFE_MOTOR_POS_STATUS: Watch<CriticalSectionRawMutex, PositionModeStatus, 2> =
     Watch::new();
 /// Public: live step-position (0 = home)
 pub static KNIFE_MOTOR_POS: Watch<CriticalSectionRawMutex, Steps, 2> = Watch::new();
@@ -55,11 +58,11 @@ pub async fn control_knife_motor() {
 
     let cmd_tx = STEPPER_ACTION.sender();
     let home_tx = KNIFE_MOTOR_HOME_STATUS.sender();
-    let pos_tx = KNFIE_MOTOR_POS_STATUS.sender();
+    let pos_tx = KNIFE_MOTOR_POS_STATUS.sender();
     let mut limit_rx = LIMIT_EVENT.receiver().unwrap();
     let mut action_rx = KNIFE_MOTOR_SETPOINT.receiver().unwrap();
     let mut pos_rx = KNIFE_MOTOR_POS.receiver().unwrap();
-    let mut pos_reset_tx = KNIFE_MOTOR_POS_RESET.sender();
+    let pos_reset_tx = KNIFE_MOTOR_POS_RESET.sender();
 
     // Start stopped and lost
     cmd_tx.send(StepperAction::new_stopped());
@@ -71,131 +74,151 @@ pub async fn control_knife_motor() {
     let mut home_status = HomeStatus::Lost;
     let mut current_pos_steps = pos_rx.get().await;
     let mut target_pos_steps = Steps(0);
+    let mut current_stall_state = StallEvent::default();
+
+    let mut tx_encoder_stall_cmd =
+        crate::actuation::stepper::limit_encoder_task::START_STALL_MONITOR.sender();
+    let mut rx_encoder_stall_event = crate::actuation::stepper::limit_encoder_task::STALL_EVENT
+        .receiver()
+        .unwrap();
+
+    // Initialize encoder stall detection
+    tx_encoder_stall_cmd.send(StallMonitorCmd::Start);
 
     // Main motor control loop
     // Transform target speed into appropriate step period and relay to stepper driver
     // Check for limit switch activation
     loop {
-        match select3(action_rx.changed(), limit_rx.changed(), pos_rx.changed()).await {
-            // New motor command received
-            Either3::First(action) => {
-                // Note: Only act when a new action is requested
-                // This state tracking is ergonomic to do here due to the nature of UART comms
-
+        match select4(
+            action_rx.changed(),              // New MotorAction
+            limit_rx.changed(),               // Limit switch event
+            pos_rx.changed(),                 // Position Update event
+            rx_encoder_stall_event.changed(), // Encoder stall event
+        )
+        .await
+        {
+            // New motor action received from upstream
+            Either4::First(new_action) => {
                 debug!(
                     "MOTOR: RX motor action: {:?} {} {:?} OLD motor action",
-                    action,
-                    if action != current_action { "!=" } else { "==" },
+                    new_action,
+                    if new_action != current_action {
+                        "!="
+                    } else {
+                        "=="
+                    },
                     current_action
                 );
 
-                // Are we homed?
+                // We must be homed before accepting new motor actions
                 if let HomeStatus::Homed { position: _ } = home_status {
-                    // Is this a new action?
-                    // Note: custom implementation of MotorVelocitySetpoint/MotorPositionSetpoint PartialEq
-                    if action != current_action {
-                        let next_cmd = match action.clone() {
-                            MotorAction::Hold => StepperAction::new_stopped(),
+                    // We must not be stalled before accepting new motor actions
+                    if current_stall_state == StallEvent::Resolved {
+                        // Is this a new action?
+                        // This state tracking is ergonomic to do here due to the nature of UART comms
+                        // Note: custom implementation of MotorVelocitySetpoint/MotorPositionSetpoint PartialEq
+                        if new_action != current_action {
+                            let new_cmd = match new_action.clone() {
+                                MotorAction::Hold => StepperAction::new_stopped(),
 
-                            MotorAction::MoveVelocity(sp) => {
-                                debug!("MOTOR HI: new velocity setpoint: {:?}", sp);
-                                StepperAction::MoveVelocity(sp)
-                            }
+                                MotorAction::MoveVelocity(sp) => {
+                                    debug!("MOTOR HI: new velocity setpoint: {:?}", sp);
+                                    StepperAction::MoveVelocity(sp)
+                                }
 
-                            MotorAction::Home => {
-                                // Home command; Reset home status
-                                home_status = HomeStatus::Lost;
-                                home_tx.send(home_status.clone());
+                                MotorAction::Home => {
+                                    // Home command; Reset home status
+                                    home_status = HomeStatus::Lost;
+                                    home_tx.send(home_status.clone());
 
-                                StepperAction::new_homing()
-                            }
+                                    StepperAction::new_homing()
+                                }
 
-                            MotorAction::MovePosition(MotorPositionSetpoint { target, speed }) => {
-                                let target_pos_steps = position_to_steps(target);
-
-                                // Inform upstream we are starting a new position mode action
-                                pos_tx.send(PositionModeStatus::InProgress);
-
-                                StepperAction::MovePosition(StepperPositionSetpoint {
-                                    target: target_pos_steps,
+                                MotorAction::MovePosition(MotorPositionSetpoint {
+                                    target,
                                     speed,
-                                })
-                            }
+                                }) => {
+                                    let target_pos_steps = position_to_steps(target);
 
-                            MotorAction::Coast => StepperAction::Coast,
-                        };
+                                    // Inform upstream we are starting a new position mode action
+                                    pos_tx.send(PositionModeStatus::InProgress);
 
-                        // Send new StepperCommand & Bookkeeping
-                        info!("MOTOR: send NEW steppercmd -> low lvl {:?}", next_cmd);
-                        current_cmd = next_cmd;
-                        cmd_tx.send(current_cmd.clone());
-                        current_action = action;
+                                    StepperAction::MovePosition(StepperPositionSetpoint {
+                                        target: target_pos_steps,
+                                        speed,
+                                    })
+                                }
+
+                                MotorAction::Coast => StepperAction::Coast,
+                            };
+
+                            // Send new StepperCommand & Bookkeeping
+                            set_action(
+                                new_action,
+                                &mut current_action,
+                                new_cmd,
+                                &mut current_cmd,
+                                &cmd_tx,
+                            );
+                        }
+                    } else {
+                        // Stalled: ignore further commands untill stall resolves
                     }
                 } else {
+                    // Not homed: attempt to home
                     if current_action != MotorAction::Home {
-                        // Currently lost -> Home motor
+                        // Currently lost && not homing -> Home motor
                         info!("MOTOR: Homing status == LOST -> homing motor");
-                        current_action = MotorAction::Home;
-                        current_cmd = StepperAction::new_homing();
-                        cmd_tx.send(current_cmd.clone());
+                        set_action(
+                            MotorAction::Home,
+                            &mut current_action,
+                            StepperAction::new_homing(),
+                            &mut current_cmd,
+                            &cmd_tx,
+                        );
                     }
                 }
             }
 
             // limit_switch event
-            Either3::Second(level) => {
+            Either4::Second(level) => {
                 if level == LimitSwitchState::Active {
-                    home_status = HomeStatus::Lost;
-                    home_tx.send(home_status);
-
-                    match current_action {
-                        MotorAction::Home => {
-                            // All good
-                            info!("MOTOR: HOMING limit switch active detected, moving back");
-                        }
-                        _ => {
-                            // Woops; We are not doing a homing action but hit the limit switch
-                            warn!("MOTOR: Limit switch hit but NOT in homing mode");
-                        }
+                    // Limit switch pressed
+                    if let MotorAction::Home = current_action {
+                        // Press during Homing, expected
+                        info!("MOTOR: HOMING limit switch active detected, moving back");
+                    } else {
+                        // Whoops; We are not doing a homing action but we did hit the limit switch
+                        warn!("MOTOR: Limit switch hit but NOT in homing mode");
                     }
 
-                    // Move back untill switch disengages
-                    // Notice we move in reverse homing direction
-                    let home_vel = match HOMING_DIRECTION {
-                        MotorDirection::Forward => -HOMING_SPEED_MM_PS,
-                        MotorDirection::Reverse => HOMING_SPEED_MM_PS,
-                    };
-                    current_action = MotorAction::Home;
-                    current_cmd = StepperAction::MoveVelocity(MotorVelocitySetpoint {
-                        dir: HOMING_DIRECTION.get_opposite(),
-                        speed: Velocity::new::<millimeter_per_second>(home_vel),
-                    });
-
-                    error!("Limit switch hit outside of HOMING mode, sending HOMING cmd");
-
-                    cmd_tx.send(current_cmd.clone());
+                    // Move back in reverse homing direction regardless of cause
+                    homing_start(
+                        &cmd_tx,
+                        &home_tx,
+                        &mut current_action,
+                        &mut current_cmd,
+                        &mut home_status,
+                    );
                 } else {
-                    // Limit switch disengaged, we are now Homed
-                    // Stop stepping
-                    cmd_tx.send(StepperAction::new_stopped());
-                    current_action = MotorAction::Hold;
-
-                    // Record home
-                    info!("MOTOR: HOME CONFIRMED");
-                    home_status = HomeStatus::Homed { position: 0 };
-                    home_tx.send(home_status.clone());
-
-                    // Ask low level stepper task to reset position to zero
-                    pos_reset_tx.send(());
+                    // Limit switch disengaged again, we are now Homed!
+                    homing_finished(
+                        &cmd_tx,
+                        &home_tx,
+                        &pos_reset_tx,
+                        &mut current_action,
+                        &mut current_cmd,
+                        &mut home_status,
+                    );
 
                     // Stay stopped -> upstream controller must send next MotorAction
                 }
             }
 
             // Track position information from stepper task
-            // Update
-            Either3::Third(new_pos) => {
+            Either4::Third(new_pos) => {
                 // info!("MOTOR: new position information: {:?}", new_pos);
+
                 // Track current pos
                 current_pos_steps = new_pos;
 
@@ -203,20 +226,209 @@ pub async fn control_knife_motor() {
                 if let MotorAction::MovePosition(_) = current_action {
                     // Did we reach position target?
                     if current_pos_steps == target_pos_steps {
+                        // We did!
                         info!("MOTOR: Reached target position: {:?}", target_pos_steps);
-
-                        // Inform upstream
-                        pos_tx.send(PositionModeStatus::Reached);
-
-                        // Position target reached -> stop motors
-                        cmd_tx.send(StepperAction::new_stopped());
-
-                        // Stay at target position until further notice; Transition to halt command
-                        current_action = MotorAction::Hold;
-                        cmd_tx.send(StepperAction::new_stopped());
+                        on_position_reached(&mut current_action, &mut current_cmd, &cmd_tx, &pos_tx)
                     }
                 }
             }
+
+            // Encoder stall event
+            Either4::Fourth(new_stall_event) => {
+                let new_stall = new_stall_event == StallEvent::Stalled
+                    && current_stall_state == StallEvent::Resolved;
+                let stall_resolved = new_stall_event == StallEvent::Resolved
+                    && current_stall_state == StallEvent::Stalled;
+
+                match current_action {
+                    MotorAction::Home => {
+                        if new_stall {
+                            // Stalled during homing, indicates Either:
+                            //  - Limit switch disabled OR failed
+                            //  - Homing in wrong direction
+                            #[cfg(feature = "home_encoder_stall")]
+                            homing_move_away_from_limit(
+                                &cmd_tx,
+                                &mut current_action,
+                                &mut current_cmd,
+                            );
+                        } else if stall_resolved {
+                            // Stall resolved during homing, we are now homed
+                            #[cfg(feature = "home_encoder_stall")]
+                            homing_finished(
+                                &cmd_tx,
+                                &home_tx,
+                                &pos_reset_tx,
+                                &mut current_action,
+                                &mut current_cmd,
+                                &mut home_status,
+                            );
+                        }
+                    }
+                    MotorAction::MoveVelocity(ref mut sp) => {
+                        if new_stall {
+                            // Stalled during velocity movement, move in reverse direction
+                            sp.dir.flip();
+
+                            set_action(
+                                MotorAction::MoveVelocity(sp.clone()),
+                                &mut current_action,
+                                StepperAction::new_stopped(),
+                                &mut current_cmd,
+                                &cmd_tx,
+                            );
+                        } else if stall_resolved {
+                            // Previous stall is now resolved
+                            // Coast motors
+                            set_action(
+                                MotorAction::Coast,
+                                &mut current_action,
+                                StepperAction::new_stopped(),
+                                &mut current_cmd,
+                                &cmd_tx,
+                            );
+                        }
+                    }
+                    MotorAction::MovePosition(_) => {
+                        if new_stall {
+                            // Stalled during position movement, stop moving
+                            // TODO: Is this right?
+                            set_action(
+                                MotorAction::Coast,
+                                &mut current_action,
+                                StepperAction::new_stopped(),
+                                &mut current_cmd,
+                                &cmd_tx,
+                            );
+                        }
+                    }
+                    MotorAction::Coast | MotorAction::Hold => {
+                        // Stalled during Coast or Hold
+                        // Expected; Purposly ignored
+                    }
+                }
+
+                // Track last stall event
+                current_stall_state = new_stall_event;
+            }
         }
     }
+}
+
+fn on_position_reached(
+    current_action: &mut MotorAction,
+    current_cmd: &mut StepperAction,
+    cmd_tx: &Sender<'static, CriticalSectionRawMutex, StepperAction, 1>,
+    pos_tx: &Sender<'static, CriticalSectionRawMutex, PositionModeStatus, 2>,
+) {
+    // Inform upstream
+    pos_tx.send(PositionModeStatus::Reached);
+
+    // Hold motors and stay at target position until further notice; Transition to halt command
+    set_action(
+        MotorAction::Hold,
+        current_action,
+        StepperAction::new_stopped(),
+        current_cmd,
+        cmd_tx,
+    );
+}
+
+fn set_action(
+    new_action: MotorAction,
+    current_action: &mut MotorAction,
+    new_cmd: StepperAction,
+    current_cmd: &mut StepperAction,
+    cmd_tx: &Sender<'static, CriticalSectionRawMutex, StepperAction, 1>,
+) {
+    info!("MOTOR: send NEW steppercmd -> low lvl {:?}", new_cmd);
+
+    *current_action = new_action;
+    *current_cmd = new_cmd;
+    cmd_tx.send(current_cmd.clone());
+}
+
+fn homing_start(
+    cmd_tx: &Sender<'static, CriticalSectionRawMutex, StepperAction, 1>,
+    home_tx: &Sender<'static, CriticalSectionRawMutex, HomeStatus, 2>,
+    current_action: &mut MotorAction,
+    current_cmd: &mut StepperAction,
+    home_status: &mut HomeStatus,
+) {
+    *home_status = HomeStatus::Lost;
+    home_tx.send(home_status.clone());
+
+    homing_move_towards_limit(cmd_tx, current_action, current_cmd);
+}
+
+fn homing_finished(
+    cmd_tx: &Sender<'static, CriticalSectionRawMutex, StepperAction, 1>,
+    home_tx: &Sender<'static, CriticalSectionRawMutex, HomeStatus, 2>,
+    pos_reset_tx: &Sender<'static, CriticalSectionRawMutex, (), 1>,
+    current_action: &mut MotorAction,
+    current_cmd: &mut StepperAction,
+    home_status: &mut HomeStatus,
+) {
+    // Stop stepping
+    set_action(
+        MotorAction::Hold,
+        current_action,
+        StepperAction::new_stopped(),
+        current_cmd,
+        cmd_tx,
+    );
+    cmd_tx.send(StepperAction::new_stopped());
+    *current_action = MotorAction::Hold;
+
+    // Record home
+    *home_status = HomeStatus::Homed { position: 0 };
+    home_tx.send(home_status.clone());
+    info!("MOTOR: HOME CONFIRMED");
+
+    // Ask low level stepper task to reset position to zero
+    pos_reset_tx.send(());
+}
+
+/// Move towards limit switch
+fn homing_move_towards_limit(
+    cmd_tx: &Sender<'static, CriticalSectionRawMutex, StepperAction, 1>,
+    current_action: &mut MotorAction,
+    current_cmd: &mut StepperAction,
+) {
+    homing_move_in_direction(cmd_tx, current_action, current_cmd, HOMING_DIRECTION);
+}
+
+/// Move away from limit switch
+fn homing_move_away_from_limit(
+    cmd_tx: &Sender<'static, CriticalSectionRawMutex, StepperAction, 1>,
+    current_action: &mut MotorAction,
+    current_cmd: &mut StepperAction,
+) {
+    homing_move_in_direction(
+        cmd_tx,
+        current_action,
+        current_cmd,
+        HOMING_DIRECTION.get_opposite(),
+    );
+}
+
+fn homing_move_in_direction(
+    cmd_tx: &Sender<'static, CriticalSectionRawMutex, StepperAction, 1>,
+    current_action: &mut MotorAction,
+    current_cmd: &mut StepperAction,
+    dir: MotorDirection,
+) {
+    // Move back untill switch disengages
+    // Notice we move in reverse homing direction
+    let home_vel = match HOMING_DIRECTION {
+        MotorDirection::Forward => -HOMING_SPEED_MM_PS,
+        MotorDirection::Reverse => HOMING_SPEED_MM_PS,
+    };
+    *current_action = MotorAction::Home;
+    *current_cmd = StepperAction::MoveVelocity(MotorVelocitySetpoint {
+        dir,
+        speed: Velocity::new::<millimeter_per_second>(home_vel),
+    });
+
+    cmd_tx.send(current_cmd.clone());
 }
