@@ -783,322 +783,6 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "Converter_DCDC:R-78B3.3-2.0"
-			(pin_names
-				(offset 0.254)
-			)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(in_pos_files yes)
-			(duplicate_pin_numbers_are_jumpers no)
-			(property "Reference" "U"
-				(at -3.81 3.175 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "R-78B3.3-2.0"
-				(at 0 3.175 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-				)
-			)
-			(property "Footprint" "Converter_DCDC:Converter_DCDC_RECOM_R-78B-2.0_THT"
-				(at 1.27 -6.35 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-						(italic yes)
-					)
-					(justify left)
-				)
-			)
-			(property "Datasheet" "https://www.recom-power.com/pdf/Innoline/R-78Bxx-2.0.pdf"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Description" "2A Step-Down DC/DC-Regulator, 4.75-32V input, 3.3V fixed Output Voltage, LM78xx replacement, -40°C to +85°C, SIP3"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_keywords" "dc-dc recom Step-Down DC/DC-Regulator"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_fp_filters" "Converter*DCDC*RECOM*R*78B*2.0*"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(symbol "R-78B3.3-2.0_0_1"
-				(rectangle
-					(start -5.08 1.905)
-					(end 5.08 -5.08)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type background)
-					)
-				)
-			)
-			(symbol "R-78B3.3-2.0_1_1"
-				(pin power_in line
-					(at -7.62 0 0)
-					(length 2.54)
-					(name "IN"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin power_in line
-					(at 0 -7.62 90)
-					(length 2.54)
-					(name "GND"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin power_out line
-					(at 7.62 0 180)
-					(length 2.54)
-					(name "OUT"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
-		(symbol "Converter_DCDC:R-78B5.0-2.0"
-			(pin_names
-				(offset 0.254)
-			)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(in_pos_files yes)
-			(duplicate_pin_numbers_are_jumpers no)
-			(property "Reference" "U"
-				(at -3.81 3.175 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "R-78B5.0-2.0"
-				(at 0 3.175 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(justify left)
-				)
-			)
-			(property "Footprint" "Converter_DCDC:Converter_DCDC_RECOM_R-78B-2.0_THT"
-				(at 1.27 -6.35 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-						(italic yes)
-					)
-					(justify left)
-				)
-			)
-			(property "Datasheet" "https://www.recom-power.com/pdf/Innoline/R-78Bxx-2.0.pdf"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Description" "2A Step-Down DC/DC-Regulator, 6.5-32V input, 5.0V fixed Output Voltage, LM78xx replacement, -40°C to +85°C, SIP3"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_keywords" "dc-dc recom Step-Down DC/DC-Regulator"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_fp_filters" "Converter*DCDC*RECOM*R*78B*2.0*"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(symbol "R-78B5.0-2.0_0_1"
-				(rectangle
-					(start -5.08 1.905)
-					(end 5.08 -5.08)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type background)
-					)
-				)
-			)
-			(symbol "R-78B5.0-2.0_1_1"
-				(pin power_in line
-					(at -7.62 0 0)
-					(length 2.54)
-					(name "IN"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin power_in line
-					(at 0 -7.62 90)
-					(length 2.54)
-					(name "GND"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin power_out line
-					(at 7.62 0 180)
-					(length 2.54)
-					(name "OUT"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
 		(symbol "Device:C"
 			(pin_numbers
 				(hide yes)
@@ -5986,17 +5670,6 @@
 		)
 		(uuid "e6fbc0e5-8103-4744-9644-0798c3b28b98")
 	)
-	(text "Optional: \nthrough-hole dc/dc replacements"
-		(exclude_from_sim no)
-		(at 229.616 46.228 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "06ec5a2b-bbad-42e5-a04e-c6e061f62d9e")
-	)
 	(text "Full Duplex RS485"
 		(exclude_from_sim no)
 		(at 187.706 115.57 0)
@@ -6112,7 +5785,7 @@
 	)
 	(text "MOSI/MISO switch \n(backup feature)"
 		(exclude_from_sim no)
-		(at 39.116 84.836 0)
+		(at 45.466 84.836 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -6140,7 +5813,7 @@
 		(uuid "1ecf7bd6-eb0a-4863-9dc1-e38856b09210")
 	)
 	(junction
-		(at 255.27 85.09)
+		(at 251.46 85.09)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "2b8ffc21-975a-475d-b07b-d3a4ff5dfc5d")
@@ -6182,13 +5855,13 @@
 		(uuid "47323ccb-cedd-4e25-8622-550283a0d441")
 	)
 	(junction
-		(at 46.99 81.28)
+		(at 53.34 81.28)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "48c49abf-07e1-4e65-a889-37a9eefe9b7b")
 	)
 	(junction
-		(at 101.6 22.86)
+		(at 88.9 22.86)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "4e4da96d-d9e3-4509-9f7f-142b85d7700b")
@@ -6206,7 +5879,7 @@
 		(uuid "5968876b-dfa3-44cd-a26d-92d0b2084193")
 	)
 	(junction
-		(at 92.71 22.86)
+		(at 80.01 22.86)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "59c7258e-05a7-4830-a5e0-ebda7200f106")
@@ -6242,7 +5915,7 @@
 		(uuid "685e7f1f-c18f-4de0-972a-5900291f17a2")
 	)
 	(junction
-		(at 46.99 68.58)
+		(at 53.34 68.58)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "78dff914-a240-4575-aea7-4e0d4ed2fbaa")
@@ -6296,10 +5969,10 @@
 		(uuid "b1ffccfb-ee20-4953-b3c4-57bd7e44facb")
 	)
 	(junction
-		(at 31.75 137.16)
+		(at 29.21 138.43)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "bbe57071-2c41-4b76-b5f4-f1daf1d5bb28")
+		(uuid "b970eae8-57f7-42e2-b270-15b088ac15a6")
 	)
 	(junction
 		(at 92.71 172.72)
@@ -6393,17 +6066,7 @@
 	)
 	(wire
 		(pts
-			(xy 41.91 147.32) (xy 50.8 147.32)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "0d2053e0-d380-4127-8dab-8774106bddc4")
-	)
-	(wire
-		(pts
-			(xy 39.37 81.28) (xy 46.99 81.28)
+			(xy 45.72 81.28) (xy 53.34 81.28)
 		)
 		(stroke
 			(width 0)
@@ -6453,13 +6116,13 @@
 	)
 	(wire
 		(pts
-			(xy 245.11 24.13) (xy 240.03 24.13)
+			(xy 29.21 138.43) (xy 31.75 138.43)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "125c544f-ccd6-4c29-9730-08c28cbabffe")
+		(uuid "13d27ad8-9a13-413f-84a5-a2c2736a7a17")
 	)
 	(wire
 		(pts
@@ -6533,16 +6196,6 @@
 	)
 	(wire
 		(pts
-			(xy 31.75 125.73) (xy 31.75 137.16)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "214737d6-87c1-4025-adaa-0f1ff932f314")
-	)
-	(wire
-		(pts
 			(xy 99.06 152.4) (xy 104.14 152.4)
 		)
 		(stroke
@@ -6553,17 +6206,7 @@
 	)
 	(wire
 		(pts
-			(xy 251.46 21.59) (xy 251.46 24.13)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "2714aada-1137-46ca-bbd7-dc867267c109")
-	)
-	(wire
-		(pts
-			(xy 92.71 22.86) (xy 92.71 24.13)
+			(xy 80.01 22.86) (xy 80.01 24.13)
 		)
 		(stroke
 			(width 0)
@@ -6573,7 +6216,7 @@
 	)
 	(wire
 		(pts
-			(xy 101.6 22.86) (xy 101.6 24.13)
+			(xy 88.9 22.86) (xy 88.9 24.13)
 		)
 		(stroke
 			(width 0)
@@ -6683,7 +6326,7 @@
 	)
 	(wire
 		(pts
-			(xy 92.71 31.75) (xy 92.71 33.02)
+			(xy 80.01 31.75) (xy 80.01 33.02)
 		)
 		(stroke
 			(width 0)
@@ -6733,16 +6376,6 @@
 	)
 	(wire
 		(pts
-			(xy 224.79 24.13) (xy 220.98 24.13)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "436c85c3-4623-4adf-a430-148b52c39e30")
-	)
-	(wire
-		(pts
 			(xy 92.71 160.02) (xy 96.52 160.02)
 		)
 		(stroke
@@ -6773,16 +6406,6 @@
 	)
 	(wire
 		(pts
-			(xy 273.05 20.32) (xy 273.05 24.13)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "4af8c612-346c-4e12-8106-6bbd66465c76")
-	)
-	(wire
-		(pts
 			(xy 139.7 162.56) (xy 148.59 162.56)
 		)
 		(stroke
@@ -6803,7 +6426,7 @@
 	)
 	(wire
 		(pts
-			(xy 255.27 82.55) (xy 260.35 82.55)
+			(xy 260.35 82.55) (xy 261.62 82.55)
 		)
 		(stroke
 			(width 0)
@@ -6823,7 +6446,7 @@
 	)
 	(wire
 		(pts
-			(xy 46.99 81.28) (xy 53.34 81.28)
+			(xy 53.34 81.28) (xy 59.69 81.28)
 		)
 		(stroke
 			(width 0)
@@ -6840,16 +6463,6 @@
 			(type default)
 		)
 		(uuid "55359b52-231f-45b2-b9b8-499e87057fb0")
-	)
-	(wire
-		(pts
-			(xy 31.75 138.43) (xy 31.75 137.16)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "5736ea32-9f5e-4e98-8a73-048a24cefbad")
 	)
 	(wire
 		(pts
@@ -6963,6 +6576,16 @@
 	)
 	(wire
 		(pts
+			(xy 39.37 143.51) (xy 39.37 148.59)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6b592232-5c06-47b6-af42-67f16a576796")
+	)
+	(wire
+		(pts
 			(xy 162.56 73.66) (xy 168.91 73.66)
 		)
 		(stroke
@@ -6993,16 +6616,6 @@
 	)
 	(wire
 		(pts
-			(xy 232.41 31.75) (xy 232.41 35.56)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "721468e0-bd5f-4f8a-b764-20061568efde")
-	)
-	(wire
-		(pts
 			(xy 88.9 170.18) (xy 88.9 172.72)
 		)
 		(stroke
@@ -7013,7 +6626,7 @@
 	)
 	(wire
 		(pts
-			(xy 101.6 40.64) (xy 101.6 41.91)
+			(xy 88.9 40.64) (xy 88.9 41.91)
 		)
 		(stroke
 			(width 0)
@@ -7023,23 +6636,13 @@
 	)
 	(wire
 		(pts
-			(xy 46.99 71.12) (xy 46.99 68.58)
+			(xy 53.34 71.12) (xy 53.34 68.58)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "7345020f-d65d-473e-ab53-526147c9d6f9")
-	)
-	(wire
-		(pts
-			(xy 31.75 137.16) (xy 34.29 137.16)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "748263fd-b21d-499a-92be-487dc5e53f73")
 	)
 	(wire
 		(pts
@@ -7063,7 +6666,7 @@
 	)
 	(wire
 		(pts
-			(xy 24.13 73.66) (xy 35.56 73.66)
+			(xy 24.13 73.66) (xy 41.91 73.66)
 		)
 		(stroke
 			(width 0)
@@ -7093,7 +6696,7 @@
 	)
 	(wire
 		(pts
-			(xy 39.37 68.58) (xy 46.99 68.58)
+			(xy 45.72 68.58) (xy 53.34 68.58)
 		)
 		(stroke
 			(width 0)
@@ -7110,16 +6713,6 @@
 			(type default)
 		)
 		(uuid "7adc14c7-9d96-4e80-9e7d-51c3c05301f2")
-	)
-	(wire
-		(pts
-			(xy 220.98 21.59) (xy 220.98 24.13)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "7ba2c902-6d5c-48e6-a097-b6f57322436c")
 	)
 	(wire
 		(pts
@@ -7213,7 +6806,7 @@
 	)
 	(wire
 		(pts
-			(xy 255.27 80.01) (xy 255.27 82.55)
+			(xy 260.35 80.01) (xy 260.35 82.55)
 		)
 		(stroke
 			(width 0)
@@ -7233,7 +6826,7 @@
 	)
 	(wire
 		(pts
-			(xy 25.4 78.74) (xy 24.13 78.74)
+			(xy 39.37 78.74) (xy 24.13 78.74)
 		)
 		(stroke
 			(width 0)
@@ -7313,7 +6906,7 @@
 	)
 	(wire
 		(pts
-			(xy 267.97 82.55) (xy 270.51 82.55)
+			(xy 269.24 82.55) (xy 270.51 82.55)
 		)
 		(stroke
 			(width 0)
@@ -7323,23 +6916,13 @@
 	)
 	(wire
 		(pts
-			(xy 255.27 97.79) (xy 255.27 95.25)
+			(xy 251.46 97.79) (xy 251.46 95.25)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "8daffc3e-be35-4a5c-a449-012c29ef22e6")
-	)
-	(wire
-		(pts
-			(xy 24.13 76.2) (xy 43.18 76.2)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "91288ca6-45c9-4d64-92c4-f6b0e6c6baa6")
 	)
 	(wire
 		(pts
@@ -7373,7 +6956,7 @@
 	)
 	(wire
 		(pts
-			(xy 101.6 31.75) (xy 101.6 33.02)
+			(xy 88.9 31.75) (xy 88.9 33.02)
 		)
 		(stroke
 			(width 0)
@@ -7393,6 +6976,16 @@
 	)
 	(wire
 		(pts
+			(xy 39.37 127) (xy 39.37 133.35)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "98870b61-d867-44c9-927d-76422f2428fe")
+	)
+	(wire
+		(pts
 			(xy 77.47 90.17) (xy 83.82 90.17)
 		)
 		(stroke
@@ -7400,6 +6993,16 @@
 			(type default)
 		)
 		(uuid "9976e738-3ee1-4aa5-b015-b38da5e7da7d")
+	)
+	(wire
+		(pts
+			(xy 29.21 127) (xy 29.21 138.43)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9c0aea97-d1c1-4e9c-97f2-acf9658e7288")
 	)
 	(wire
 		(pts
@@ -7423,23 +7026,13 @@
 	)
 	(wire
 		(pts
-			(xy 25.4 77.47) (xy 25.4 78.74)
+			(xy 39.37 77.47) (xy 39.37 78.74)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "9d193fe2-f1f0-4642-a4e2-db7890e08774")
-	)
-	(wire
-		(pts
-			(xy 245.11 21.59) (xy 245.11 24.13)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "9f76af6a-028c-4253-b17a-e2522076c251")
 	)
 	(wire
 		(pts
@@ -7453,7 +7046,7 @@
 	)
 	(wire
 		(pts
-			(xy 246.38 90.17) (xy 247.65 90.17)
+			(xy 242.57 90.17) (xy 243.84 90.17)
 		)
 		(stroke
 			(width 0)
@@ -7490,16 +7083,6 @@
 			(type default)
 		)
 		(uuid "a8460975-4c1e-4407-bc28-ea0b322bdb7c")
-	)
-	(wire
-		(pts
-			(xy 41.91 125.73) (xy 41.91 132.08)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "a95470d7-c2e8-48fa-9cc2-a7d496a15e21")
 	)
 	(wire
 		(pts
@@ -7553,16 +7136,6 @@
 	)
 	(wire
 		(pts
-			(xy 41.91 142.24) (xy 41.91 147.32)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "b1872ddb-e389-4979-bbe8-ae02e7d12f6d")
-	)
-	(wire
-		(pts
 			(xy 137.16 62.23) (xy 137.16 78.74)
 		)
 		(stroke
@@ -7613,16 +7186,6 @@
 	)
 	(wire
 		(pts
-			(xy 273.05 24.13) (xy 270.51 24.13)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "b4d3fb67-9000-42a2-96aa-2940169cf626")
-	)
-	(wire
-		(pts
 			(xy 142.24 35.56) (xy 142.24 34.29)
 		)
 		(stroke
@@ -7653,7 +7216,7 @@
 	)
 	(wire
 		(pts
-			(xy 92.71 40.64) (xy 92.71 41.91)
+			(xy 80.01 40.64) (xy 80.01 41.91)
 		)
 		(stroke
 			(width 0)
@@ -7703,6 +7266,16 @@
 	)
 	(wire
 		(pts
+			(xy 24.13 76.2) (xy 49.53 76.2)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c0236e82-9214-489e-a42a-4d7583814982")
+	)
+	(wire
+		(pts
 			(xy 34.29 31.75) (xy 45.72 31.75)
 		)
 		(stroke
@@ -7713,13 +7286,23 @@
 	)
 	(wire
 		(pts
-			(xy 231.14 90.17) (xy 238.76 90.17)
+			(xy 227.33 90.17) (xy 234.95 90.17)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "c1ad461d-c664-415e-baac-e6229282ae9e")
+	)
+	(wire
+		(pts
+			(xy 39.37 148.59) (xy 48.26 148.59)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c1fcf9ee-d070-44f9-afb4-7a3477792087")
 	)
 	(wire
 		(pts
@@ -7740,16 +7323,6 @@
 			(type default)
 		)
 		(uuid "c61c57ae-7364-48de-927a-fb092b30a79e")
-	)
-	(wire
-		(pts
-			(xy 251.46 24.13) (xy 255.27 24.13)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "c68f88f4-a880-40fb-b2ac-89c802ada750")
 	)
 	(wire
 		(pts
@@ -7813,7 +7386,7 @@
 	)
 	(wire
 		(pts
-			(xy 46.99 68.58) (xy 53.34 68.58)
+			(xy 53.34 68.58) (xy 59.69 68.58)
 		)
 		(stroke
 			(width 0)
@@ -7850,6 +7423,16 @@
 			(type default)
 		)
 		(uuid "d58894e7-40a8-4532-900f-a1ed1c311b82")
+	)
+	(wire
+		(pts
+			(xy 29.21 139.7) (xy 29.21 138.43)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d7c6ea34-ba1d-40bc-85d4-64435343104c")
 	)
 	(wire
 		(pts
@@ -7903,6 +7486,16 @@
 	)
 	(wire
 		(pts
+			(xy 29.21 147.32) (xy 29.21 149.86)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e2dc9739-21a1-447c-ab11-f90a24c9b6a1")
+	)
+	(wire
+		(pts
 			(xy 243.84 130.81) (xy 250.19 130.81)
 		)
 		(stroke
@@ -7953,16 +7546,6 @@
 	)
 	(wire
 		(pts
-			(xy 262.89 31.75) (xy 262.89 33.02)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "eaecf939-1a4a-40c1-b4e3-140b5fd00742")
-	)
-	(wire
-		(pts
 			(xy 181.61 21.59) (xy 181.61 24.13)
 		)
 		(stroke
@@ -7973,13 +7556,23 @@
 	)
 	(wire
 		(pts
-			(xy 255.27 85.09) (xy 270.51 85.09)
+			(xy 251.46 85.09) (xy 270.51 85.09)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "eeacca4b-3b3d-45cc-af79-0545c4fa5b6a")
+	)
+	(wire
+		(pts
+			(xy 39.37 64.77) (xy 39.37 67.31)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ef3b6a00-48f4-4aad-945b-afaa051ac008")
 	)
 	(wire
 		(pts
@@ -7993,7 +7586,7 @@
 	)
 	(wire
 		(pts
-			(xy 39.37 78.74) (xy 39.37 81.28)
+			(xy 45.72 78.74) (xy 45.72 81.28)
 		)
 		(stroke
 			(width 0)
@@ -8030,16 +7623,6 @@
 			(type default)
 		)
 		(uuid "f4f95f12-b86b-4f91-804e-6c7000ad3b11")
-	)
-	(wire
-		(pts
-			(xy 31.75 146.05) (xy 31.75 148.59)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "fa8d61cf-6bfb-4148-9c74-39bef2892671")
 	)
 	(wire
 		(pts
@@ -8312,7 +7895,7 @@
 		(uuid "73361ee0-3b41-4f14-b509-91d8e20fa367")
 	)
 	(label "MCU_MOSI"
-		(at 48.26 68.58 0)
+		(at 54.61 68.58 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -8352,7 +7935,7 @@
 		(uuid "8c326d69-f958-43f0-8e05-ba0b9f335ccb")
 	)
 	(label "MCU_MISO"
-		(at 48.26 81.28 0)
+		(at 54.61 81.28 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -8402,7 +7985,7 @@
 		(uuid "b03659cd-a921-4657-9036-95b65f4bc68b")
 	)
 	(label "LED"
-		(at 231.14 90.17 0)
+		(at 227.33 90.17 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -8595,7 +8178,7 @@
 			(uuid "3bb09f9e-bb53-45ff-9b52-dd453ac89401")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "J5")
 					(unit 1)
@@ -8605,7 +8188,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 92.71 41.91 0)
+		(at 80.01 41.91 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -8616,7 +8199,7 @@
 		(fields_autoplaced yes)
 		(uuid "03327e94-ea56-41b5-9370-055577a871e3")
 		(property "Reference" "#PWR044"
-			(at 92.71 48.26 0)
+			(at 80.01 48.26 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8627,7 +8210,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 92.71 46.99 0)
+			(at 80.01 46.99 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -8637,7 +8220,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 92.71 41.91 0)
+			(at 80.01 41.91 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8648,7 +8231,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 92.71 41.91 0)
+			(at 80.01 41.91 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8659,7 +8242,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 92.71 41.91 0)
+			(at 80.01 41.91 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8673,7 +8256,7 @@
 			(uuid "1cec2d1f-cf65-443b-a508-ac2bee276be8")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR044")
 					(unit 1)
@@ -8760,7 +8343,7 @@
 			(uuid "c12a91bf-b1bb-4f11-88ae-495eaf5b65af")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "JP4")
 					(unit 1)
@@ -8770,7 +8353,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 264.16 82.55 90)
+		(at 265.43 82.55 90)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -8780,7 +8363,7 @@
 		(dnp no)
 		(uuid "0a89eb6e-be22-4c5a-90fb-2b5706933010")
 		(property "Reference" "R2"
-			(at 267.97 80.264 90)
+			(at 269.24 80.264 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -8790,7 +8373,7 @@
 			)
 		)
 		(property "Value" "100"
-			(at 264.16 80.264 90)
+			(at 265.43 80.264 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -8800,7 +8383,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
-			(at 264.16 84.328 90)
+			(at 265.43 84.328 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8811,7 +8394,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 264.16 82.55 0)
+			(at 265.43 82.55 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8822,7 +8405,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 264.16 82.55 0)
+			(at 265.43 82.55 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8839,7 +8422,7 @@
 			(uuid "14f2efcb-9cb6-4f72-ad85-745b8b530fbc")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "R2")
 					(unit 1)
@@ -8881,7 +8464,7 @@
 				)
 			)
 		)
-		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.0mm"
 			(at 25.4 29.21 0)
 			(hide yes)
 			(show_name no)
@@ -8918,7 +8501,7 @@
 			(uuid "3a114edd-a38e-4d37-8092-ce0e82e11ffc")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "TP3")
 					(unit 1)
@@ -8996,7 +8579,7 @@
 			(uuid "02b1dd81-35be-42b0-9cb3-2692ebb4dbdc")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR048")
 					(unit 1)
@@ -9074,7 +8657,7 @@
 			(uuid "d0038ca5-1db1-4b21-9f31-ae60ba62219b")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR017")
 					(unit 1)
@@ -9084,7 +8667,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 101.6 27.94 0)
+		(at 88.9 27.94 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -9095,7 +8678,7 @@
 		(fields_autoplaced yes)
 		(uuid "186c9eff-dd99-4295-937f-4fc7182423a6")
 		(property "Reference" "R5"
-			(at 104.14 26.6699 0)
+			(at 91.44 26.6699 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -9105,8 +8688,8 @@
 				(justify left)
 			)
 		)
-		(property "Value" "2.2K"
-			(at 104.14 29.2099 0)
+		(property "Value" "1K"
+			(at 91.44 29.2099 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -9117,7 +8700,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
-			(at 99.822 27.94 90)
+			(at 87.122 27.94 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9128,7 +8711,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 101.6 27.94 0)
+			(at 88.9 27.94 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9139,7 +8722,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 101.6 27.94 0)
+			(at 88.9 27.94 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9156,7 +8739,7 @@
 			(uuid "0aaf0008-c59c-48b0-8b00-6f49706dcf25")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "R5")
 					(unit 1)
@@ -9166,7 +8749,7 @@
 	)
 	(symbol
 		(lib_id "Transistor_FET:Q_NMOS_GSD")
-		(at 252.73 90.17 0)
+		(at 248.92 90.17 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -9177,7 +8760,7 @@
 		(fields_autoplaced yes)
 		(uuid "1be4c3e0-c08a-4302-ad05-c35926cdbf9b")
 		(property "Reference" "Q1"
-			(at 259.08 88.8999 0)
+			(at 255.27 88.8999 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -9188,7 +8771,7 @@
 			)
 		)
 		(property "Value" "FDV301N"
-			(at 259.08 91.4399 0)
+			(at 255.27 91.4399 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -9199,7 +8782,7 @@
 			)
 		)
 		(property "Footprint" "Package_TO_SOT_SMD:SOT-23_Handsoldering"
-			(at 257.81 87.63 0)
+			(at 254 87.63 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9210,7 +8793,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 252.73 90.17 0)
+			(at 248.92 90.17 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9221,7 +8804,7 @@
 			)
 		)
 		(property "Description" "N-MOSFET transistor, gate/source/drain"
-			(at 252.73 90.17 0)
+			(at 248.92 90.17 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9241,7 +8824,7 @@
 			(uuid "96704c99-54a8-433d-b65e-488d28437a43")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "Q1")
 					(unit 1)
@@ -9319,7 +8902,7 @@
 			(uuid "16b8de7f-6a56-4657-8c49-f466ff7527a4")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR033")
 					(unit 1)
@@ -9399,7 +8982,7 @@
 			(uuid "452b4e9d-5186-4896-b699-c794d40daa8f")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "JP12")
 					(unit 1)
@@ -9480,7 +9063,7 @@
 			(uuid "37849cc1-d049-4202-a816-59c0e47bf6e9")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "C6")
 					(unit 1)
@@ -9561,7 +9144,7 @@
 			(uuid "babf449a-a872-4a0c-9767-c93fa2f288e3")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "C1")
 					(unit 1)
@@ -9642,7 +9225,7 @@
 			(uuid "b19941cd-fab3-4efc-bf3e-ce48a78c170f")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "C10")
 					(unit 1)
@@ -9720,7 +9303,7 @@
 			(uuid "9fff6750-d8be-40cb-b49a-306fb46d7991")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR019")
 					(unit 1)
@@ -9797,7 +9380,7 @@
 			(uuid "24bcbe26-2451-4339-b2eb-a266505beee4")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR04")
 					(unit 1)
@@ -9826,7 +9409,7 @@
 				)
 			)
 		)
-		(property "Value" "0"
+		(property "Value" "NC"
 			(at 143.764 76.708 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9876,7 +9459,7 @@
 			(uuid "c81f953c-8e1b-4229-84ce-645816dd658e")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "R8")
 					(unit 1)
@@ -9885,8 +9468,8 @@
 		)
 	)
 	(symbol
-		(lib_id "Device:R")
-		(at 31.75 142.24 180)
+		(lib_id "power:+3.3V")
+		(at 48.26 148.59 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -9894,9 +9477,11 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(uuid "30174e5c-64f4-432a-a697-9dbd55297c82")
-		(property "Reference" "R3"
-			(at 29.464 140.208 90)
+		(fields_autoplaced yes)
+		(uuid "309b393d-861c-4f39-9aa3-9bb3ef10d2cc")
+		(property "Reference" "#PWR022"
+			(at 48.26 152.4 0)
+			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -9905,8 +9490,8 @@
 				)
 			)
 		)
-		(property "Value" "R"
-			(at 29.464 142.24 90)
+		(property "Value" "+3.3V"
+			(at 48.26 143.51 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -9915,8 +9500,8 @@
 				)
 			)
 		)
-		(property "Footprint" "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
-			(at 33.528 142.24 90)
+		(property "Footprint" ""
+			(at 48.26 148.59 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9927,7 +9512,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 31.75 142.24 0)
+			(at 48.26 148.59 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9937,8 +9522,8 @@
 				)
 			)
 		)
-		(property "Description" "Resistor"
-			(at 31.75 142.24 0)
+		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
+			(at 48.26 148.59 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9947,17 +9532,14 @@
 					(size 1.27 1.27)
 				)
 			)
-		)
-		(pin "2"
-			(uuid "5de86aa3-fa73-4bc8-b212-f1dd7c9f8f70")
 		)
 		(pin "1"
-			(uuid "3601767b-c7cb-4acd-8c4d-0cb1cc3454fb")
+			(uuid "692b1c98-3160-44af-a585-a194f6c8cfdd")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
-					(reference "R3")
+					(reference "#PWR022")
 					(unit 1)
 				)
 			)
@@ -10033,7 +9615,7 @@
 			(uuid "eaed4001-c5b3-495b-ae03-56d50ab0477f")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR011")
 					(unit 1)
@@ -10043,7 +9625,7 @@
 	)
 	(symbol
 		(lib_id "Jumper:SolderJumper_3_Bridged12")
-		(at 39.37 73.66 270)
+		(at 45.72 73.66 270)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -10054,7 +9636,7 @@
 		(fields_autoplaced yes)
 		(uuid "38249a9e-9306-4e95-b416-0ed9310cdae9")
 		(property "Reference" "JP1"
-			(at 41.91 73.6599 90)
+			(at 48.26 73.6599 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -10065,7 +9647,7 @@
 			)
 		)
 		(property "Value" "MOSI/MISO"
-			(at 43.18 73.66 0)
+			(at 49.53 73.66 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10076,7 +9658,7 @@
 			)
 		)
 		(property "Footprint" "Jumper:SolderJumper-3_P1.3mm_Bridged12_RoundedPad1.0x1.5mm"
-			(at 39.37 73.66 0)
+			(at 45.72 73.66 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10087,7 +9669,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 24.13 73.66 0)
+			(at 30.48 73.66 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10098,7 +9680,7 @@
 			)
 		)
 		(property "Description" "3-pole Solder Jumper, pins 1+2 closed/bridged"
-			(at 26.67 73.66 0)
+			(at 33.02 73.66 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10118,7 +9700,7 @@
 			(uuid "3fa532e3-1946-421d-b81d-cb8fba97cc5e")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "JP1")
 					(unit 1)
@@ -10217,87 +9799,9 @@
 			(uuid "f7022fb6-3304-401b-83e0-e402e3937f47")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "U6")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:VBUS")
-		(at 31.75 125.73 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "3e51c2a0-17c4-42f8-9212-cee14bfd0a6d")
-		(property "Reference" "#PWR012"
-			(at 31.75 129.54 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "VBUS"
-			(at 31.75 120.65 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 31.75 125.73 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 31.75 125.73 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"VBUS\""
-			(at 31.75 125.73 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "6699c55f-4121-41df-bb22-a62d4bd7d29d")
-		)
-		(instances
-			(project "kabelPeeler"
-				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
-					(reference "#PWR012")
 					(unit 1)
 				)
 			)
@@ -10373,87 +9877,9 @@
 			(uuid "52b8567c-58d7-4f9e-81fb-ede3b9f3e388")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR028")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+3.3V")
-		(at 50.8 147.32 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "4093f722-da0f-448b-bc22-158e25c3d13c")
-		(property "Reference" "#PWR022"
-			(at 50.8 151.13 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+3.3V"
-			(at 50.8 142.24 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 50.8 147.32 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 50.8 147.32 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
-			(at 50.8 147.32 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "5630dc44-daa6-4122-b147-1d71196619d5")
-		)
-		(instances
-			(project "kabelPeeler"
-				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
-					(reference "#PWR022")
 					(unit 1)
 				)
 			)
@@ -10529,7 +9955,7 @@
 			(uuid "34a66d7e-87bc-401c-929f-ec280f480b48")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR018")
 					(unit 1)
@@ -10616,7 +10042,7 @@
 			(uuid "e5aa3a88-78ea-48a8-8e52-6ff1336f5c31")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "J1")
 					(unit 1)
@@ -10694,7 +10120,7 @@
 			(uuid "10f4b855-d236-452d-9c33-1db2996cd4ce")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR010")
 					(unit 1)
@@ -10704,7 +10130,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 101.6 41.91 0)
+		(at 88.9 41.91 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -10715,7 +10141,7 @@
 		(fields_autoplaced yes)
 		(uuid "44036a4f-1adb-4d8d-b0dc-d9c6d1f4e42c")
 		(property "Reference" "#PWR045"
-			(at 101.6 48.26 0)
+			(at 88.9 48.26 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10726,7 +10152,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 101.6 46.99 0)
+			(at 88.9 46.99 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -10736,7 +10162,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 101.6 41.91 0)
+			(at 88.9 41.91 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10747,7 +10173,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 101.6 41.91 0)
+			(at 88.9 41.91 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10758,7 +10184,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 101.6 41.91 0)
+			(at 88.9 41.91 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10772,7 +10198,7 @@
 			(uuid "831b420a-2827-4f74-8878-e96bc0168a17")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR045")
 					(unit 1)
@@ -10998,7 +10424,7 @@
 			(uuid "40e7d20d-7513-4dd6-b84f-a343e0d53bf4")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "U2")
 					(unit 1)
@@ -11008,7 +10434,7 @@
 	)
 	(symbol
 		(lib_id "Connector:TestPoint")
-		(at 231.14 90.17 180)
+		(at 227.33 90.17 180)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -11019,7 +10445,7 @@
 		(fields_autoplaced yes)
 		(uuid "46f342c5-c0c0-4d97-971a-d59af2e18131")
 		(property "Reference" "TP10"
-			(at 233.68 93.4719 0)
+			(at 229.87 93.4719 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -11030,7 +10456,7 @@
 			)
 		)
 		(property "Value" "TestPoint"
-			(at 228.6 93.472 90)
+			(at 224.79 93.472 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11040,8 +10466,8 @@
 				)
 			)
 		)
-		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
-			(at 226.06 90.17 0)
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.0mm"
+			(at 222.25 90.17 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11052,7 +10478,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 226.06 90.17 0)
+			(at 222.25 90.17 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11063,7 +10489,7 @@
 			)
 		)
 		(property "Description" "test point"
-			(at 231.14 90.17 0)
+			(at 227.33 90.17 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11077,7 +10503,7 @@
 			(uuid "76a3b946-6754-4574-9e17-fbc049b42954")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "TP10")
 					(unit 1)
@@ -11163,7 +10589,7 @@
 			(uuid "9d4aeb5d-f847-4738-8e87-81c3e95ecedb")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "JP5")
 					(unit 1)
@@ -11173,7 +10599,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 92.71 27.94 0)
+		(at 80.01 27.94 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -11184,7 +10610,7 @@
 		(fields_autoplaced yes)
 		(uuid "491ecbb2-82ea-44b0-8d31-acc26421173c")
 		(property "Reference" "R4"
-			(at 95.25 26.6699 0)
+			(at 82.55 26.6699 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -11194,8 +10620,8 @@
 				(justify left)
 			)
 		)
-		(property "Value" "2.2K"
-			(at 95.25 29.2099 0)
+		(property "Value" "1.5K"
+			(at 82.55 29.2099 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -11206,7 +10632,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
-			(at 90.932 27.94 90)
+			(at 78.232 27.94 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11217,7 +10643,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 92.71 27.94 0)
+			(at 80.01 27.94 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11228,7 +10654,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 92.71 27.94 0)
+			(at 80.01 27.94 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11245,7 +10671,7 @@
 			(uuid "904f1c26-a62f-4819-8c55-613d58bd784b")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "R4")
 					(unit 1)
@@ -11349,7 +10775,7 @@
 			(uuid "84d14810-fe82-48cd-87ca-65151aa9833d")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "JP11")
 					(unit 1)
@@ -11359,7 +10785,7 @@
 	)
 	(symbol
 		(lib_id "MMwateringControl-rescue:GND-power")
-		(at 255.27 97.79 0)
+		(at 251.46 97.79 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -11369,7 +10795,7 @@
 		(dnp no)
 		(uuid "4b9e9120-125a-419b-80d7-54391005fe78")
 		(property "Reference" "#PWR0169"
-			(at 255.27 104.14 0)
+			(at 251.46 104.14 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11380,7 +10806,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 255.397 102.1842 0)
+			(at 251.587 102.1842 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -11390,7 +10816,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 255.27 97.79 0)
+			(at 251.46 97.79 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11401,7 +10827,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 255.27 97.79 0)
+			(at 251.46 97.79 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11412,7 +10838,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 255.27 97.79 0)
+			(at 251.46 97.79 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -11425,7 +10851,7 @@
 			(uuid "38058628-5f99-4586-b77d-946838c10bcc")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR0169")
 					(unit 1)
@@ -11506,97 +10932,9 @@
 			(uuid "b42c00c9-daca-4deb-ac94-2178e03dd31d")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "C5")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Transistor_FET:AO3401A")
-		(at 39.37 137.16 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "54325ffb-a3a1-41fc-810a-29de54d84e38")
-		(property "Reference" "Q2"
-			(at 45.72 135.8899 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "AO3401A"
-			(at 45.72 138.4299 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
-			(at 44.45 139.065 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-					(italic yes)
-				)
-				(justify left)
-			)
-		)
-		(property "Datasheet" "http://www.aosmd.com/pdfs/datasheet/AO3401A.pdf"
-			(at 44.45 140.97 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Description" "-4.0A Id, -30V Vds, P-Channel MOSFET, SOT-23"
-			(at 39.37 137.16 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "3"
-			(uuid "e871a6ee-7987-412c-a961-501193736e26")
-		)
-		(pin "2"
-			(uuid "d16f84eb-6717-4aca-aa8c-61f1e85221fc")
-		)
-		(pin "1"
-			(uuid "c920bc4e-4752-4b22-9402-2973165691e4")
-		)
-		(instances
-			(project "kabelPeeler"
-				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
-					(reference "Q2")
 					(unit 1)
 				)
 			)
@@ -11672,7 +11010,7 @@
 			(uuid "c3afe80d-e403-44cd-9155-8eac301d7a7c")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR047")
 					(unit 1)
@@ -11682,7 +11020,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 242.57 90.17 90)
+		(at 238.76 90.17 90)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -11693,7 +11031,7 @@
 		(fields_autoplaced yes)
 		(uuid "557542b4-0a88-4548-bb02-41d6591f7711")
 		(property "Reference" "R6"
-			(at 242.57 83.82 90)
+			(at 238.76 83.82 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -11703,7 +11041,7 @@
 			)
 		)
 		(property "Value" "1K"
-			(at 242.57 86.36 90)
+			(at 238.76 86.36 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -11713,7 +11051,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
-			(at 242.57 91.948 90)
+			(at 238.76 91.948 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11724,7 +11062,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 242.57 90.17 0)
+			(at 238.76 90.17 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11735,7 +11073,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 242.57 90.17 0)
+			(at 238.76 90.17 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11752,7 +11090,7 @@
 			(uuid "e3dee3d1-b19a-4d6f-a0c5-3b95239e5c37")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "R6")
 					(unit 1)
@@ -11794,7 +11132,7 @@
 				)
 			)
 		)
-		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.0mm"
 			(at 193.04 78.74 0)
 			(hide yes)
 			(show_name no)
@@ -11831,7 +11169,7 @@
 			(uuid "0991156d-05cb-460a-9d2c-7eed48a10053")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "TP4")
 					(unit 1)
@@ -11841,7 +11179,7 @@
 	)
 	(symbol
 		(lib_id "Device:LED")
-		(at 101.6 36.83 90)
+		(at 88.9 36.83 90)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -11852,7 +11190,7 @@
 		(fields_autoplaced yes)
 		(uuid "5d962749-ebaf-4d35-a322-d8af1e16f70f")
 		(property "Reference" "D2"
-			(at 105.41 37.1474 90)
+			(at 92.71 37.1474 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -11863,7 +11201,7 @@
 			)
 		)
 		(property "Value" "LED"
-			(at 105.41 39.6874 90)
+			(at 92.71 39.6874 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -11874,7 +11212,7 @@
 			)
 		)
 		(property "Footprint" "LED_SMD:LED_0805_2012Metric_Pad1.15x1.40mm_HandSolder"
-			(at 101.6 36.83 0)
+			(at 88.9 36.83 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11885,7 +11223,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 101.6 36.83 0)
+			(at 88.9 36.83 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11896,7 +11234,7 @@
 			)
 		)
 		(property "Description" "Light emitting diode"
-			(at 101.6 36.83 0)
+			(at 88.9 36.83 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11907,7 +11245,7 @@
 			)
 		)
 		(property "Sim.Pins" "1=K 2=A"
-			(at 101.6 36.83 0)
+			(at 88.9 36.83 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11924,94 +11262,9 @@
 			(uuid "42d807ba-15a1-4a55-ad31-97c14cd27cbd")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "D2")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Converter_DCDC:R-78B5.0-2.0")
-		(at 232.41 24.13 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "613bbbd5-8f07-46c1-ad79-a6daf4d85f23")
-		(property "Reference" "U9"
-			(at 232.41 17.78 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "R-78B5.0-2.0"
-			(at 232.41 20.32 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Converter_DCDC:Converter_DCDC_RECOM_R-78B-2.0_THT"
-			(at 233.68 30.48 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-					(italic yes)
-				)
-				(justify left)
-			)
-		)
-		(property "Datasheet" "https://www.recom-power.com/pdf/Innoline/R-78Bxx-2.0.pdf"
-			(at 232.41 24.13 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "2A Step-Down DC/DC-Regulator, 6.5-32V input, 5.0V fixed Output Voltage, LM78xx replacement, -40°C to +85°C, SIP3"
-			(at 232.41 24.13 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "73a1cf98-d513-48cc-a3b7-09b306d58dca")
-		)
-		(pin "2"
-			(uuid "18791bf1-1797-45b4-b292-599910cd1920")
-		)
-		(pin "3"
-			(uuid "227b99ca-3cc6-4fa3-96f5-68fe6e6523a6")
-		)
-		(instances
-			(project "kabelPeeler"
-				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
-					(reference "U9")
 					(unit 1)
 				)
 			)
@@ -12087,87 +11340,9 @@
 			(uuid "972ff0d1-89d5-4046-bb8c-ab39f39815c5")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR046")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+5V")
-		(at 251.46 21.59 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "61b0f24c-85a5-43b2-bd8e-c9bcdf26797c")
-		(property "Reference" "#PWR039"
-			(at 251.46 25.4 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+5V"
-			(at 251.46 16.51 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 251.46 21.59 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 251.46 21.59 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 251.46 21.59 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "141d3a77-6cb4-4649-a852-79b35704ba70")
-		)
-		(instances
-			(project "kabelPeeler"
-				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
-					(reference "#PWR039")
 					(unit 1)
 				)
 			)
@@ -12207,7 +11382,7 @@
 				)
 			)
 		)
-		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.0mm"
 			(at 255.27 140.97 0)
 			(hide yes)
 			(show_name no)
@@ -12244,7 +11419,7 @@
 			(uuid "4cd97144-f8e1-463a-bcce-9c2d69c84473")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "TP8")
 					(unit 1)
@@ -12254,7 +11429,7 @@
 	)
 	(symbol
 		(lib_id "power:+5V")
-		(at 92.71 22.86 0)
+		(at 80.01 22.86 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -12265,7 +11440,7 @@
 		(fields_autoplaced yes)
 		(uuid "643fc92c-b6e6-4516-a8b6-749c3ac559d1")
 		(property "Reference" "#PWR043"
-			(at 92.71 26.67 0)
+			(at 80.01 26.67 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12276,7 +11451,7 @@
 			)
 		)
 		(property "Value" "+5V"
-			(at 92.71 17.78 0)
+			(at 80.01 17.78 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -12286,7 +11461,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 92.71 22.86 0)
+			(at 80.01 22.86 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12297,7 +11472,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 92.71 22.86 0)
+			(at 80.01 22.86 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12308,7 +11483,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 92.71 22.86 0)
+			(at 80.01 22.86 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12322,7 +11497,7 @@
 			(uuid "a217520a-df40-4c9c-a81e-01b07892fa84")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR043")
 					(unit 1)
@@ -12331,8 +11506,8 @@
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
-		(at 262.89 33.02 0)
+		(lib_id "power:+3V3")
+		(at 39.37 127 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -12341,9 +11516,9 @@
 		(in_pos_files yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "65451502-6430-44fc-b21f-7b6d53f4f6bd")
-		(property "Reference" "#PWR038"
-			(at 262.89 39.37 0)
+		(uuid "676dd3ea-aaf7-4509-82ae-089bf1ddad5e")
+		(property "Reference" "#PWR021"
+			(at 39.37 130.81 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12353,8 +11528,8 @@
 				)
 			)
 		)
-		(property "Value" "GND"
-			(at 262.89 38.1 0)
+		(property "Value" "+3V3"
+			(at 39.37 121.92 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -12364,7 +11539,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 262.89 33.02 0)
+			(at 39.37 127 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12375,7 +11550,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 262.89 33.02 0)
+			(at 39.37 127 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12385,8 +11560,8 @@
 				)
 			)
 		)
-		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 262.89 33.02 0)
+		(property "Description" "Power symbol creates a global label with name \"+3V3\""
+			(at 39.37 127 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12397,12 +11572,12 @@
 			)
 		)
 		(pin "1"
-			(uuid "98f3b4c3-cc3c-46bb-b5ab-b2f2cd6814b9")
+			(uuid "e63a6ec5-8645-441c-a17f-95f00d290cd5")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
-					(reference "#PWR038")
+					(reference "#PWR021")
 					(unit 1)
 				)
 			)
@@ -12493,7 +11668,7 @@
 			(uuid "111cd0c2-41ea-4c44-a112-7a5271d68077")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "J2")
 					(unit 1)
@@ -12572,87 +11747,9 @@
 			(uuid "de0d3feb-6341-46f7-847d-f54ca297a1ee")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR02")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+3V3")
-		(at 41.91 125.73 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "6c5270af-f091-41f2-ac59-5b89eb845439")
-		(property "Reference" "#PWR021"
-			(at 41.91 129.54 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+3V3"
-			(at 41.91 120.65 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 41.91 125.73 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 41.91 125.73 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+3V3\""
-			(at 41.91 125.73 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "db662612-bbf7-4d1d-8b5e-05df8030b057")
-		)
-		(instances
-			(project "kabelPeeler"
-				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
-					(reference "#PWR021")
 					(unit 1)
 				)
 			)
@@ -12728,7 +11825,7 @@
 			(uuid "432e4dca-6dae-43d9-8ce3-527730519d39")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR036")
 					(unit 1)
@@ -12738,7 +11835,7 @@
 	)
 	(symbol
 		(lib_id "power:+3.3V")
-		(at 25.4 67.31 0)
+		(at 39.37 64.77 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -12746,10 +11843,9 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "6e939f1b-e549-4738-951d-ceb27d10be5b")
 		(property "Reference" "#PWR06"
-			(at 25.4 71.12 0)
+			(at 39.37 68.58 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12760,7 +11856,7 @@
 			)
 		)
 		(property "Value" "+3.3V"
-			(at 25.4 62.23 0)
+			(at 39.878 60.452 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -12770,7 +11866,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 25.4 67.31 0)
+			(at 39.37 64.77 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12781,7 +11877,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 25.4 67.31 0)
+			(at 39.37 64.77 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12792,7 +11888,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
-			(at 25.4 67.31 0)
+			(at 39.37 64.77 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12806,7 +11902,7 @@
 			(uuid "ae915f22-df8b-46b9-9c73-e0fd80716aa4")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR06")
 					(unit 1)
@@ -12887,7 +11983,7 @@
 			(uuid "ce229ecb-ebfd-4d31-a453-385c9437680b")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "C2")
 					(unit 1)
@@ -12965,9 +12061,97 @@
 			(uuid "af2d0534-3d39-4b16-9d4b-f5900b4cf378")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR025")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Transistor_FET:AO3401A")
+		(at 36.83 138.43 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "74e830f0-91aa-4cdd-9e0b-efe62bc54ef2")
+		(property "Reference" "Q2"
+			(at 43.18 137.1599 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "AO3401A"
+			(at 43.18 139.6999 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_SMD:SOT-23"
+			(at 41.91 140.335 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(italic yes)
+				)
+				(justify left)
+			)
+		)
+		(property "Datasheet" "http://www.aosmd.com/pdfs/datasheet/AO3401A.pdf"
+			(at 41.91 142.24 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Description" "-4.0A Id, -30V Vds, P-Channel MOSFET, SOT-23"
+			(at 36.83 138.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "3"
+			(uuid "450f6d5c-ff9d-4588-8bde-067fc9d96b53")
+		)
+		(pin "2"
+			(uuid "940f045b-9457-4f7f-8d91-f7810babaf83")
+		)
+		(pin "1"
+			(uuid "79afc7f2-253c-419a-93e6-e7faf9fd1ba0")
+		)
+		(instances
+			(project "kabelPeeler v1.1"
+				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
+					(reference "Q2")
 					(unit 1)
 				)
 			)
@@ -13043,7 +12227,7 @@
 			(uuid "9388b294-8179-4997-b01b-003577ec3200")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR034")
 					(unit 1)
@@ -13121,7 +12305,7 @@
 			(uuid "199fc887-f73f-4eda-8ff3-7cf86b935b5f")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR016")
 					(unit 1)
@@ -13199,7 +12383,7 @@
 			(uuid "ec680385-bf09-4535-94bc-cbf5ecf9dd75")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR035")
 					(unit 1)
@@ -13209,7 +12393,7 @@
 	)
 	(symbol
 		(lib_id "power:+3.3V")
-		(at 101.6 22.86 0)
+		(at 88.9 22.86 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -13220,7 +12404,7 @@
 		(fields_autoplaced yes)
 		(uuid "7f34d466-f27b-4e6c-8c0e-aad31c7f414d")
 		(property "Reference" "#PWR042"
-			(at 101.6 26.67 0)
+			(at 88.9 26.67 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13231,7 +12415,7 @@
 			)
 		)
 		(property "Value" "+3.3V"
-			(at 101.6 17.78 0)
+			(at 88.9 17.78 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -13241,7 +12425,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 101.6 22.86 0)
+			(at 88.9 22.86 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13252,7 +12436,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 101.6 22.86 0)
+			(at 88.9 22.86 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13263,7 +12447,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
-			(at 101.6 22.86 0)
+			(at 88.9 22.86 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13277,7 +12461,7 @@
 			(uuid "ea950c24-23da-43c8-a23f-6709cddb9322")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR042")
 					(unit 1)
@@ -13287,7 +12471,7 @@
 	)
 	(symbol
 		(lib_id "Jumper:SolderJumper_2_Bridged")
-		(at 25.4 72.39 90)
+		(at 39.37 72.39 90)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -13297,7 +12481,7 @@
 		(dnp no)
 		(uuid "80cebdf9-af71-4f60-9f0f-6479a68dca04")
 		(property "Reference" "JP16"
-			(at 23.368 72.39 0)
+			(at 37.338 72.39 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -13307,7 +12491,7 @@
 			)
 		)
 		(property "Value" "SolderJumper_2_Bridged"
-			(at 21.59 72.39 0)
+			(at 35.56 72.39 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13318,7 +12502,7 @@
 			)
 		)
 		(property "Footprint" "Jumper:SolderJumper-2_P1.3mm_Bridged_RoundedPad1.0x1.5mm"
-			(at 25.4 72.39 0)
+			(at 39.37 72.39 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13329,7 +12513,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 31.75 72.39 0)
+			(at 45.72 72.39 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13340,7 +12524,7 @@
 			)
 		)
 		(property "Description" "Solder Jumper, 2-pole, closed/bridged"
-			(at 30.48 72.39 0)
+			(at 44.45 72.39 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13357,7 +12541,7 @@
 			(uuid "f8d51997-4670-4077-ba5b-a783f33b73c8")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "JP16")
 					(unit 1)
@@ -13367,7 +12551,7 @@
 	)
 	(symbol
 		(lib_id "power:+5V")
-		(at 255.27 80.01 0)
+		(at 260.35 80.01 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -13378,7 +12562,7 @@
 		(fields_autoplaced yes)
 		(uuid "82e36d0b-dcc2-4c58-8565-60ec0167f8ad")
 		(property "Reference" "#PWR03"
-			(at 255.27 83.82 0)
+			(at 260.35 83.82 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13389,7 +12573,7 @@
 			)
 		)
 		(property "Value" "+5V"
-			(at 255.27 74.93 0)
+			(at 260.35 74.93 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -13399,7 +12583,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 255.27 80.01 0)
+			(at 260.35 80.01 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13410,7 +12594,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 255.27 80.01 0)
+			(at 260.35 80.01 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13421,7 +12605,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 255.27 80.01 0)
+			(at 260.35 80.01 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13435,7 +12619,7 @@
 			(uuid "690665cb-dcbc-4f50-a751-bd7ba71505bf")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR03")
 					(unit 1)
@@ -13518,7 +12702,7 @@
 			(uuid "79a80edd-6325-4afc-b44c-767afcec1c36")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "U7")
 					(unit 1)
@@ -13601,7 +12785,7 @@
 			(uuid "d8ebdf17-8538-4755-9dc4-a22ce66756e3")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "U5")
 					(unit 1)
@@ -13677,7 +12861,7 @@
 			)
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "H2")
 					(unit 1)
@@ -13758,165 +12942,9 @@
 			(uuid "c489a850-8f87-43ae-89a0-2e74ae435a85")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "C3")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+12V")
-		(at 220.98 21.59 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "8b78a4db-4228-460b-a3e3-2d05308749ab")
-		(property "Reference" "#PWR027"
-			(at 220.98 25.4 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+12V"
-			(at 220.98 16.51 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 220.98 21.59 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 220.98 21.59 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+12V\""
-			(at 220.98 21.59 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "acb4e51d-664c-4b68-b161-a08d9e65ee3e")
-		)
-		(instances
-			(project "kabelPeeler"
-				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
-					(reference "#PWR027")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 232.41 35.56 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "8dc800f6-7eeb-47d9-a372-dff21c67088c")
-		(property "Reference" "#PWR029"
-			(at 232.41 41.91 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 232.41 40.64 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 232.41 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 232.41 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 232.41 35.56 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "0b7b8e32-3102-4f18-b075-11dd01ce92ff")
-		)
-		(instances
-			(project "kabelPeeler"
-				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
-					(reference "#PWR029")
 					(unit 1)
 				)
 			)
@@ -14000,7 +13028,7 @@
 			(uuid "1a028d58-b4eb-485d-a3aa-74121ef8ad77")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "JP6")
 					(unit 1)
@@ -14081,7 +13109,7 @@
 			(uuid "715e38b6-0c9c-4d74-860f-74ca2fa99a37")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "J6")
 					(unit 1)
@@ -14091,7 +13119,7 @@
 	)
 	(symbol
 		(lib_id "Device:LED")
-		(at 92.71 36.83 90)
+		(at 80.01 36.83 90)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -14102,7 +13130,7 @@
 		(fields_autoplaced yes)
 		(uuid "92c50f6d-6104-442c-a7d2-93caba91f825")
 		(property "Reference" "D1"
-			(at 96.52 37.1474 90)
+			(at 83.82 37.1474 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -14113,7 +13141,7 @@
 			)
 		)
 		(property "Value" "LED"
-			(at 96.52 39.6874 90)
+			(at 83.82 39.6874 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -14124,7 +13152,7 @@
 			)
 		)
 		(property "Footprint" "LED_SMD:LED_0805_2012Metric_Pad1.15x1.40mm_HandSolder"
-			(at 92.71 36.83 0)
+			(at 80.01 36.83 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14135,7 +13163,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 92.71 36.83 0)
+			(at 80.01 36.83 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14146,7 +13174,7 @@
 			)
 		)
 		(property "Description" "Light emitting diode"
-			(at 92.71 36.83 0)
+			(at 80.01 36.83 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14157,7 +13185,7 @@
 			)
 		)
 		(property "Sim.Pins" "1=K 2=A"
-			(at 92.71 36.83 0)
+			(at 80.01 36.83 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14174,9 +13202,88 @@
 			(uuid "3ca4b894-0be9-494e-b8f8-71cd3249a94e")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "D1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 29.21 143.51 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "95b56a59-1cb6-4fe5-936c-c61931c0aaf9")
+		(property "Reference" "R3"
+			(at 26.924 139.446 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "10K"
+			(at 26.924 143.51 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
+			(at 30.988 143.51 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 29.21 143.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 29.21 143.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "e90e4dd1-b645-4f11-b855-3dc9e2211637")
+		)
+		(pin "1"
+			(uuid "810da9a9-f367-4951-bebc-b231d8cd5b5c")
+		)
+		(instances
+			(project "kabelPeeler v1.1"
+				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
+					(reference "R3")
 					(unit 1)
 				)
 			)
@@ -14254,7 +13361,7 @@
 			(uuid "4d265f0d-1ee4-4be5-9ff4-fa20e64b36b6")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "JP13")
 					(unit 1)
@@ -14335,7 +13442,7 @@
 			(uuid "833d3659-c5b6-4f2c-88f8-dda7c01d0a7d")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "C11")
 					(unit 1)
@@ -14413,7 +13520,7 @@
 			(uuid "94cbaaad-fd4f-40fc-9f41-5f7f9d5022d9")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR013")
 					(unit 1)
@@ -14491,7 +13598,7 @@
 			(uuid "ead3a373-a481-40a6-a834-3030a652396f")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR09")
 					(unit 1)
@@ -14571,7 +13678,7 @@
 			(uuid "43c6b7cd-59cc-4099-82d7-6c361292cce2")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "J3")
 					(unit 1)
@@ -14649,7 +13756,7 @@
 			(uuid "a466dada-0a31-496c-8225-6eccda41ed18")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR020")
 					(unit 1)
@@ -14727,7 +13834,7 @@
 			(uuid "1786c282-6755-4719-8a4c-eec42865d14d")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR037")
 					(unit 1)
@@ -14804,7 +13911,7 @@
 			(uuid "94ad6a40-970a-47d7-af33-5270f6349c25")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR032")
 					(unit 1)
@@ -14814,7 +13921,7 @@
 	)
 	(symbol
 		(lib_id "Jumper:SolderJumper_3_Bridged12")
-		(at 46.99 76.2 270)
+		(at 53.34 76.2 270)
 		(mirror x)
 		(unit 1)
 		(body_style 1)
@@ -14826,7 +13933,7 @@
 		(fields_autoplaced yes)
 		(uuid "b1b2d021-0ffb-4cc6-b377-14224fc38525")
 		(property "Reference" "JP3"
-			(at 49.53 76.2001 90)
+			(at 55.88 76.2001 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -14837,7 +13944,7 @@
 			)
 		)
 		(property "Value" "MOSI/MISO"
-			(at 50.8 76.2 0)
+			(at 57.15 76.2 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14848,7 +13955,7 @@
 			)
 		)
 		(property "Footprint" "Jumper:SolderJumper-3_P1.3mm_Bridged12_RoundedPad1.0x1.5mm"
-			(at 46.99 76.2 0)
+			(at 53.34 76.2 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14859,7 +13966,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 31.75 76.2 0)
+			(at 38.1 76.2 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14870,7 +13977,7 @@
 			)
 		)
 		(property "Description" "3-pole Solder Jumper, pins 1+2 closed/bridged"
-			(at 34.29 76.2 0)
+			(at 40.64 76.2 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14890,7 +13997,7 @@
 			(uuid "80e45ade-3287-460f-b6ee-bd728a4429ce")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "JP3")
 					(unit 1)
@@ -14968,87 +14075,9 @@
 			(uuid "43812418-d8c5-4c3d-8bf6-a2e3d98ced81")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR014")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+3.3V")
-		(at 273.05 20.32 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "b6a38c69-393b-4f07-98b5-3a105b617433")
-		(property "Reference" "#PWR040"
-			(at 273.05 24.13 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+3.3V"
-			(at 273.05 15.24 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 273.05 20.32 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 273.05 20.32 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
-			(at 273.05 20.32 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "c8de71e9-c279-4758-8f01-4d1c40d9b120")
-		)
-		(instances
-			(project "kabelPeeler"
-				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
-					(reference "#PWR040")
 					(unit 1)
 				)
 			)
@@ -15125,7 +14154,7 @@
 			(uuid "eb7ecb21-249c-4280-92f1-54d5514bf7d6")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR01")
 					(unit 1)
@@ -15207,7 +14236,7 @@
 			(uuid "57fc2640-d4d4-4401-8ede-9df8f9b42671")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "C4")
 					(unit 1)
@@ -15217,7 +14246,7 @@
 	)
 	(symbol
 		(lib_id "Connector:TestPoint")
-		(at 92.71 22.86 90)
+		(at 80.01 22.86 90)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -15228,7 +14257,7 @@
 		(fields_autoplaced yes)
 		(uuid "c5067c8f-bfc0-4f0f-9422-689735208617")
 		(property "Reference" "TP1"
-			(at 89.408 20.32 90)
+			(at 76.708 20.32 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -15238,7 +14267,7 @@
 			)
 		)
 		(property "Value" "TestPoint"
-			(at 89.408 20.32 90)
+			(at 76.708 20.32 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -15248,8 +14277,8 @@
 				)
 			)
 		)
-		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
-			(at 92.71 17.78 0)
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.0mm"
+			(at 80.01 17.78 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -15260,7 +14289,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 92.71 17.78 0)
+			(at 80.01 17.78 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -15271,7 +14300,7 @@
 			)
 		)
 		(property "Description" "test point"
-			(at 92.71 22.86 0)
+			(at 80.01 22.86 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -15285,94 +14314,9 @@
 			(uuid "82c953f6-5f8c-42b4-9445-9a581551dc4c")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "TP1")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Converter_DCDC:R-78B3.3-2.0")
-		(at 262.89 24.13 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "c63ef122-eb3f-444b-8c0a-0084995763e0")
-		(property "Reference" "U8"
-			(at 262.89 17.78 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "R-78B3.3-2.0"
-			(at 262.89 20.32 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Converter_DCDC:Converter_DCDC_RECOM_R-78B-2.0_THT"
-			(at 264.16 30.48 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-					(italic yes)
-				)
-				(justify left)
-			)
-		)
-		(property "Datasheet" "https://www.recom-power.com/pdf/Innoline/R-78Bxx-2.0.pdf"
-			(at 262.89 24.13 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "2A Step-Down DC/DC-Regulator, 4.75-32V input, 3.3V fixed Output Voltage, LM78xx replacement, -40°C to +85°C, SIP3"
-			(at 262.89 24.13 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "2"
-			(uuid "dbba8a03-d940-49fe-a1af-ce2ffdc51c98")
-		)
-		(pin "1"
-			(uuid "725f7e9c-886e-4285-a33d-5bb000a4aad6")
-		)
-		(pin "3"
-			(uuid "5208733b-b1ae-43c6-8c25-c6da651af72f")
-		)
-		(instances
-			(project "kabelPeeler"
-				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
-					(reference "U8")
 					(unit 1)
 				)
 			)
@@ -15448,7 +14392,7 @@
 			(uuid "63cfb107-6ef2-40ac-8f46-f8d380eeed17")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR031")
 					(unit 1)
@@ -15527,87 +14471,9 @@
 			(uuid "1d56325d-46f0-4c91-9e0a-2ff43d7e87a0")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR08")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+5V")
-		(at 245.11 21.59 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "ccc56f74-959e-466f-9e5d-4f6689fa38e8")
-		(property "Reference" "#PWR026"
-			(at 245.11 25.4 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+5V"
-			(at 245.11 16.51 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 245.11 21.59 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 245.11 21.59 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 245.11 21.59 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "2b0c9892-b1c1-4ebb-a01b-ecc371a50d65")
-		)
-		(instances
-			(project "kabelPeeler"
-				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
-					(reference "#PWR026")
 					(unit 1)
 				)
 			)
@@ -15685,7 +14551,7 @@
 			(uuid "b8157aec-064a-4a8e-82b2-f09ca921c139")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "JP14")
 					(unit 1)
@@ -15761,88 +14627,9 @@
 			)
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "H1")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 31.75 148.59 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "d5f59268-cc18-42ca-b7d9-cc34fd04b9f2")
-		(property "Reference" "#PWR07"
-			(at 31.75 154.94 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 31.75 153.67 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 31.75 148.59 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 31.75 148.59 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 31.75 148.59 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "b30ca827-237f-4658-9923-755cc9e00589")
-		)
-		(instances
-			(project "kabelPeeler"
-				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
-					(reference "#PWR07")
 					(unit 1)
 				)
 			)
@@ -15926,7 +14713,7 @@
 			(uuid "346756ef-d383-43d6-af52-4f5404706505")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "JP2")
 					(unit 1)
@@ -15968,7 +14755,7 @@
 				)
 			)
 		)
-		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.0mm"
 			(at 255.27 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -16005,7 +14792,7 @@
 			(uuid "95bea6ad-63ef-4766-a091-cc9d3a344d8f")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "TP9")
 					(unit 1)
@@ -16083,7 +14870,7 @@
 			(uuid "7aaced2d-0980-4c46-a6c5-0a5709232ea2")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR05")
 					(unit 1)
@@ -16092,8 +14879,8 @@
 		)
 	)
 	(symbol
-		(lib_id "Connector:TestPoint")
-		(at 255.27 85.09 90)
+		(lib_id "power:VBUS")
+		(at 29.21 127 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -16102,19 +14889,9 @@
 		(in_pos_files yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "e31fb6ea-083e-4638-9937-d29ce0fe5a59")
-		(property "Reference" "TP11"
-			(at 251.968 82.55 90)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "TestPoint"
-			(at 251.968 82.55 90)
+		(uuid "e01fa781-4eff-4345-87a5-4b1282be84d2")
+		(property "Reference" "#PWR012"
+			(at 29.21 130.81 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -16124,8 +14901,18 @@
 				)
 			)
 		)
-		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
-			(at 255.27 80.01 0)
+		(property "Value" "VBUS"
+			(at 29.21 121.92 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 29.21 127 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -16136,7 +14923,84 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 255.27 80.01 0)
+			(at 29.21 127 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"VBUS\""
+			(at 29.21 127 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "242c7dc8-93c2-4f44-a7fe-c71b14cdb67c")
+		)
+		(instances
+			(project "kabelPeeler v1.1"
+				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
+					(reference "#PWR012")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector:TestPoint")
+		(at 251.46 85.09 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "e31fb6ea-083e-4638-9937-d29ce0fe5a59")
+		(property "Reference" "TP11"
+			(at 247.396 83.058 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "TestPoint"
+			(at 248.158 82.55 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.0mm"
+			(at 251.46 80.01 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 251.46 80.01 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -16147,7 +15011,7 @@
 			)
 		)
 		(property "Description" "test point"
-			(at 255.27 85.09 0)
+			(at 251.46 85.09 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -16161,7 +15025,7 @@
 			(uuid "bf4a4a48-b97a-4680-8d2a-5dc07f3aaeef")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "TP11")
 					(unit 1)
@@ -16192,7 +15056,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" "10nF"
 			(at 161.29 154.9399 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -16243,7 +15107,7 @@
 			(uuid "d09d9ca1-687a-4dec-babc-c9e3afc5d932")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "C8")
 					(unit 1)
@@ -16320,7 +15184,7 @@
 			(uuid "31e714ec-ff5b-4338-a181-fee0c89274be")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR030")
 					(unit 1)
@@ -16362,7 +15226,7 @@
 				)
 			)
 		)
-		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.0mm"
 			(at 255.27 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -16399,7 +15263,7 @@
 			(uuid "306e0a94-d14a-4d23-a00a-3bab7bb6105c")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "TP6")
 					(unit 1)
@@ -16477,7 +15341,7 @@
 			(uuid "3d488c0c-8622-4f6a-bdaf-e99bc48ac669")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR015")
 					(unit 1)
@@ -16487,7 +15351,7 @@
 	)
 	(symbol
 		(lib_id "Connector:TestPoint")
-		(at 101.6 22.86 270)
+		(at 88.9 22.86 270)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -16498,7 +15362,7 @@
 		(fields_autoplaced yes)
 		(uuid "ecdd83aa-df49-47c0-b4f9-215f8c40e45f")
 		(property "Reference" "TP2"
-			(at 106.68 22.8599 90)
+			(at 93.98 22.8599 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -16509,7 +15373,7 @@
 			)
 		)
 		(property "Value" "TestPoint"
-			(at 104.902 25.4 90)
+			(at 92.202 25.4 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -16519,8 +15383,8 @@
 				)
 			)
 		)
-		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
-			(at 101.6 27.94 0)
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.0mm"
+			(at 88.9 27.94 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -16531,7 +15395,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 101.6 27.94 0)
+			(at 88.9 27.94 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -16542,7 +15406,7 @@
 			)
 		)
 		(property "Description" "test point"
-			(at 101.6 22.86 0)
+			(at 88.9 22.86 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -16556,7 +15420,7 @@
 			(uuid "6d8f23a5-56bf-495c-a505-306842c69732")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "TP2")
 					(unit 1)
@@ -16598,7 +15462,7 @@
 				)
 			)
 		)
-		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.0mm"
 			(at 255.27 135.89 0)
 			(hide yes)
 			(show_name no)
@@ -16635,7 +15499,7 @@
 			(uuid "ef75ab37-fa74-423d-9fd0-b7805dc4f0d8")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "TP7")
 					(unit 1)
@@ -16716,7 +15580,7 @@
 			(uuid "c694f431-5bd7-4eb0-a9ae-76b010712277")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "C9")
 					(unit 1)
@@ -16802,7 +15666,7 @@
 			(uuid "71a456f4-43e9-4a86-b4a3-f5320486849a")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "JP7")
 					(unit 1)
@@ -16880,7 +15744,7 @@
 			(uuid "30a9af47-1d81-4dbc-b266-e0ce9f042a6e")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "#PWR041")
 					(unit 1)
@@ -16959,7 +15823,7 @@
 			(uuid "0b918579-ec9d-4554-b4fb-cfa0bc0d1cb7")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "R7")
 					(unit 1)
@@ -17052,7 +15916,7 @@
 			(uuid "64fbb5af-cc8d-4579-afdc-6c924b4d9b39")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "J4")
 					(unit 1)
@@ -17094,7 +15958,7 @@
 				)
 			)
 		)
-		(property "Footprint" "TestPoint:TestPoint_Pad_D1.5mm"
+		(property "Footprint" "TestPoint:TestPoint_Pad_D1.0mm"
 			(at 182.88 81.28 0)
 			(hide yes)
 			(show_name no)
@@ -17131,7 +15995,7 @@
 			(uuid "515066c9-3ce0-4cde-a4ca-c386ff7c300f")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "TP5")
 					(unit 1)
@@ -17211,7 +16075,7 @@
 			(uuid "39b9d754-25bb-482a-ab08-da44ece96ec3")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "JP15")
 					(unit 1)
@@ -17297,9 +16161,88 @@
 			(uuid "c91f7792-1796-490c-9b5f-fe726a62ff8a")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "JP8")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 29.21 149.86 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "fafb54e4-b366-4a86-85c7-c15ceef3eff0")
+		(property "Reference" "#PWR07"
+			(at 29.21 156.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 29.21 154.94 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 29.21 149.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 29.21 149.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 29.21 149.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "ef848aa3-4da5-4db1-8912-a92e4fd4c4cf")
+		)
+		(instances
+			(project "kabelPeeler v1.1"
+				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
+					(reference "#PWR07")
 					(unit 1)
 				)
 			)
@@ -17413,7 +16356,7 @@
 			(uuid "cbde40cc-699b-4473-8731-9780ca8f837d")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "U1")
 					(unit 1)
@@ -17495,7 +16438,7 @@
 			(uuid "0538aebd-6c61-4e6e-9fbb-51a112029593")
 		)
 		(instances
-			(project "kabelPeeler"
+			(project "kabelPeeler v1.1"
 				(path "/c0134968-c255-4d9d-8627-96b71425a7cf"
 					(reference "C7")
 					(unit 1)

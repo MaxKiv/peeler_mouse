@@ -1,6 +1,6 @@
 {
   "board": {
-    "active_layer": 3,
+    "active_layer": 2,
     "active_layer_preset": "",
     "auto_track_width": false,
     "hidden_netclasses": [],
@@ -26,7 +26,7 @@
       "pads": true,
       "text": true,
       "tracks": true,
-      "vias": false,
+      "vias": true,
       "zones": true
     },
     "visible_items": [
@@ -53,7 +53,7 @@
       "board_outline_area",
       "ly_points"
     ],
-    "visible_layers": "ffffffff_ffffffff_ffffff75_5755557f",
+    "visible_layers": "ffffffff_ffffffff_ffffd575_d75555df",
     "zone_display_mode": 0
   },
   "git": {
@@ -63,7 +63,7 @@
     "ssh_key": ""
   },
   "meta": {
-    "filename": "kabelPeeler.kicad_prl",
+    "filename": "kabelPeeler v1.1.kicad_prl",
     "version": 5
   },
   "net_inspector_panel": {
@@ -94,12 +94,12 @@
     "col_widths": [
       104,
       94,
-      78,
-      63,
-      68,
+      98,
       79,
-      70,
-      66,
+      85,
+      99,
+      87,
+      83,
       58,
       58
     ],
