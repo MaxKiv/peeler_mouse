@@ -45,14 +45,14 @@ pub fn run(spawner: &Spawner, p: MotorPeripherals) -> anyhow::Result<()> {
     #[cfg(feature = "limit_switch")]
     spawner.spawn(manage_limit_switch(p.limit_switch))?;
 
-    #[cfg(feature = "limit_encoder")]
+    #[cfg(feature = "home_encoder_stall")]
     {
         use crate::actuation::stepper::limit_encoder_task::{
-            encoder_limit_switch, monitor_encoder_stall,
+            // encoder_limit_switch,
+            monitor_encoder_stall,
         };
 
         spawner.spawn(monitor_encoder_stall())?;
-        spawner.spawn(encoder_limit_switch())?;
     }
 
     Ok(())

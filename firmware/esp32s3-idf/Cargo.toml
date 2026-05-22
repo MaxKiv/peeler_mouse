@@ -10,6 +10,7 @@ harness = false # do not use the built in cargo test harness -> resolve rust-ana
 
 [features]
 default = ["pcb", "webserver", "home_encoder_stall"]
+# default = ["pcb", "webserver", "home_limit_switch"]
 devkit = [] # Use Devkit pin layout (esp32s3-camera-devit)
 pcb = [] # Use PCB pin layout (Seeed Studio XIAO ESP32-S3)
 sd = [] # Throttled logging of camera images to an SD card

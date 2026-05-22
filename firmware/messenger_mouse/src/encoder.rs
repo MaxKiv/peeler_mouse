@@ -79,11 +79,21 @@ impl EncoderData {
     }
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub struct EncoderState {
     pub encoder_data: EncoderData,
     pub validity: EncoderValidity,
+}
+
+impl PartialEq for EncoderState {
+    fn eq(&self, other: &Self) -> bool {
+        const EPSILON_ANGLE: u32 = 500;
+
+        self.validity == other.validity
+            && self.encoder_data.revolution == other.encoder_data.revolution
+            && self.encoder_data.angle.abs_diff(other.encoder_data.angle) <= EPSILON_ANGLE
+    }
 }
 
 impl EncoderState {

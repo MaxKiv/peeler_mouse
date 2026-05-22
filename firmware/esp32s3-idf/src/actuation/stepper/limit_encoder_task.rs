@@ -16,7 +16,7 @@ use crate::{
 
 pub static STALL_EVENT: Watch<CriticalSectionRawMutex, StallEvent, 1> = Watch::new();
 pub static START_STALL_MONITOR: Watch<CriticalSectionRawMutex, StallMonitorCmd, 1> = Watch::new();
-pub const ENCODER_STALL_DEBOUNCE_DURATION: Duration = Duration::from_millis(100);
+pub const ENCODER_STALL_DEBOUNCE_DURATION: Duration = Duration::from_millis(300);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum StallMonitorCmd {
@@ -73,6 +73,7 @@ async fn detect_stalls(
             Some(before) => before,
             None => {
                 log::error!("ENCODER STALL: unable to get encoder state");
+                Timer::after(ENCODER_STALL_DEBOUNCE_DURATION).await;
                 continue;
             }
         };
@@ -82,58 +83,74 @@ async fn detect_stalls(
             Some(after) => after,
             None => {
                 log::error!("ENCODER STALL: unable to get encoder state");
+                Timer::after(ENCODER_STALL_DEBOUNCE_DURATION).await;
                 continue;
             }
         };
 
         let is_stalled = before == after;
 
-        if is_stalled && !(*previously_stalled) {
+        // if is_stalled && !(*previously_stalled) {
+        if is_stalled {
             *previously_stalled = true;
             tx.send(StallEvent::Stalled);
-            log::warn!("ENCODER STALL: ~~~~ STALLED ~~~~");
+            log::warn!(
+                "ENCODER STALL: ~~~~ STALLED ~~~~ {}:{} -> {}:{}",
+                before.encoder_data.angle,
+                before.encoder_data.revolution,
+                after.encoder_data.angle,
+                after.encoder_data.revolution,
+            );
         } else if !is_stalled && *previously_stalled {
             *previously_stalled = false;
             tx.send(StallEvent::Resolved);
-            log::warn!("ENCODER STALL: ~~~~ RESOLVED ~~~~");
+            log::warn!(
+                "ENCODER STALL: ~~~~ RESOLVED ~~~~ {}:{} -> {}:{}",
+                before.encoder_data.angle,
+                before.encoder_data.revolution,
+                after.encoder_data.angle,
+                after.encoder_data.revolution,
+            );
         }
     }
 }
 
 // Watches encoder for motor stalls
 // Informs others about them
-#[embassy_executor::task]
-pub async fn encoder_limit_switch() {
-    log::info!("MOTOR: Init encoder limit switch task");
-
-    let tx = LIMIT_EVENT.sender();
-    let mut rx_ll_stepper_state = LOW_LEVEL_STEPPER_STATE.receiver().unwrap();
-    let mut rx_stall_event = STALL_EVENT.receiver().unwrap();
-
-    loop {
-        wait_for_stepper_state(&mut rx_ll_stepper_state, is_moving).await;
-
-        let stalled = select(
-            wait_for_stall_event(&mut rx_stall_event, StallEvent::Stalled),
-            wait_for_stepper_state(&mut rx_ll_stepper_state, is_not_moving),
-        )
-        .await;
-
-        if stalled.is_first() {
-            tx.send(LimitSwitchState::Active);
-
-            select(
-                wait_for_stall_event(&mut rx_stall_event, StallEvent::Resolved),
-                wait_for_stepper_state(&mut rx_ll_stepper_state, is_not_moving),
-            )
-            .await;
-
-            // Send Inactive regardless of which branch won
-            // motor stopped normally or stall resolved; upstream needs a clean reset
-            tx.send(LimitSwitchState::Inactive);
-        }
-    }
-}
+// #[embassy_executor::task]
+// pub async fn encoder_limit_switch() {
+//     log::info!("ENCODER STALL: starting encoder_limit_switch task");
+//
+//     let tx = LIMIT_EVENT.sender();
+//     let mut rx_ll_stepper_state = LOW_LEVEL_STEPPER_STATE.receiver().unwrap();
+//     let mut rx_stall_event = STALL_EVENT.receiver().unwrap();
+//
+//     loop {
+//         wait_for_stepper_state(&mut rx_ll_stepper_state, is_moving).await;
+//
+//         log::info!("ENCODER STALL: ");
+//
+//         let stalled = select(
+//             wait_for_stall_event(&mut rx_stall_event, StallEvent::Stalled),
+//             wait_for_stepper_state(&mut rx_ll_stepper_state, is_not_moving),
+//         )
+//         .await;
+//
+//         if stalled.is_first() {
+//             tx.send(LimitSwitchState::Active);
+//
+//             select(
+//                 wait_for_stall_event(&mut rx_stall_event, StallEvent::Resolved),
+//                 wait_for_stepper_state(&mut rx_ll_stepper_state, is_not_moving),
+//             )
+//             .await;
+//
+//             // Send Inactive regardless of which branch won
+//             // motor stopped normally or stall resolved; upstream needs a clean reset
+//             tx.send(LimitSwitchState::Inactive);
+//         }
+//     }
+// }
 
 async fn wait_for_stepper_state(
     rx: &mut Receiver<'_, CriticalSectionRawMutex, StepperState, 1>,

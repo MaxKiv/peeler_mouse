@@ -112,57 +112,49 @@ pub async fn control_knife_motor() {
 
                 // We must be homed before accepting new motor actions
                 if let HomeStatus::Homed { position: _ } = home_status {
-                    // We must not be stalled before accepting new motor actions
-                    if current_stall_state == StallEvent::Resolved {
-                        // Is this a new action?
-                        // This state tracking is ergonomic to do here due to the nature of UART comms
-                        // Note: custom implementation of MotorVelocitySetpoint/MotorPositionSetpoint PartialEq
-                        if new_action != current_action {
-                            let new_cmd = match new_action.clone() {
-                                MotorAction::Hold => StepperAction::new_stopped(),
+                    // Is this a new action?
+                    // This state tracking is ergonomic to do here due to the nature of UART comms
+                    // Note: custom implementation of MotorVelocitySetpoint/MotorPositionSetpoint PartialEq
+                    if new_action != current_action {
+                        let new_cmd = match new_action.clone() {
+                            MotorAction::Hold => StepperAction::new_stopped(),
 
-                                MotorAction::MoveVelocity(sp) => {
-                                    debug!("MOTOR HI: new velocity setpoint: {:?}", sp);
-                                    StepperAction::MoveVelocity(sp)
-                                }
+                            MotorAction::MoveVelocity(sp) => {
+                                debug!("MOTOR HI: new velocity setpoint: {:?}", sp);
+                                StepperAction::MoveVelocity(sp)
+                            }
 
-                                MotorAction::Home => {
-                                    // Home command; Reset home status
-                                    home_status = HomeStatus::Lost;
-                                    home_tx.send(home_status.clone());
+                            MotorAction::Home => {
+                                // Home command; Reset home status
+                                home_status = HomeStatus::Lost;
+                                home_tx.send(home_status.clone());
 
-                                    StepperAction::new_homing()
-                                }
+                                StepperAction::new_homing()
+                            }
 
-                                MotorAction::MovePosition(MotorPositionSetpoint {
-                                    target,
+                            MotorAction::MovePosition(MotorPositionSetpoint { target, speed }) => {
+                                let target_pos_steps = position_to_steps(target);
+
+                                // Inform upstream we are starting a new position mode action
+                                pos_tx.send(PositionModeStatus::InProgress);
+
+                                StepperAction::MovePosition(StepperPositionSetpoint {
+                                    target: target_pos_steps,
                                     speed,
-                                }) => {
-                                    let target_pos_steps = position_to_steps(target);
+                                })
+                            }
 
-                                    // Inform upstream we are starting a new position mode action
-                                    pos_tx.send(PositionModeStatus::InProgress);
+                            MotorAction::Coast => StepperAction::Coast,
+                        };
 
-                                    StepperAction::MovePosition(StepperPositionSetpoint {
-                                        target: target_pos_steps,
-                                        speed,
-                                    })
-                                }
-
-                                MotorAction::Coast => StepperAction::Coast,
-                            };
-
-                            // Send new StepperCommand & Bookkeeping
-                            set_action(
-                                new_action,
-                                &mut current_action,
-                                new_cmd,
-                                &mut current_cmd,
-                                &cmd_tx,
-                            );
-                        }
-                    } else {
-                        // Stalled: ignore further commands untill stall resolves
+                        // Send new StepperCommand & Bookkeeping
+                        set_action(
+                            new_action,
+                            &mut current_action,
+                            new_cmd,
+                            &mut current_cmd,
+                            &cmd_tx,
+                        );
                     }
                 } else {
                     // Not homed: attempt to home
@@ -265,46 +257,49 @@ pub async fn control_knife_motor() {
                             );
                         }
                     }
-                    MotorAction::MoveVelocity(ref mut sp) => {
-                        if new_stall {
-                            // Stalled during velocity movement, move in reverse direction
-                            sp.dir.flip();
-
-                            set_action(
-                                MotorAction::MoveVelocity(sp.clone()),
-                                &mut current_action,
-                                StepperAction::new_stopped(),
-                                &mut current_cmd,
-                                &cmd_tx,
-                            );
-                        } else if stall_resolved {
-                            // Previous stall is now resolved
-                            // Coast motors
-                            set_action(
-                                MotorAction::Coast,
-                                &mut current_action,
-                                StepperAction::new_stopped(),
-                                &mut current_cmd,
-                                &cmd_tx,
-                            );
-                        }
-                    }
-                    MotorAction::MovePosition(_) => {
-                        if new_stall {
-                            // Stalled during position movement, stop moving
-                            // TODO: Is this right?
-                            set_action(
-                                MotorAction::Coast,
-                                &mut current_action,
-                                StepperAction::new_stopped(),
-                                &mut current_cmd,
-                                &cmd_tx,
-                            );
-                        }
-                    }
-                    MotorAction::Coast | MotorAction::Hold => {
-                        // Stalled during Coast or Hold
-                        // Expected; Purposly ignored
+                    // MotorAction::MoveVelocity(ref mut sp) => {
+                    //     if new_stall {
+                    //         // Stalled during velocity movement, move in reverse direction
+                    //         sp.dir.flip();
+                    //
+                    //         set_action(
+                    //             MotorAction::MoveVelocity(sp.clone()),
+                    //             &mut current_action,
+                    //             StepperAction::new_stopped(),
+                    //             &mut current_cmd,
+                    //             &cmd_tx,
+                    //         );
+                    //     } else if stall_resolved {
+                    //         // Previous stall is now resolved
+                    //         // Coast motors
+                    //         set_action(
+                    //             MotorAction::Coast,
+                    //             &mut current_action,
+                    //             StepperAction::new_stopped(),
+                    //             &mut current_cmd,
+                    //             &cmd_tx,
+                    //         );
+                    //     }
+                    // }
+                    // MotorAction::MovePosition(_) => {
+                    //     if new_stall {
+                    //         // Stalled during position movement, stop moving
+                    //         // TODO: Is this right?
+                    //         set_action(
+                    //             MotorAction::Coast,
+                    //             &mut current_action,
+                    //             StepperAction::new_stopped(),
+                    //             &mut current_cmd,
+                    //             &cmd_tx,
+                    //         );
+                    //     }
+                    // }
+                    // MotorAction::Coast | MotorAction::Hold => {
+                    //     // Stalled during Coast or Hold
+                    //     // Expected; Purposly ignored
+                    // }
+                    _ => {
+                        // Intentionally empty
                     }
                 }
 
