@@ -42,5 +42,5 @@ pub struct EncoderData {
     pub dir: Direction,
     pub pos: i16,
     pub filtered_delta: i16,
-    pub count: u16,
+    pub count: i16,
 }

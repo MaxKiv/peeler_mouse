@@ -38,8 +38,8 @@ impl Appstate {
     }
 
     pub fn selected_motor_idx(&mut self, idx: i16) {
-        let len = MOTORS.len() as i16;
-        let wrapped = idx.rem_euclid(len) as usize;
+        const LEN: i16 = MOTORS.len() as i16;
+        let wrapped = idx.rem_euclid(LEN) as usize;
         self.selected_motor = MOTORS[wrapped].clone();
     }
 

@@ -76,9 +76,7 @@ where
     // Move the stepper at given step frequency
     pub async fn run_hertz(&mut self, freq: Hertz, dir: Direction) -> Result<(), TB6600Error> {
         // Make sure the motor is going in the right direction
-        if dir != self.direction {
-            self.set_direction(dir.clone()).await?;
-        }
+        self.set_direction(dir.clone()).await?;
 
         // Start PWM at requested step frequency
         if let Hertz(0) = freq {

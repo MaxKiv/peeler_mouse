@@ -95,7 +95,7 @@ pub async fn supervise_hmi() {
                 let (encoder_pos, encoder_delta) =
                     get_encoder_pos_delta(encoder_count, app_state.encoder_pos);
 
-                info!(
+                debug!(
                     "SV: encoder_count: {} - encoder_pos: {} - delta: {}",
                     encoder_count, encoder_pos, encoder_delta
                 );
@@ -205,14 +205,14 @@ pub fn calculate_new_motor_speed(
     out
 }
 
-pub fn get_encoder_pos_delta(count: u16, last_pos: i16) -> (i16, i16) {
-    const COUNT_MAP: [u16; 25] = [
+pub fn get_encoder_pos_delta(count: i16, last_pos: i16) -> (i16, i16) {
+    const COUNT_MAP: [i16; 25] = [
         0, 4, 8, 12, 16, 20, 23, 27, 31, 35, 39, 43, 47, 51, 55, 59, 63, 67, 71, 75, 79, 83, 87,
         91, 95,
     ];
     const LEN: i16 = COUNT_MAP.len() as i16;
 
-    let val = count % COUNT_MAP[COUNT_MAP.len() - 1];
+    let val = (100 * LEN + count) % COUNT_MAP[COUNT_MAP.len() - 1];
 
     let new_pos = COUNT_MAP
         .iter()
