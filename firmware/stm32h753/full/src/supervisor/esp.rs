@@ -8,6 +8,7 @@ use messenger_mouse::{
 use crate::{comms::task::SETPOINT_WATCH, supervisor::task::APPSTATE_WATCH};
 
 const TASK_PERIOD: Duration = Duration::from_millis(300);
+const LED_BRIGHTNESS: f32 = 0.1;
 
 /// Uses latest appstate to instruct ESP32
 #[embassy_executor::task]
@@ -45,7 +46,9 @@ pub async fn supervise_esp() {
                 } else {
                     MotorAction::Coast
                 },
-                led_setpoint: LedSetpoint { brightness: 0.1 },
+                led_setpoint: LedSetpoint {
+                    brightness: LED_BRIGHTNESS,
+                },
             });
         } else {
             setpoint_tx.send(Setpoint::new_safe());
