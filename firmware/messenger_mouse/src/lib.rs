@@ -11,8 +11,9 @@ use crate::{
 };
 
 pub const REPORT_BYTES: usize = core::mem::size_of::<Report>();
-pub const SETPOINT_BYTES: usize = core::mem::size_of::<Setpoint>();
+pub const SETPOINT_BYTES: usize = core::mem::size_of::<Esp32Setpoint>();
 pub const BAUDRATE: u32 = 115200;
+pub const LED_BRIGHTNESS: f32 = 0.1;
 
 pub fn serialize_report(report: Report, buf: &mut [u8]) -> postcard::Result<&mut [u8]> {
     postcard::to_slice_cobs(&report, buf)
@@ -22,36 +23,44 @@ pub fn deserialize_report(buf: &mut [u8]) -> postcard::Result<Report> {
     postcard::from_bytes_cobs(buf)
 }
 
-pub fn serialize_setpoint(setpoint: Setpoint, buf: &mut [u8]) -> postcard::Result<&mut [u8]> {
+pub fn serialize_setpoint(setpoint: Esp32Setpoint, buf: &mut [u8]) -> postcard::Result<&mut [u8]> {
     postcard::to_slice_cobs(&setpoint, buf)
 }
 
-pub fn deserialize_setpoint(buf: &mut [u8]) -> postcard::Result<Setpoint> {
+pub fn deserialize_setpoint(buf: &mut [u8]) -> postcard::Result<Esp32Setpoint> {
     postcard::from_bytes_cobs(buf)
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, Default)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub struct Report {
-    pub setpoint: Setpoint,
+    pub setpoint: Esp32Setpoint,
     pub app_state: AppState,
+    pub control_effort: Option<ControlEffort>,
     pub measurements: Measurements,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug, Default)]
+#[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
+pub struct ControlEffort {
+    pub translation: MotorAction,
+    pub rotation: MotorAction,
+    pub knife: MotorAction,
+    pub led: LedSetpoint,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default, PartialEq)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
-pub struct Setpoint {
+pub struct Esp32Setpoint {
     pub knife_manager: KnifeManager,
     pub knife_setpoint: MotorAction,
-    pub led_setpoint: LedSetpoint,
 }
 
-impl Setpoint {
+impl Esp32Setpoint {
     pub fn new_safe() -> Self {
         Self {
             knife_manager: KnifeManager::Manual,
             knife_setpoint: MotorAction::Hold,
-            led_setpoint: LedSetpoint { brightness: 0.0 },
         }
     }
 }

@@ -33,6 +33,10 @@ impl MotorAction {
             MotorAction::MovePosition(_) => MotorAction::Coast,
         }
     }
+
+    pub fn new_velocity(dir: MotorDirection, speed: Velocity) -> Self {
+        Self::MoveVelocity(MotorVelocitySetpoint { dir, speed })
+    }
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]

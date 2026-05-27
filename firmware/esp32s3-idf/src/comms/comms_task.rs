@@ -25,7 +25,7 @@ static REPORT_PIPE: StaticCell<pipe::Pipe<Cs, { messenger_mouse::REPORT_BYTES * 
 static SETPOINT_PIPE: StaticCell<pipe::Pipe<Cs, { messenger_mouse::SETPOINT_BYTES * 4 }>> =
     StaticCell::new();
 pub static REPORT_WATCH: Watch<Cs, messenger_mouse::Report, 1> = Watch::new();
-pub static SETPOINT_WATCH: Watch<Cs, messenger_mouse::Setpoint, 2> = Watch::new();
+pub static SETPOINT_WATCH: Watch<Cs, messenger_mouse::Esp32Setpoint, 2> = Watch::new();
 
 // Spawn all COMMS & FRAMING tasks required for external communications
 pub fn run(spawner: &Spawner, comms_peri: CommsPeripherals) -> anyhow::Result<()> {
@@ -148,7 +148,7 @@ pub async fn serialise_task(
 #[embassy_executor::task]
 pub async fn deserialise_task(
     setpoint_pipe_rx: pipe::Reader<'static, Cs, { messenger_mouse::SETPOINT_BYTES * 4 }>,
-    setpoint_sender: watch::Sender<'static, Cs, messenger_mouse::Setpoint, 2>,
+    setpoint_sender: watch::Sender<'static, Cs, messenger_mouse::Esp32Setpoint, 2>,
 ) {
     info!("COMMS: Starting deserialise task");
     let mut framing_buf = heapless::Vec::<u8, { messenger_mouse::SETPOINT_BYTES * 2 }>::new();

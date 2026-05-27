@@ -8,7 +8,7 @@ use crate::{
 use defmt::*;
 use embassy_executor::Spawner;
 use l9110::CUT_MAX_SPEED_MS_PS;
-use messenger_mouse::{Setpoint, motor::MotorAction};
+use messenger_mouse::{Esp32Setpoint, motor::MotorAction};
 use uom::si::{f32::Velocity, velocity::millimeter_per_second};
 
 pub const KNIFE_OPERATIONAL_SPEED_MM_PS: f32 = 1.0;

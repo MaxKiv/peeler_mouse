@@ -2,18 +2,17 @@ pub mod average;
 pub mod encoder_test;
 pub mod joris;
 
-use std::sync::{
-    atomic::{AtomicU32, Ordering},
-    Arc,
-};
+use std::sync::Arc;
 
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Watch};
-use messenger_mouse::{motor::MotorAction, VisionAlgorithmOutput};
+use messenger_mouse::{
+    motor::{MotorAction, MotorDirection, MotorVelocitySetpoint},
+    ControlEffort, LedSetpoint, VisionAlgorithmOutput, LED_BRIGHTNESS,
+};
 use uom::si::{f32::Velocity, velocity::millimeter_per_second};
 
 use crate::{
     actuation::stepper::motor_task::VISION_MAX_SPEED_MM_PS,
-    camera::{framebuffer::FrameBuffer, framebuffer_view::FrameBufferView},
+    camera::framebuffer_view::FrameBufferView,
     control::vision::{
         algo::{average::simple_average, encoder_test::periodic_encoder_test, joris::vision_joris},
         HORIZONTAL_SOBEL_KERNEL,
@@ -32,23 +31,38 @@ const ALGO: Algo = Algo::Joris;
 const HIGH_THRESHOLD: u64 = (u8::MAX / 2 + 20) as u64;
 const LOW_THRESHOLD: u64 = (u8::MAX / 2 - 20) as u64;
 
-pub fn vision_output_to_motorcommand(algo_out: VisionAlgorithmOutput) -> MotorAction {
-    match algo_out {
+pub fn get_control_output_from_vision(algo_out: VisionAlgorithmOutput) -> ControlEffort {
+    let knife_action = match algo_out {
         VisionAlgorithmOutput::Hold => MotorAction::Hold,
         VisionAlgorithmOutput::Up(speed) => {
-            MotorAction::MoveVelocity(messenger_mouse::motor::MotorVelocitySetpoint::new_forward(
-                Velocity::new::<millimeter_per_second>(
-                    speed as f32 / u8::MAX as f32 * VISION_MAX_SPEED_MM_PS,
-                ),
-            ))
+            MotorAction::MoveVelocity(MotorVelocitySetpoint::new_forward(Velocity::new::<
+                millimeter_per_second,
+            >(
+                speed as f32 / u8::MAX as f32 * VISION_MAX_SPEED_MM_PS,
+            )))
         }
         VisionAlgorithmOutput::Down(speed) => {
-            MotorAction::MoveVelocity(messenger_mouse::motor::MotorVelocitySetpoint::new_reverse(
-                Velocity::new::<millimeter_per_second>(
-                    -(speed as f32 / u8::MAX as f32 * VISION_MAX_SPEED_MM_PS),
-                ),
-            ))
+            MotorAction::MoveVelocity(MotorVelocitySetpoint::new_reverse(Velocity::new::<
+                millimeter_per_second,
+            >(
+                -(speed as f32 / u8::MAX as f32 * VISION_MAX_SPEED_MM_PS),
+            )))
         }
+    };
+
+    ControlEffort {
+        translation: MotorAction::new_velocity(
+            MotorDirection::Forward,
+            Velocity::new::<millimeter_per_second>(0.01),
+        ),
+        rotation: MotorAction::new_velocity(
+            MotorDirection::Forward,
+            Velocity::new::<millimeter_per_second>(1.0),
+        ),
+        knife: knife_action,
+        led: LedSetpoint {
+            brightness: LED_BRIGHTNESS,
+        },
     }
 }
 

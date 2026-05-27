@@ -1,3 +1,6 @@
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+use embassy_sync::watch::Sender;
+use esp_idf_sys::EspError;
 use std::{sync::Arc, time::Instant};
 
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Receiver};
@@ -8,8 +11,9 @@ use log::*;
 use messenger_mouse::{
     encoder::EncoderState,
     motor::{KnifeManager, MotorAction},
-    AppState, Setpoint, VisionAlgorithmOutput, VisionData,
+    AppState, Esp32Setpoint, VisionAlgorithmOutput, VisionData,
 };
+use messenger_mouse::{ControlEffort, LED_BRIGHTNESS};
 
 use crate::{
     actuation::stepper::{
@@ -21,16 +25,16 @@ use crate::{
         framebuffer_view::{FrameBufferView, FRAME_DONE_SIGNAL},
     },
     comms::comms_task::REPORT_WATCH,
-    control::vision::algo::{calculate_control_effort, vision_output_to_motorcommand},
+    control::vision::algo::{calculate_control_effort, get_control_output_from_vision},
     encoder::encoder_task::ENCODER_STATE,
 };
 
-const CONTROL_LOOP_FREQUENCY: Duration = Duration::from_hz(2);
+const CONTROL_LOOP_FREQUENCY: Duration = Duration::from_hz(5);
 const HOME_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[embassy_executor::task]
 pub async fn control_loop(
-    mut setpoint_receiver: Receiver<'static, Cs, Setpoint, 2>,
+    mut setpoint_receiver: Receiver<'static, Cs, Esp32Setpoint, 2>,
     mut led: LedcDriver<'static>,
 ) {
     info!("CONTROL: Entering Startup");
@@ -49,7 +53,7 @@ pub async fn control_loop(
     info!("CONTROL: Initialising");
 
     // Track latest setpoint
-    let mut latest_setpoint = messenger_mouse::Setpoint::default();
+    let mut latest_setpoint = messenger_mouse::Esp32Setpoint::default();
 
     // Track latest frame generation
     let mut last_gen = 0u32;
@@ -59,6 +63,8 @@ pub async fn control_loop(
 
     // Latest framebuffer signal
     let framebuffer_rx = FRAMEBUFFER_CONTROL_LOOP_CHANNEL.receiver();
+
+    let report_tx = REPORT_WATCH.sender();
 
     let mut encoder_rx = ENCODER_STATE
         .receiver()
@@ -70,22 +76,24 @@ pub async fn control_loop(
         .expect("not enough KNIFE_MOTOR_HOME N");
 
     // Startup: Ask motor controller to start homing
-    info!("CONTROL: Startup -> Homing motor");
-    loop {
-        motor_tx.send(MotorAction::Home);
-        let home_status = motor_home_rx.changed().with_timeout(HOME_TIMEOUT).await;
-        error!(
-            "CONTROL: Startup -> Received home status: {:?}",
-            home_status
-        );
 
-        if let Ok(HomeStatus::Homed { position: _ }) = home_status {
-            error!("CONTROL: Motor indicates succesful homing, running main loop");
-            break;
+    #[cfg(feature = "home_on_startup")]
+    {
+        info!("CONTROL: Startup -> Homing motor");
+        loop {
+            motor_tx.send(MotorAction::Home);
+            let home_status = motor_home_rx.changed().with_timeout(HOME_TIMEOUT).await;
+            error!(
+                "CONTROL: Startup -> Received home status: {:?}",
+                home_status
+            );
+
+            if let Ok(HomeStatus::Homed { position: _ }) = home_status {
+                error!("CONTROL: Motor indicates succesful homing, running main loop");
+                break;
+            }
         }
     }
-
-    let report_tx = REPORT_WATCH.sender();
 
     // Main Control loop
     loop {
@@ -96,8 +104,6 @@ pub async fn control_loop(
                 latest_setpoint = new_setpoint;
             }
         }
-
-        let led_brightness = latest_setpoint.led_setpoint.brightness;
 
         // Get latest encoder value
         let knife_encoder_state = encoder_rx.try_get().unwrap_or_else(|| {
@@ -112,21 +118,15 @@ pub async fn control_loop(
             KnifeManager::Manual => AppState::StandBy,
         };
 
-        let (motor_cmd, vision_data) = match latest_setpoint.knife_manager.clone() {
-            KnifeManager::Manual => {
-                // Translate knife motor command to
-                // info!("CONTROL: MANUAL setpoint: {:?}", latest_setpoint);
-                let motor_cmd = latest_setpoint.knife_setpoint.clone();
+        // Run vision algorithm if enabled
+        let (control_effort, vision_data) =
+            if let KnifeManager::Vision = latest_setpoint.knife_manager {
+                // Run vision routine
+                // - Get latest framebuffer
+                // - Attempt to detect tearing
+                // - Calculating vision algorithm output
+                // - Transform this output into a MotorAction
 
-                (motor_cmd, None)
-            }
-
-            // Webserver is disabled; Run vision routine
-            // - Get latest framebuffer
-            // - Attempt to detect tearing
-            // - Calculating vision algorithm output
-            // - Transform this output into a MotorAction
-            KnifeManager::Vision => {
                 // Get latest framebuffer from camera
                 let frame = framebuffer_rx.receive().await;
                 warn!("CONTROL: frame: {}", frame.generation);
@@ -153,11 +153,11 @@ pub async fn control_loop(
                 FRAME_DONE_SIGNAL.signal(());
 
                 // Convert into motor command
-                let motor_cmd = vision_output_to_motorcommand(vision_output.clone());
+                let control_effort = get_control_output_from_vision(vision_output.clone());
 
                 info!(
                     "CONTROL: VISION frame {} -> vision alg: {:?} -> control effort: {:?}",
-                    gen, vision_output, motor_cmd,
+                    gen, vision_output, control_effort,
                 );
 
                 // Export in nice type
@@ -172,20 +172,29 @@ pub async fn control_loop(
                 // Bookkeeping
                 last_gen = vision_data.generation;
 
-                (motor_cmd, Some(vision_data))
-            }
-        };
-
-        // Actuate Knife adjustment motor
-        info!("CONTROL: MOTOR CMD {:?}", motor_cmd,);
-        motor_tx.send(motor_cmd);
+                (Some(control_effort), Some(vision_data))
+            } else {
+                (None, None)
+            };
 
         // Actuate LED
-        // Note: Esp driver clamps DC value
-        if let Err(err) = led.set_duty((led_brightness * (led.get_max_duty() as f32)) as u32) {
+        let brightness = if let Some(ControlEffort { led, .. }) = &control_effort {
+            led.brightness
+        } else {
+            LED_BRIGHTNESS
+        };
+        if let Err(err) = actuate_led(&mut led, brightness) {
             log::error!("CONTROL: unable to set LED duty cycle: {err}");
             current_appstate = AppState::Fault;
         }
+
+        // Actuate knife motor
+        let knife_motor_action = if let Some(ControlEffort { knife, .. }) = &control_effort {
+            knife.clone()
+        } else {
+            latest_setpoint.knife_setpoint.clone()
+        };
+        actuate_knife_motor(knife_motor_action, &motor_tx);
 
         // Collect measurement for report
         let measurements = messenger_mouse::Measurements {
@@ -193,11 +202,12 @@ pub async fn control_loop(
             knife_encoder_state,
         };
 
-        // Combine with vision data into report
+        // Combine with vision data and control_effort into report
         let report = messenger_mouse::Report {
             setpoint: latest_setpoint.clone(),
             app_state: current_appstate,
             measurements,
+            control_effort,
         };
 
         // Report to STM32
@@ -207,6 +217,20 @@ pub async fn control_loop(
         // Throttle control loop
         ticker.next().await;
     }
+}
+
+fn actuate_knife_motor(
+    knife_motor_action: MotorAction,
+    motor_tx: &Sender<CriticalSectionRawMutex, MotorAction, 2>,
+) {
+    // Actuate Knife adjustment motor
+    info!("CONTROL: MOTOR CMD {:?}", knife_motor_action);
+    motor_tx.send(knife_motor_action);
+}
+
+fn actuate_led(led: &mut LedcDriver<'static>, brightness: f32) -> Result<(), EspError> {
+    // Note: Esp driver clamps DC value
+    led.set_duty((brightness * (led.get_max_duty() as f32)) as u32)
 }
 
 fn detect_tearing(current_gen: u32, last_gen: u32, current_hash: u32, last_hash: u32) -> bool {

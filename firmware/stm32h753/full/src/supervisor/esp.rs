@@ -1,14 +1,13 @@
 use defmt::*;
 use embassy_time::{Duration, Ticker};
 use messenger_mouse::{
-    LedSetpoint, Setpoint,
+    Esp32Setpoint, LED_BRIGHTNESS, LedSetpoint,
     motor::{KnifeManager, MotorAction},
 };
 
 use crate::{comms::task::SETPOINT_WATCH, supervisor::task::APPSTATE_WATCH};
 
 const TASK_PERIOD: Duration = Duration::from_millis(300);
-const LED_BRIGHTNESS: f32 = 0.1;
 
 /// Uses latest appstate to instruct ESP32
 #[embassy_executor::task]
@@ -21,7 +20,7 @@ pub async fn supervise_esp() {
     let setpoint_tx = SETPOINT_WATCH.sender();
 
     // Send known default setpoint on boot
-    setpoint_tx.send(Setpoint::default());
+    setpoint_tx.send(Esp32Setpoint::default());
 
     loop {
         // get latest appstate
@@ -39,7 +38,7 @@ pub async fn supervise_esp() {
 
             // Inform esp32 whether it should enable the vision algorithm
             // and if not what the knife motor should be doing.
-            setpoint_tx.send(Setpoint {
+            setpoint_tx.send(Esp32Setpoint {
                 knife_manager: state.knife_manager,
                 knife_setpoint: if state.enable {
                     state.knife_setpoint
@@ -51,7 +50,7 @@ pub async fn supervise_esp() {
                 },
             });
         } else {
-            setpoint_tx.send(Setpoint::new_safe());
+            setpoint_tx.send(Esp32Setpoint::new_safe());
         }
 
         ticker.next().await;

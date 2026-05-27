@@ -9,7 +9,7 @@ use embassy_sync::{
 use embassy_time::{Instant, Timer};
 use embedded_io_async::Read;
 use embedded_io_async::Write;
-use messenger_mouse::{Report, Setpoint};
+use messenger_mouse::{Esp32Setpoint, Report};
 use static_cell::StaticCell;
 
 use crate::{Irqs, comms::peripherals::CommsPeripherals};
@@ -23,7 +23,7 @@ static SETPOINT_PIPE: StaticCell<pipe::Pipe<Cs, { messenger_mouse::SETPOINT_BYTE
     StaticCell::new();
 
 pub static REPORT_WATCH: Watch<Cs, messenger_mouse::Report, 1> = Watch::new();
-pub static SETPOINT_WATCH: Watch<Cs, messenger_mouse::Setpoint, 1> = Watch::new();
+pub static SETPOINT_WATCH: Watch<Cs, messenger_mouse::Esp32Setpoint, 1> = Watch::new();
 
 pub fn setup(spawner: &Spawner, p: CommsPeripherals) {
     info!("Setting up Supervisor");
@@ -143,7 +143,7 @@ pub async fn deserialise_reports(
 #[embassy_executor::task]
 /// Serialize setpoints into a cobs encoded stream of bytes
 pub async fn serialise_setpoints(
-    mut setpoint_receiver: watch::Receiver<'static, Cs, Setpoint, 1>,
+    mut setpoint_receiver: watch::Receiver<'static, Cs, Esp32Setpoint, 1>,
     setpoint_pipe_tx: pipe::Writer<'static, Cs, { messenger_mouse::SETPOINT_BYTES * 4 }>,
 ) {
     let mut buf = [0u8; messenger_mouse::SETPOINT_BYTES * 2];

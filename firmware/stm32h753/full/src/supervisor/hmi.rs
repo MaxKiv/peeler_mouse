@@ -3,7 +3,7 @@ use embassy_executor::Spawner;
 use embassy_futures::select::Either6;
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Watch};
 use embassy_time::Timer;
-use messenger_mouse::Setpoint;
+use messenger_mouse::Esp32Setpoint;
 use messenger_mouse::motor::{KnifeManager, MotorAction, MotorDirection, MotorVelocitySetpoint};
 use uom::si::f32::{Length, Velocity};
 use uom::si::length::{micrometer, millimeter};
