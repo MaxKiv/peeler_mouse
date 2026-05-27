@@ -1,6 +1,7 @@
 use std::{sync::Arc, time::Instant};
 
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Receiver};
+use embassy_time::Timer;
 use embassy_time::{Duration, Ticker, WithTimeout};
 use esp_idf_hal::ledc::LedcDriver;
 use log::*;
@@ -33,6 +34,19 @@ pub async fn control_loop(
     mut led: LedcDriver<'static>,
 ) {
     info!("CONTROL: Entering Startup");
+
+    // Boot indicator
+    let _ = led.set_duty(led.get_max_duty());
+    let _ = led.enable();
+    Timer::after(Duration::from_millis(250)).await;
+    let _ = led.disable();
+    Timer::after(Duration::from_millis(250)).await;
+    let _ = led.enable();
+    Timer::after(Duration::from_millis(250)).await;
+    let _ = led.disable();
+    Timer::after(Duration::from_millis(250)).await;
+
+    info!("CONTROL: Initialising");
 
     // Track latest setpoint
     let mut latest_setpoint = messenger_mouse::Setpoint::default();
