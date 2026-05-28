@@ -1,5 +1,0 @@
-[default.general]
-chip = "STM32H753ZITx"
-
-[default.rtt]
-enabled = true
