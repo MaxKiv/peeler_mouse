@@ -1,4 +1,4 @@
-use esp_idf_hal::{gpio::*, ledc::TIMER1, spi::*};
+use esp_idf_hal::ledc::TIMER1;
 
 #[cfg(feature = "devkit")]
 pub struct StepperPeripherals {

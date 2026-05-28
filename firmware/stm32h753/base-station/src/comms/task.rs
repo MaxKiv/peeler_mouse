@@ -9,7 +9,7 @@ use embassy_sync::{
 use embassy_time::Timer;
 use embedded_io_async::Read;
 use embedded_io_async::Write;
-use messenger_mouse::{Esp32Setpoint, Report};
+use messenger_mouse::{Esp32Report, Esp32Setpoint};
 use static_cell::StaticCell;
 
 use crate::{Irqs, comms::peripherals::CommsPeripherals};
@@ -22,8 +22,8 @@ static REPORT_PIPE: StaticCell<pipe::Pipe<Cs, { messenger_mouse::REPORT_BYTES * 
 static SETPOINT_PIPE: StaticCell<pipe::Pipe<Cs, { messenger_mouse::SETPOINT_BYTES * 4 }>> =
     StaticCell::new();
 
-pub static REPORT_WATCH: Watch<Cs, messenger_mouse::Report, 1> = Watch::new();
-pub static SETPOINT_WATCH: Watch<Cs, messenger_mouse::Esp32Setpoint, 1> = Watch::new();
+pub static REPORT_WATCH: Watch<Cs, messenger_mouse::Esp32Report, 2> = Watch::new();
+pub static ESP_SETPOINT_WATCH: Watch<Cs, messenger_mouse::Esp32Setpoint, 1> = Watch::new();
 
 pub fn setup(spawner: &Spawner, p: CommsPeripherals) {
     info!("Setting up Supervisor");
@@ -53,9 +53,7 @@ pub fn setup(spawner: &Spawner, p: CommsPeripherals) {
         .unwrap();
     spawner
         .spawn(serialise_setpoints(
-            SETPOINT_WATCH
-                .receiver()
-                .expect("Increase SETPOINT_WATCH N"),
+            ESP_SETPOINT_WATCH.receiver().unwrap(),
             setpoint_pipe_tx,
         ))
         .unwrap();
@@ -107,7 +105,7 @@ async fn tx_task(
 #[embassy_executor::task]
 /// Frame received bytes into a coherent [`Report`]
 pub async fn deserialise_reports(
-    report_sender: watch::Sender<'static, Cs, Report, 1>,
+    report_sender: watch::Sender<'static, Cs, Esp32Report, 2>,
     report_pipe_rx: pipe::Reader<'static, Cs, { messenger_mouse::REPORT_BYTES * 4 }>,
 ) {
     let mut framing_buf = heapless::Vec::<u8, { messenger_mouse::REPORT_BYTES * 2 }>::new();
@@ -122,7 +120,6 @@ pub async fn deserialise_reports(
                     // debug!("attempting to deserialize {:?}", framing_buf);
                     match messenger_mouse::deserialize_report(&mut framing_buf) {
                         Ok(report) => {
-                            // info!("sending report: {:?}", report);
                             report_sender.send(report);
                         }
                         Err(e) => {

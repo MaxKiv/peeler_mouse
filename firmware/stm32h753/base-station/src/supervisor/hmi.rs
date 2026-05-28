@@ -1,18 +1,17 @@
 use defmt::*;
 use embassy_futures::select::Either6;
-use messenger_mouse::motor::{MotorAction, MotorDirection, MotorManager, MotorVelocitySetpoint};
+use messenger_mouse::motor::{ControlMode, MotorAction, MotorDirection, MotorVelocitySetpoint};
 use uom::si::f32::{Length, Velocity};
 use uom::si::length::micrometer;
 use uom::si::velocity::millimeter_per_second;
 
-use crate::supervisor::appstate::Appstate;
 use crate::supervisor::task::{
-    APPSTATE_WATCH, BUTTON_A, BUTTON_B, BUTTON_C, BUTTON_D, ENCODER_DATA, ENCODER_PRESSED,
+    BUTTON_A, BUTTON_B, BUTTON_C, BUTTON_D, ENCODER_DATA, ENCODER_PRESSED, HMI_STATE_WATCH,
     MAX_CUT_VELOCITY_MM_PS, MAX_ROTATION_VELOCITY_MM_PS, MAX_TRANSLATION_VELOCITY_MM_PS,
 };
-use crate::supervisor::{HmiState, SelectedMotor};
+use crate::supervisor::{HmiState, MotorSelectionTab, MotorTypes};
 
-/// Main supervisor loop, manages appstate
+/// Main supervisor loop, maps HMI inputs to Hmi state changes
 #[embassy_executor::task]
 pub async fn supervise_hmi() {
     let mut button_a_selected_rx = BUTTON_A.receiver().expect("Increase BUTTON_A N");
@@ -25,15 +24,16 @@ pub async fn supervise_hmi() {
 
     let mut encoder_data_rx = ENCODER_DATA.receiver().expect("Increase encoder_data N");
 
-    let appstate_tx = APPSTATE_WATCH.sender();
+    let hmi_tx = HMI_STATE_WATCH.sender();
 
-    // Initialise appstate
-    let mut app_state = Appstate::default();
+    // Initialise hmi state
+    let mut hmi_state = HmiState::default();
 
     // Send default appstate
-    appstate_tx.send(app_state.clone());
+    hmi_tx.send(hmi_state.clone());
 
-    // Continously Process HMI inputs into appstate changes, which are then picked up elsewhere
+    // Main HMI loop
+    // Continously Process HMI inputs into hmi_state changes, which are then picked up elsewhere
     loop {
         // Wait for a HMI input that we need to process
         match embassy_futures::select::select6(
@@ -46,63 +46,65 @@ pub async fn supervise_hmi() {
         )
         .await
         {
+            // Vision button
             Either6::First(_) => {
-                app_state.set_manager(match app_state.motor_state.knife.manager {
-                    MotorManager::Manual => MotorManager::Vision,
-                    MotorManager::Vision => MotorManager::Manual,
+                hmi_state.set_control_mode(match hmi_state.control_mode {
+                    ControlMode::Manual => ControlMode::Vision,
+                    ControlMode::Vision => ControlMode::Manual,
                 });
             }
+
+            // Mode button
             Either6::Second(_) => {
-                match app_state.hmi_state {
-                    HmiState::MotorSelected => {
-                        // Cycles to next type of MotorAction
-                        let current_setpoint = app_state.get_current_motor_setpoint();
-                        app_state.set_current_motor_setpoint(current_setpoint.next());
-                    }
-                    _ => (),
-                };
+                // Cycles to next type / mode of MotorAction for currently selected motor
+                let current = hmi_state.get_current_motor_action();
+                hmi_state.set_current_motor_action(current.next());
             }
+
+            // Start button, enables all motors
             Either6::Third(_) => {
                 debug!("Supervisor - START ALL");
-                app_state.start_all();
+                hmi_state.start_all();
             }
+
+            // Stop button, stops all motors
             Either6::Fourth(_) => {
-                if app_state.enable {
+                if hmi_state.enable {
                     debug!("Supervisor - STOP ALL");
-                    app_state.stop_all();
+                    hmi_state.stop_all();
                 } else {
                     debug!("Supervisor - RESET ALL");
-                    app_state.reset_all();
+                    hmi_state.reset_all();
                 }
             }
-            // Encoder button pressed -> Switch between HmiState
+
+            // Encoder button pressed -> Switch motor selection tab
             Either6::Fifth(_) => {
-                let hmi_state = match app_state.hmi_state {
-                    HmiState::NoSelection => HmiState::MotorSelected,
-                    HmiState::MotorSelected => HmiState::NoSelection,
-                };
-
-                app_state.set_hmi_state(hmi_state);
+                hmi_state.next_motor_selection_tab();
             }
-            // Encoder count change -> Change current motor speed
-            Either6::Sixth(encoder_data) => {
-                let encoder_count = encoder_data.count;
-                let (encoder_pos, encoder_delta) =
-                    get_encoder_pos_delta(encoder_count, app_state.encoder_pos);
 
+            // Encoder count change
+            // MotorSelectionTab::NoSelection => select new motor
+            // MotorSelectionTab::MotorSelected => change selected motor speed
+            Either6::Sixth(encoder_data) => {
+                let (encoder_pos, encoder_delta) =
+                    get_encoder_pos_delta(encoder_data.count, hmi_state.encoder_pos);
                 debug!(
                     "SV: encoder_count: {} - encoder_pos: {} - delta: {}",
-                    encoder_count, encoder_pos, encoder_delta
+                    encoder_data.count, encoder_pos, encoder_delta
                 );
 
-                match app_state.hmi_state {
-                    HmiState::NoSelection => {
+                match hmi_state.motor_selection_tab_state {
+                    // No motor selected => select new motor
+                    MotorSelectionTab::NoSelection => {
                         // Select motor based on encoder position
-                        app_state.selected_motor_idx(encoder_pos);
+                        hmi_state.select_new_motor_idx(encoder_pos);
                     }
-                    HmiState::MotorSelected => {
-                        let current_setpoint = app_state.get_current_motor_setpoint();
-                        match current_setpoint {
+
+                    // Motor selected => change speed
+                    MotorSelectionTab::MotorSelected => {
+                        let current_action = hmi_state.get_current_motor_action();
+                        match current_action {
                             MotorAction::Hold | MotorAction::Coast | MotorAction::Home => {
                                 // Turning encoder does nothing
                             }
@@ -111,44 +113,43 @@ pub async fn supervise_hmi() {
                                 let new_setpoint = calculate_new_motor_speed(
                                     sp.speed,
                                     encoder_delta,
-                                    app_state.get_selected_motor(),
+                                    hmi_state.get_selected_motor(),
                                 );
 
-                                app_state.set_current_motor_setpoint(MotorAction::MoveVelocity(
+                                hmi_state.set_current_motor_action(MotorAction::MoveVelocity(
                                     new_setpoint.clone(),
                                 ));
 
                                 // Log change in speed
                                 debug!(
                                     "Supervisor - Setting {} {}mm/s {}",
-                                    app_state.selected_motor,
+                                    hmi_state.selected_motor,
                                     new_setpoint.speed.get::<millimeter_per_second>(),
                                     new_setpoint.dir
                                 );
                             }
                             MotorAction::MovePosition(mut sp) => {
-                                // TODO: in/decrease position based on encoder delta
                                 sp.target +=
                                     Length::new::<micrometer>((encoder_delta * 100).into());
                                 sp.speed = Velocity::new::<millimeter_per_second>(
                                     messenger_mouse::motor::POSITION_MODE_VELOCITY_MM_PS,
                                 );
 
-                                app_state.set_current_motor_setpoint(MotorAction::MovePosition(sp));
+                                hmi_state.set_current_motor_action(MotorAction::MovePosition(sp));
                             }
                         }
                     }
                 };
 
                 // Keep track of encoder position
-                app_state.encoder_pos = encoder_pos;
+                hmi_state.encoder_pos = encoder_pos;
             }
         }
 
-        info!("APPSTATE: {:?}\n\n", app_state);
+        debug!("HMI STATE: {:?}\n\n", hmi_state);
 
         // Application state has changed, update downstream actuators & Display
-        appstate_tx.send(app_state.clone());
+        hmi_tx.send(hmi_state.clone());
     }
 }
 
@@ -157,24 +158,24 @@ pub async fn supervise_hmi() {
 pub fn calculate_new_motor_speed(
     current_speed: Velocity,
     encoder_delta: i16,
-    selected_motor: SelectedMotor,
+    selected_motor: &MotorTypes,
 ) -> MotorVelocitySetpoint {
     const ROT_STEP_MM_PS: f32 = 0.1;
     const LIN_STEP_MM_PS: f32 = 0.01;
     const CUT_STEP_MM_PS: f32 = 0.1;
 
     let (min, max, step) = match selected_motor {
-        SelectedMotor::Translation => (
+        MotorTypes::Translation => (
             -MAX_TRANSLATION_VELOCITY_MM_PS,
             MAX_TRANSLATION_VELOCITY_MM_PS,
             LIN_STEP_MM_PS,
         ),
-        SelectedMotor::Rotation => (
+        MotorTypes::Rotation => (
             -MAX_ROTATION_VELOCITY_MM_PS,
             MAX_ROTATION_VELOCITY_MM_PS,
             ROT_STEP_MM_PS,
         ),
-        SelectedMotor::Cut => (
+        MotorTypes::Cut => (
             -MAX_CUT_VELOCITY_MM_PS,
             MAX_CUT_VELOCITY_MM_PS,
             CUT_STEP_MM_PS,
@@ -201,9 +202,13 @@ pub fn calculate_new_motor_speed(
 }
 
 pub fn get_encoder_pos_delta(count: i16, last_pos: i16) -> (i16, i16) {
+    // const COUNT_MAP: [i16; 25] = [
+    //     0, 4, 8, 12, 16, 20, 23, 27, 31, 35, 39, 43, 47, 51, 55, 59, 63, 67, 71, 75, 79, 83, 87,
+    //     91, 95,
+    // ];
     const COUNT_MAP: [i16; 25] = [
-        0, 4, 8, 12, 16, 20, 23, 27, 31, 35, 39, 43, 47, 51, 55, 59, 63, 67, 71, 75, 79, 83, 87,
-        91, 95,
+        0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80, 84, 88,
+        92, 96,
     ];
     const LEN: i16 = COUNT_MAP.len() as i16;
 

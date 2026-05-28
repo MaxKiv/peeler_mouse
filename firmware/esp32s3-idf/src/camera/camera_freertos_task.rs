@@ -2,11 +2,8 @@ use std::sync::Arc;
 
 use crate::camera::{
     esp_cam_wrapper::Camera,
-    framebuffer::FrameBuffer,
     framebuffer_view::{FrameBufferView, FRAME_DONE_SIGNAL},
-    framesize::FrameSize,
     peripherals::CameraPeripherals,
-    pixelformat::PixelFormat,
     CameraConfig,
 };
 

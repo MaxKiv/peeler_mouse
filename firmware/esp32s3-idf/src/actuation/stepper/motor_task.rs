@@ -1,19 +1,14 @@
-use embassy_futures::select::{select, select4, Either, Either4};
+use embassy_futures::select::{select4, Either4};
 use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex,
     watch::{Sender, Watch},
 };
-use embassy_time::{Delay, Duration, Instant, Timer};
 use log::*;
 use messenger_mouse::motor::{
     MotorAction, MotorDirection, MotorPositionSetpoint, MotorVelocitySetpoint,
-    StepperPositionSetpoint, Steps, POSITION_MODE_VELOCITY_MM_PS,
+    StepperPositionSetpoint, Steps,
 };
-use uom::si::{
-    f32::{Length, Velocity},
-    length::millimeter,
-    velocity::millimeter_per_second,
-};
+use uom::si::{f32::Velocity, velocity::millimeter_per_second};
 
 use crate::actuation::stepper::{
     limit_encoder_task::{StallEvent, StallMonitorCmd},
@@ -73,10 +68,10 @@ pub async fn control_knife_motor() {
     let mut current_cmd = StepperAction::new_stopped();
     let mut home_status = HomeStatus::Lost;
     let mut current_pos_steps = pos_rx.get().await;
-    let mut target_pos_steps = Steps(0);
+    let target_pos_steps = Steps(0);
     let mut current_stall_state = StallEvent::default();
 
-    let mut tx_encoder_stall_cmd =
+    let tx_encoder_stall_cmd =
         crate::actuation::stepper::limit_encoder_task::START_STALL_MONITOR.sender();
     let mut rx_encoder_stall_event = crate::actuation::stepper::limit_encoder_task::STALL_EVENT
         .receiver()
@@ -234,18 +229,8 @@ pub async fn control_knife_motor() {
 
                 match current_action {
                     MotorAction::Home => {
-                        if new_stall {
-                            // Stalled during homing, indicates Either:
-                            //  - Limit switch disabled OR failed
-                            //  - Homing in wrong direction
-                            #[cfg(feature = "home_encoder_stall")]
-                            homing_move_away_from_limit(
-                                &cmd_tx,
-                                &mut current_action,
-                                &mut current_cmd,
-                            );
-                        } else if stall_resolved {
-                            // Stall resolved during homing, we are now homed
+                        if new_stall_event == StallEvent::Stalled {
+                            // Stalled during homing, indicates succesful homing
                             #[cfg(feature = "home_encoder_stall")]
                             homing_finished(
                                 &cmd_tx,
@@ -257,6 +242,7 @@ pub async fn control_knife_motor() {
                             );
                         }
                     }
+
                     // MotorAction::MoveVelocity(ref mut sp) => {
                     //     if new_stall {
                     //         // Stalled during velocity movement, move in reverse direction

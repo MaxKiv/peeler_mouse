@@ -1,6 +1,7 @@
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::watch::Sender;
 use esp_idf_sys::EspError;
+use messenger_mouse::motor::ControlMode;
 use std::{sync::Arc, time::Instant};
 
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Receiver};
@@ -9,11 +10,9 @@ use embassy_time::{Duration, Ticker, WithTimeout};
 use esp_idf_hal::ledc::LedcDriver;
 use log::*;
 use messenger_mouse::{
-    encoder::EncoderState,
-    motor::{KnifeManager, MotorAction},
-    AppState, Esp32Setpoint, VisionAlgorithmOutput, VisionData,
+    encoder::EncoderState, motor::MotorAction, Esp32Setpoint, VisionAlgorithmOutput, VisionData,
 };
-use messenger_mouse::{ControlEffort, LED_BRIGHTNESS};
+use messenger_mouse::{ControlOutput, Esp32Status, LED_BRIGHTNESS};
 
 use crate::{
     actuation::stepper::{
@@ -40,15 +39,7 @@ pub async fn control_loop(
     info!("CONTROL: Entering Startup");
 
     // Boot indicator
-    let _ = led.set_duty(led.get_max_duty());
-    let _ = led.enable();
-    Timer::after(Duration::from_millis(250)).await;
-    let _ = led.disable();
-    Timer::after(Duration::from_millis(250)).await;
-    let _ = led.enable();
-    Timer::after(Duration::from_millis(250)).await;
-    let _ = led.disable();
-    Timer::after(Duration::from_millis(250)).await;
+    boot_indication(&mut led).await;
 
     info!("CONTROL: Initialising");
 
@@ -64,6 +55,7 @@ pub async fn control_loop(
     // Latest framebuffer signal
     let framebuffer_rx = FRAMEBUFFER_CONTROL_LOOP_CHANNEL.receiver();
 
+    // Report sender
     let report_tx = REPORT_WATCH.sender();
 
     let mut encoder_rx = ENCODER_STATE
@@ -112,15 +104,15 @@ pub async fn control_loop(
         });
         info!("CONTROL: Encoder state: {:?}", knife_encoder_state);
 
-        // update appstate
-        let mut current_appstate = match latest_setpoint.knife_manager {
-            KnifeManager::Vision => AppState::Active,
-            KnifeManager::Manual => AppState::StandBy,
+        // update status
+        let mut status = match &latest_setpoint.control_mode {
+            ControlMode::Vision => Esp32Status::Active,
+            ControlMode::Manual => Esp32Status::StandBy,
         };
 
         // Run vision algorithm if enabled
-        let (control_effort, vision_data) =
-            if let KnifeManager::Vision = latest_setpoint.knife_manager {
+        let (control_output, vision_data) =
+            if let ControlMode::Vision = latest_setpoint.control_mode {
                 // Run vision routine
                 // - Get latest framebuffer
                 // - Attempt to detect tearing
@@ -172,25 +164,25 @@ pub async fn control_loop(
                 // Bookkeeping
                 last_gen = vision_data.generation;
 
-                (Some(control_effort), Some(vision_data))
+                (ControlOutput::Vision(control_effort), Some(vision_data))
             } else {
-                (None, None)
+                (ControlOutput::Manual, None)
             };
 
         // Actuate LED
-        let brightness = if let Some(ControlEffort { led, .. }) = &control_effort {
-            led.brightness
+        let brightness = if let ControlOutput::Vision(effort) = &control_output {
+            effort.led.brightness
         } else {
             LED_BRIGHTNESS
         };
         if let Err(err) = actuate_led(&mut led, brightness) {
             log::error!("CONTROL: unable to set LED duty cycle: {err}");
-            current_appstate = AppState::Fault;
+            status = Esp32Status::Fault;
         }
 
         // Actuate knife motor
-        let knife_motor_action = if let Some(ControlEffort { knife, .. }) = &control_effort {
-            knife.clone()
+        let knife_motor_action = if let ControlOutput::Vision(effort) = &control_output {
+            effort.motor_setpoints.knife.clone()
         } else {
             latest_setpoint.knife_setpoint.clone()
         };
@@ -203,11 +195,11 @@ pub async fn control_loop(
         };
 
         // Combine with vision data and control_effort into report
-        let report = messenger_mouse::Report {
-            setpoint: latest_setpoint.clone(),
-            app_state: current_appstate,
+        let report = messenger_mouse::Esp32Report {
+            status,
             measurements,
-            control_effort,
+            current_setpoint: latest_setpoint.clone(),
+            control_output,
         };
 
         // Report to STM32
@@ -217,6 +209,18 @@ pub async fn control_loop(
         // Throttle control loop
         ticker.next().await;
     }
+}
+
+async fn boot_indication(led: &mut LedcDriver<'static>) {
+    let _ = led.set_duty(led.get_max_duty());
+    let _ = led.enable();
+    Timer::after(Duration::from_millis(250)).await;
+    let _ = led.disable();
+    Timer::after(Duration::from_millis(250)).await;
+    let _ = led.enable();
+    Timer::after(Duration::from_millis(250)).await;
+    let _ = led.disable();
+    Timer::after(Duration::from_millis(250)).await;
 }
 
 fn actuate_knife_motor(

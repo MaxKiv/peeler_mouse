@@ -1,7 +1,5 @@
-use embassy_futures::select::select;
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, watch::Watch};
 use embassy_time::{Duration, Timer};
-use esp_idf_hal::gpio::{self, Gpio1, Input, InterruptType, Level, PinDriver, Pull};
+use esp_idf_hal::gpio::{self, Gpio1, Input, Level, PinDriver, Pull};
 use log::*;
 
 use crate::actuation::stepper::{LimitSwitchState, LIMIT_EVENT};

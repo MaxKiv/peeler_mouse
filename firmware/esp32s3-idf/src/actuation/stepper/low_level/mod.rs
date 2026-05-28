@@ -1,6 +1,6 @@
 use embassy_time::Duration;
 use messenger_mouse::motor::{
-    MotorDirection, MotorPositionSetpoint, MotorVelocitySetpoint, StepperPositionSetpoint,
+    MotorDirection, MotorVelocitySetpoint, StepperPositionSetpoint,
 };
 use uom::si::{f32::Velocity, velocity::millimeter_per_second};
 

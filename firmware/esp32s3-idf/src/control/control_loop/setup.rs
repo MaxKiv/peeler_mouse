@@ -1,10 +1,5 @@
 use embassy_executor::Spawner;
-use embassy_time::{Delay, Duration, Timer};
-use esp_idf_hal::{
-    gpio::*,
-    ledc::{config::TimerConfig, LedcDriver, LedcTimerDriver},
-};
-use l9110::L9110;
+use esp_idf_hal::ledc::{config::TimerConfig, LedcDriver, LedcTimerDriver};
 
 use crate::{
     comms::comms_task::SETPOINT_WATCH,

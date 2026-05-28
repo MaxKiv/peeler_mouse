@@ -8,7 +8,7 @@ use uom::si::{
 pub const POSITION_EPSILON_MM: f32 = 0.03;
 pub const VELOCITY_EPSILON_MM_PS: f32 = 0.03;
 
-pub const POSITION_MODE_VELOCITY_MM_PS: f32 = 1.0;
+pub const POSITION_MODE_VELOCITY_MM_PS: f32 = 2.0;
 
 #[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
@@ -38,53 +38,45 @@ impl MotorAction {
     pub fn new_velocity(dir: MotorDirection, speed: Velocity) -> Self {
         Self::MoveVelocity(MotorVelocitySetpoint { dir, speed })
     }
+
+    pub fn new_safe() -> Self {
+        Self::MoveVelocity(MotorVelocitySetpoint::new_safe())
+    }
 }
 
 /// State of all the motors on the cable peeler
 #[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
-pub struct MotorState {
-    pub translation: Motor,
-    pub rotation: Motor,
-    pub knife: Motor,
+pub struct MotorSetpoints {
+    pub translation: MotorAction,
+    pub rotation: MotorAction,
+    pub knife: MotorAction,
 }
 
-impl MotorState {
-    pub fn set_manager(&mut self, manager: MotorManager) {
-        self.translation.manager = manager.clone();
-        self.rotation.manager = manager.clone();
-        self.knife.manager = manager;
+impl MotorSetpoints {
+    pub fn reset() -> Self {
+        Self {
+            translation: MotorAction::new_safe(),
+            rotation: MotorAction::new_safe(),
+            knife: MotorAction::new_safe(),
+        }
     }
-
-    pub fn flip_management(&mut self) {
-        self.translation.manager.flip();
-        self.rotation.manager.flip();
-        self.knife.manager.flip();
-    }
-}
-
-/// A single cable peeler motor
-#[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
-pub struct Motor {
-    pub setpoint: MotorAction,
-    pub manager: MotorManager,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
-/// Conveys responsibility for controlling a motor
-pub enum MotorManager {
+/// Control modes the cable peeler can be in
+pub enum ControlMode {
     #[default]
     Manual,
     Vision,
 }
 
-impl MotorManager {
-    fn flip(&mut self) {
+impl ControlMode {
+    pub fn flip(&mut self) {
         *self = match self {
-            MotorManager::Manual => MotorManager::Vision,
-            MotorManager::Vision => MotorManager::Manual,
+            ControlMode::Manual => ControlMode::Vision,
+            ControlMode::Vision => ControlMode::Manual,
         }
     }
 }

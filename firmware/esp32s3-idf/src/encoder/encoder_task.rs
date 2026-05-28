@@ -1,14 +1,10 @@
 use as5048a_async::{As5048a, Error};
 use embassy_executor::Spawner;
 use embassy_futures::select::Either;
-use embassy_sync::{
-    blocking_mutex::raw::CriticalSectionRawMutex as Cs,
-    signal::Signal,
-    watch::{self, Watch},
-};
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Watch};
 use embassy_time::{Duration, Ticker};
-use embedded_hal_async::spi::{self, SpiDevice};
-use esp_idf_hal::spi::{config, Spi, SpiDeviceDriver};
+use embedded_hal_async::spi::{self};
+use esp_idf_hal::spi::{config, SpiDeviceDriver};
 use esp_idf_hal::spi::{SpiDriver, SpiDriverConfig, SPI3};
 use esp_idf_hal::units::*;
 use log::*;

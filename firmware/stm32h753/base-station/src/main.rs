@@ -163,16 +163,14 @@ async fn main(spawner: Spawner) {
     );
 
     hmi::encoder::QuadratureEncoder::run(encoder_peri, &spawner);
-
     hmi::lcd::setup::setup(lcd_peri, &spawner);
 
     // ---- Motor Task Construction -----
     motor::controller::setup(&spawner);
-    // motor::knife::setup(knife_peri, &spawner);
     motor::translation::setup(translation_peri, &spawner);
     motor::rotation::setup(rotation_peri, &spawner);
 
-    // ---- Supervisor (routes HMI input to HMI & Motor output) -----
+    // ---- Supervisor -----
     supervisor::task::setup(&spawner);
 
     // ---- UART Communication tasks -----

@@ -31,6 +31,7 @@ pub fn setup(p: RotationMotorPeripherals, spawner: &Spawner) {
 }
 
 #[embassy_executor::task]
+/// MotorAction adapter for the rotational motor
 pub async fn manage_rotational_motor(mut tb: Tb6600<TIM4, Output<'static>, Delay>) {
     info!("Starting to manage rotational motor");
 

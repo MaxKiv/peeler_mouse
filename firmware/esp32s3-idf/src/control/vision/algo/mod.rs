@@ -5,7 +5,7 @@ pub mod joris;
 use std::sync::Arc;
 
 use messenger_mouse::{
-    motor::{MotorAction, MotorDirection, MotorVelocitySetpoint},
+    motor::{MotorAction, MotorDirection, MotorSetpoints, MotorVelocitySetpoint},
     ControlEffort, LedSetpoint, VisionAlgorithmOutput, LED_BRIGHTNESS,
 };
 use uom::si::{f32::Velocity, velocity::millimeter_per_second};
@@ -51,15 +51,17 @@ pub fn get_control_output_from_vision(algo_out: VisionAlgorithmOutput) -> Contro
     };
 
     ControlEffort {
-        translation: MotorAction::new_velocity(
-            MotorDirection::Forward,
-            Velocity::new::<millimeter_per_second>(0.01),
-        ),
-        rotation: MotorAction::new_velocity(
-            MotorDirection::Forward,
-            Velocity::new::<millimeter_per_second>(1.0),
-        ),
-        knife: knife_action,
+        motor_setpoints: MotorSetpoints {
+            translation: MotorAction::new_velocity(
+                MotorDirection::Forward,
+                Velocity::new::<millimeter_per_second>(0.0),
+            ),
+            rotation: MotorAction::new_velocity(
+                MotorDirection::Forward,
+                Velocity::new::<millimeter_per_second>(1.0),
+            ),
+            knife: knife_action,
+        },
         led: LedSetpoint {
             brightness: LED_BRIGHTNESS,
         },

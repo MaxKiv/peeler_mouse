@@ -29,7 +29,9 @@ pub fn setup(p: TranslationMotorPeripherals, spawner: &Spawner) {
 
     spawner.spawn(manage_translational_motor(tb)).unwrap();
 }
+
 #[embassy_executor::task]
+/// MotorAction adapter for the translational motor
 pub async fn manage_translational_motor(mut tb: Tb6600<TIM8, Output<'static>, Delay>) {
     info!("Starting to manage translational motor");
 

@@ -7,10 +7,7 @@ use embassy_time::{Duration, Timer};
 use messenger_mouse::encoder::EncoderState;
 
 use crate::{
-    actuation::stepper::{
-        low_level::state_machine::{StepperState, LOW_LEVEL_STEPPER_STATE},
-        LimitSwitchState, LIMIT_EVENT,
-    },
+    actuation::stepper::low_level::state_machine::StepperState,
     encoder::encoder_task::ENCODER_STATE,
 };
 

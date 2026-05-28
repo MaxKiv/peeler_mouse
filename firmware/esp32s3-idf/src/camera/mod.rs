@@ -11,7 +11,7 @@ use crate::camera::{framesize::FrameSize, pixelformat::PixelFormat};
 #[cfg(not(feature = "streaming"))]
 pub const PIXEL_FORMAT: PixelFormat = PixelFormat::GRAYSCALE;
 #[cfg(not(feature = "streaming"))]
-pub const CAMERA_TARGET_FPS: u64 = 2;
+pub const CAMERA_TARGET_FPS: u64 = 3;
 #[cfg(not(feature = "streaming"))]
 /// Large effect on driver behavior: When jpeg mode is used, if fb_count more than one, the driver will work in continuous mode.
 pub const FB_COUNT: usize = 1;

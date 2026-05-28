@@ -1,17 +1,9 @@
-use std::sync::{
-    atomic::{AtomicU32, Ordering},
-    Arc,
-};
+use std::sync::Arc;
 
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Watch};
-use messenger_mouse::{motor::MotorAction, VisionAlgorithmOutput};
-use uom::si::{f32::Velocity, velocity::millimeter_per_second};
+use messenger_mouse::VisionAlgorithmOutput;
 
-use crate::{
-    actuation::stepper::motor_task::VISION_MAX_SPEED_MM_PS,
-    camera::{framebuffer::FrameBuffer, framebuffer_view::FrameBufferView},
-    control::vision::HORIZONTAL_SOBEL_KERNEL,
-};
+use crate::camera::framebuffer_view::FrameBufferView;
 
 pub static ALGO_INTERMEDIATE_WATCH: Watch<Cs, Arc<FrameBufferView>, 1> = Watch::new();
 

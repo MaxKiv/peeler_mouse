@@ -15,11 +15,11 @@ use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Wa
 
 use crate::hmi::button::BUTTON_WATCH_SIZE;
 use crate::hmi::encoder::data::EncoderData;
-use crate::supervisor::appstate::Appstate;
-use crate::supervisor::esp::supervise_esp;
+use crate::supervisor::HmiState;
+use crate::supervisor::appstate::manage_appstate;
 use crate::supervisor::hmi::supervise_hmi;
 
-pub static APPSTATE_WATCH: Watch<Cs, Appstate, 3> = Watch::new();
+pub static HMI_STATE_WATCH: Watch<Cs, HmiState, 3> = Watch::new();
 
 pub static BUTTON_C: Watch<Cs, bool, { BUTTON_WATCH_SIZE }> = Watch::new();
 pub static BUTTON_A: Watch<Cs, bool, { BUTTON_WATCH_SIZE }> = Watch::new();
@@ -37,5 +37,5 @@ pub fn setup(spawner: &Spawner) {
     info!("Setting up Supervisor");
 
     spawner.spawn(supervise_hmi()).unwrap();
-    spawner.spawn(supervise_esp()).unwrap();
+    spawner.spawn(manage_appstate()).unwrap();
 }

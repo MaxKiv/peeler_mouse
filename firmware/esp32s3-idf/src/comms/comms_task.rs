@@ -24,7 +24,7 @@ static REPORT_PIPE: StaticCell<pipe::Pipe<Cs, { messenger_mouse::REPORT_BYTES * 
     StaticCell::new();
 static SETPOINT_PIPE: StaticCell<pipe::Pipe<Cs, { messenger_mouse::SETPOINT_BYTES * 4 }>> =
     StaticCell::new();
-pub static REPORT_WATCH: Watch<Cs, messenger_mouse::Report, 1> = Watch::new();
+pub static REPORT_WATCH: Watch<Cs, messenger_mouse::Esp32Report, 1> = Watch::new();
 pub static SETPOINT_WATCH: Watch<Cs, messenger_mouse::Esp32Setpoint, 2> = Watch::new();
 
 // Spawn all COMMS & FRAMING tasks required for external communications
@@ -122,7 +122,7 @@ pub async fn tx_task(
 #[embassy_executor::task]
 pub async fn serialise_task(
     mut report_pipe_tx: pipe::Writer<'static, Cs, { messenger_mouse::REPORT_BYTES * 4 }>,
-    mut report_receiver: watch::Receiver<'static, Cs, messenger_mouse::Report, 1>,
+    mut report_receiver: watch::Receiver<'static, Cs, messenger_mouse::Esp32Report, 1>,
 ) {
     info!("FRAMING: Starting serialize task");
     let mut buf = [0u8; messenger_mouse::REPORT_BYTES];
