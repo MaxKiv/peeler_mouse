@@ -3,10 +3,7 @@ pub mod knife;
 pub mod rotation;
 pub mod translation;
 
-use core::fmt;
 use messenger_mouse::motor::MotorDirection;
-use uom::si::f32::Velocity;
-use uom::si::velocity::millimeter_per_second;
 
 /// Operational states a motor can be in
 #[derive(Debug, Clone, Default, defmt::Format)]

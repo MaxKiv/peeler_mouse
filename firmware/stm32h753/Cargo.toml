@@ -1,3 +1,3 @@
 [workspace]
 resolver = "3"
-members = [ "tb6600", "full", "l9110"]
+members = [ "tb6600", "base-station", "l9110"]

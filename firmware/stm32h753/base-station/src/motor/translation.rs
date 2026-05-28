@@ -56,7 +56,7 @@ pub async fn manage_translational_motor(mut tb: Tb6600<TIM8, Output<'static>, De
                     error!("Unable to MoveVelocity: {:?}", err);
                 }
             }
-            MotorAction::MovePosition(sp) => {
+            MotorAction::MovePosition(_sp) => {
                 error!("MovePosition not implemented yet");
             }
         };

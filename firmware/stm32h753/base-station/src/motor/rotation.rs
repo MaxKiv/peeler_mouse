@@ -12,8 +12,6 @@ use tb6600::Tb6600;
 use uom::si::f32::Velocity;
 use uom::si::velocity::millimeter_per_second;
 
-use crate::hmi::button::BUTTON_WATCH_SIZE;
-
 pub static ROTATION_SETPOINT: Watch<CriticalSectionRawMutex, MotorAction, 2> = Watch::new();
 
 pub struct RotationMotorPeripherals {

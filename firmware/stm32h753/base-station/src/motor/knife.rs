@@ -8,7 +8,6 @@ use embassy_time::Delay;
 use l9110::L9110;
 use messenger_mouse::motor::MotorAction;
 
-use crate::motor::{MotorDirection, MotorState};
 
 pub static CUT_SETPOINT: Watch<CriticalSectionRawMutex, MotorAction, 2> = Watch::new();
 
@@ -35,7 +34,7 @@ pub async fn manage_cutting_motor(mut l9110: L9110<TIM1, Delay>) {
     let mut rx = CUT_SETPOINT.receiver().expect("increase CUT_SETPOINT N");
 
     loop {
-        let cmd = rx.changed().await;
+        let _cmd = rx.changed().await;
 
         // match &cmd.state {
         //     MotorState::Braking => l9110.short_break().await,

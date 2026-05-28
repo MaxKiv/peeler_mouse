@@ -1,15 +1,10 @@
 use crate::{
     motor::{rotation::ROTATION_SETPOINT, translation::TRANSLATION_SETPOINT},
-    supervisor::{
-        SelectedMotor,
-        task::{APPSTATE_WATCH, MAX_ROTATION_VELOCITY_MM_PS, MAX_TRANSLATION_VELOCITY_MM_PS},
-    },
+    supervisor::{SelectedMotor, task::APPSTATE_WATCH},
 };
 use defmt::*;
 use embassy_executor::Spawner;
-use l9110::CUT_MAX_SPEED_MS_PS;
-use messenger_mouse::{Esp32Setpoint, motor::MotorAction};
-use uom::si::{f32::Velocity, velocity::millimeter_per_second};
+use messenger_mouse::motor::MotorAction;
 
 pub const KNIFE_OPERATIONAL_SPEED_MM_PS: f32 = 1.0;
 
@@ -36,7 +31,7 @@ async fn control_motors() {
         let pairs = [
             (
                 if appstate.enable {
-                    &appstate.rotation_setpoint
+                    &appstate.motor_state.rotation.setpoint
                 } else {
                     &MotorAction::Hold
                 },
@@ -45,7 +40,7 @@ async fn control_motors() {
             ),
             (
                 if appstate.enable {
-                    &appstate.translation_setpoint
+                    &appstate.motor_state.translation.setpoint
                 } else {
                     &MotorAction::Hold
                 },

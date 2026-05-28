@@ -6,7 +6,7 @@ use embassy_sync::{
     pipe::{self, Pipe},
     watch::{self, Watch},
 };
-use embassy_time::{Instant, Timer};
+use embassy_time::Timer;
 use embedded_io_async::Read;
 use embedded_io_async::Write;
 use messenger_mouse::{Esp32Setpoint, Report};

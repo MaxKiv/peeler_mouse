@@ -1,12 +1,15 @@
 [package]
-name = "full"
+name = "base-station"
 version = "0.1.0"
 edition = "2024"
 
 [[bin]]
-name = "full"
+name = "base-station"
 path = "src/main.rs"
 harness = false # do not use the built in cargo test harness -> resolve rust-analyzer errors
+test = false
+doctest = false
+bench = false
 
 [dependencies]
 embassy-stm32 = {version = "0.4.0", features = [ "defmt", "stm32h753zi", "time-driver-tim15", "rt", "memory-x", "unstable-pac", "chrono", "exti"]}

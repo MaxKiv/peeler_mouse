@@ -1,8 +1,8 @@
 use defmt::*;
 use embassy_time::{Duration, Ticker};
 use messenger_mouse::{
-    Esp32Setpoint, LED_BRIGHTNESS, LedSetpoint,
-    motor::{KnifeManager, MotorAction},
+    Esp32Setpoint,
+    motor::{MotorAction, MotorManager},
 };
 
 use crate::{comms::task::SETPOINT_WATCH, supervisor::task::APPSTATE_WATCH};
@@ -27,11 +27,8 @@ pub async fn supervise_esp() {
         let state = appstate_rx.changed().await;
 
         if state.enable {
-            if state.knife_manager == KnifeManager::Manual {
-                warn!(
-                    "ESP: Managed MANUAL with command {:?}",
-                    state.knife_setpoint,
-                );
+            if state.motor_state.knife.manager == MotorManager::Manual {
+                warn!("ESP: Managed MANUAL");
             } else {
                 warn!("ESP: Managed by VISION");
             }
@@ -39,14 +36,11 @@ pub async fn supervise_esp() {
             // Inform esp32 whether it should enable the vision algorithm
             // and if not what the knife motor should be doing.
             setpoint_tx.send(Esp32Setpoint {
-                knife_manager: state.knife_manager,
+                knife_manager: state.motor_state.knife.manager,
                 knife_setpoint: if state.enable {
-                    state.knife_setpoint
+                    state.motor_state.knife.setpoint
                 } else {
                     MotorAction::Coast
-                },
-                led_setpoint: LedSetpoint {
-                    brightness: LED_BRIGHTNESS,
                 },
             });
         } else {

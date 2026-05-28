@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     encoder::EncoderState,
-    motor::{KnifeManager, MotorAction},
+    motor::{MotorAction, MotorManager},
 };
 
 pub const REPORT_BYTES: usize = core::mem::size_of::<Report>();
@@ -52,14 +52,14 @@ pub struct ControlEffort {
 #[derive(Debug, Deserialize, Serialize, Clone, Default, PartialEq)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 pub struct Esp32Setpoint {
-    pub knife_manager: KnifeManager,
+    pub knife_manager: MotorManager,
     pub knife_setpoint: MotorAction,
 }
 
 impl Esp32Setpoint {
     pub fn new_safe() -> Self {
         Self {
-            knife_manager: KnifeManager::Manual,
+            knife_manager: MotorManager::Manual,
             knife_setpoint: MotorAction::Hold,
         }
     }

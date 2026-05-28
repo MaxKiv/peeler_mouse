@@ -12,6 +12,7 @@ pub const POSITION_MODE_VELOCITY_MM_PS: f32 = 1.0;
 
 #[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
+/// A motor setpoint
 pub enum MotorAction {
     #[default]
     Coast,
@@ -39,12 +40,53 @@ impl MotorAction {
     }
 }
 
+/// State of all the motors on the cable peeler
 #[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
-pub enum KnifeManager {
+pub struct MotorState {
+    pub translation: Motor,
+    pub rotation: Motor,
+    pub knife: Motor,
+}
+
+impl MotorState {
+    pub fn set_manager(&mut self, manager: MotorManager) {
+        self.translation.manager = manager.clone();
+        self.rotation.manager = manager.clone();
+        self.knife.manager = manager;
+    }
+
+    pub fn flip_management(&mut self) {
+        self.translation.manager.flip();
+        self.rotation.manager.flip();
+        self.knife.manager.flip();
+    }
+}
+
+/// A single cable peeler motor
+#[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
+pub struct Motor {
+    pub setpoint: MotorAction,
+    pub manager: MotorManager,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
+/// Conveys responsibility for controlling a motor
+pub enum MotorManager {
     #[default]
     Manual,
     Vision,
+}
+
+impl MotorManager {
+    fn flip(&mut self) {
+        *self = match self {
+            MotorManager::Manual => MotorManager::Vision,
+            MotorManager::Vision => MotorManager::Manual,
+        }
+    }
 }
 
 /// Velocity movement setpoint

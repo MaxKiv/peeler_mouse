@@ -19,7 +19,7 @@ use embedded_graphics::{pixelcolor::BinaryColor, prelude::Point};
 use heapless::{String, format};
 use messenger_mouse::{
     Report,
-    motor::{KnifeManager, MotorAction, MotorDirection},
+    motor::{MotorAction, MotorDirection, MotorManager},
 };
 use oled_async::{displays::ssd1309::Ssd1309_128_64, mode::GraphicsMode};
 use uom::si::length::millimeter;
@@ -136,26 +136,26 @@ fn draw_ui(
     let rot_str: String<128> = format!(
         128;
         "Rot | {}",
-        get_cmd_str::<64>(&state.rotation_setpoint, MotorMovementDirection::Rotational)
+        get_cmd_str::<64>(&state.motor_state.rotation.setpoint, MotorMovementDirection::Rotational)
     )
     .unwrap();
 
     let lin_str: String<128> = format!(
         128;
         "Lin | {}",
-        get_cmd_str::<64>(&state.translation_setpoint, MotorMovementDirection::LeftRight)
+        get_cmd_str::<64>(&state.motor_state.translation.setpoint, MotorMovementDirection::LeftRight)
     )
     .unwrap();
 
     let mut cut_str: String<128> = String::new();
     cut_str.write_str("Cut | ").unwrap();
 
-    let cut_str = match state.knife_manager {
-        KnifeManager::Manual => {
-            format!(128; "Cut | {}", get_cmd_str::<64>(&state.knife_setpoint, MotorMovementDirection::UpDown))
+    let cut_str = match state.motor_state.knife.manager {
+        MotorManager::Manual => {
+            format!(128; "Cut | {}", get_cmd_str::<64>(&state.motor_state.knife.setpoint, MotorMovementDirection::UpDown))
                 .expect("cut cmd string doesn't fit heapless string")
         }
-        KnifeManager::Vision => {
+        MotorManager::Vision => {
             match report.measurements.vision_data {
                 Some(data) => {
                     format!(128; "Cut | {:?} {:>2.1}Hz", data.vision_output, data.camera_fps)
@@ -250,9 +250,9 @@ fn get_state_str(appstate: &Appstate) -> heapless::String<128> {
     match appstate.enable {
             true => "ENABLED ",
             false => "DISABLED",
-        }, match appstate.knife_manager {
-        KnifeManager::Manual => "Manual",
-        KnifeManager::Vision => "Vision",
+        }, match appstate.motor_state.knife.manager {
+        MotorManager::Manual => "Manual",
+        MotorManager::Vision => "Vision",
     })
     .expect("state cmd string doesn't fit heapless string");
 

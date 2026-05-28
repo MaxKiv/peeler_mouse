@@ -18,7 +18,6 @@ use crate::hmi::encoder::data::EncoderData;
 use crate::supervisor::appstate::Appstate;
 use crate::supervisor::esp::supervise_esp;
 use crate::supervisor::hmi::supervise_hmi;
-use crate::supervisor::{HmiState, SelectedMotor};
 
 pub static APPSTATE_WATCH: Watch<Cs, Appstate, 3> = Watch::new();
 

@@ -1,15 +1,10 @@
 use defmt::*;
-use embassy_executor::Spawner;
 use embassy_futures::select::Either6;
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Watch};
-use embassy_time::Timer;
-use messenger_mouse::Esp32Setpoint;
-use messenger_mouse::motor::{KnifeManager, MotorAction, MotorDirection, MotorVelocitySetpoint};
+use messenger_mouse::motor::{MotorAction, MotorDirection, MotorManager, MotorVelocitySetpoint};
 use uom::si::f32::{Length, Velocity};
-use uom::si::length::{micrometer, millimeter};
+use uom::si::length::micrometer;
 use uom::si::velocity::millimeter_per_second;
 
-use crate::motor::controller::KNIFE_OPERATIONAL_SPEED_MM_PS;
 use crate::supervisor::appstate::Appstate;
 use crate::supervisor::task::{
     APPSTATE_WATCH, BUTTON_A, BUTTON_B, BUTTON_C, BUTTON_D, ENCODER_DATA, ENCODER_PRESSED,
@@ -52,9 +47,9 @@ pub async fn supervise_hmi() {
         .await
         {
             Either6::First(_) => {
-                app_state.set_knife_management(match app_state.knife_manager {
-                    KnifeManager::Manual => KnifeManager::Vision,
-                    KnifeManager::Vision => KnifeManager::Manual,
+                app_state.set_manager(match app_state.motor_state.knife.manager {
+                    MotorManager::Manual => MotorManager::Vision,
+                    MotorManager::Vision => MotorManager::Manual,
                 });
             }
             Either6::Second(_) => {
