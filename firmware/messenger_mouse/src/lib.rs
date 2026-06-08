@@ -114,9 +114,9 @@ pub enum VisionAlgorithmOutput {
 impl core::fmt::Display for VisionAlgorithmOutput {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            VisionAlgorithmOutput::Up(value) => write!(f, "^({})", value),
+            VisionAlgorithmOutput::Up(value) => write!(f, "Up({})", value),
             VisionAlgorithmOutput::Hold => write!(f, "Hold"),
-            VisionAlgorithmOutput::Down(value) => write!(f, "v({})", value),
+            VisionAlgorithmOutput::Down(value) => write!(f, "Down({})", value),
         }
     }
 }

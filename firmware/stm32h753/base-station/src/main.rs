@@ -24,6 +24,8 @@ use crate::hmi::{
 use crate::motor::rotation::RotationMotorPeripherals;
 use crate::motor::translation::TranslationMotorPeripherals;
 
+use embedded_alloc::LlffHeap;
+
 bind_interrupts!(struct Irqs {
     I2C2_EV => i2c::EventInterruptHandler<I2C2>;
     I2C2_ER => i2c::ErrorInterruptHandler<I2C2>;
@@ -32,12 +34,19 @@ bind_interrupts!(struct Irqs {
 
 use {defmt_rtt as _, panic_probe as _};
 
+// ---- Heap -----
+#[global_allocator]
+static HEAP: LlffHeap = LlffHeap::empty();
+
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     let config = Config::default();
     let config = clocks::setup_clocks(config);
     let p = embassy_stm32::init(config);
     info!("Clocks configured - Hello World!");
+
+    // ---- Heap Setup for LCD -----
+    setup_heap();
 
     // ---- Motor Peripheral declarations -----
     let linear_step_pwm_pin = p.PC6;
@@ -175,4 +184,14 @@ async fn main(spawner: Spawner) {
 
     // ---- UART Communication tasks -----
     comms::task::setup(&spawner, comms_peri);
+}
+
+// Set up a 128KiB heap in AXI SRAM
+fn setup_heap() {
+    use core::mem::MaybeUninit;
+    const HEAP_SIZE: usize = 1024 * 128;
+
+    #[unsafe(link_section = ".axi_heap")]
+    static mut HEAP_MEM: [MaybeUninit<u8>; HEAP_SIZE] = [MaybeUninit::uninit(); HEAP_SIZE];
+    unsafe { HEAP.init(&raw mut HEAP_MEM as usize, HEAP_SIZE) }
 }

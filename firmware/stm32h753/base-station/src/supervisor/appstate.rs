@@ -1,7 +1,7 @@
 use defmt::info;
 use embassy_futures::select::{Either, select};
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Watch};
-use embassy_time::{Duration, Ticker};
+use embassy_time::{Duration, Instant, Ticker};
 use messenger_mouse::{
     ControlOutput,
     motor::{ControlMode, MotorSetpoints},
@@ -9,7 +9,7 @@ use messenger_mouse::{
 
 use crate::{
     comms::task::REPORT_WATCH,
-    supervisor::{MotorTypes, task::HMI_STATE_WATCH},
+    supervisor::{HmiState, MotorTypes, task::HMI_STATE_WATCH},
 };
 
 // Throttle uart traffic
@@ -18,25 +18,23 @@ pub static APP_STATE_WATCH: Watch<Cs, AppState, 3> = Watch::new();
 
 pub const MOTORS: [MotorTypes; 3] = [
     MotorTypes::Cut,
-    MotorTypes::Translation,
     MotorTypes::Rotation,
+    MotorTypes::Translation,
 ];
 
 #[derive(Debug, Clone, defmt::Format)]
 pub struct AppState {
-    pub hmi_enable: bool,
-    pub hmi_motor_setpoints: MotorSetpoints,
-    pub hmi_control_mode: ControlMode,
+    pub hmi_state: HmiState,
     pub esp_motor_setpoints: MotorSetpoints,
+    pub camera_fps_data: heapless::Vec<(f64, f64), 32>,
 }
 
 impl Default for AppState {
     fn default() -> Self {
         Self {
-            hmi_enable: false,
-            hmi_motor_setpoints: MotorSetpoints::default(),
-            hmi_control_mode: ControlMode::Manual,
+            hmi_state: HmiState::default(),
             esp_motor_setpoints: MotorSetpoints::default(),
+            camera_fps_data: heapless::Vec::new(),
         }
     }
 }
@@ -65,15 +63,24 @@ pub async fn manage_appstate() {
         match select(hmi_state_rx.changed(), report_rx.changed()).await {
             Either::First(hmi_state) => {
                 info!("APPSTATE: new hmi state: {:?}", hmi_state);
-                appstate.hmi_enable = hmi_state.enable;
-                appstate.hmi_control_mode = hmi_state.control_mode;
-                appstate.hmi_motor_setpoints = hmi_state.motor_setpoints;
+                appstate.hmi_state = hmi_state;
             }
 
             Either::Second(report) => {
                 info!("APPSTATE: new report: {:?}", report);
                 if let ControlOutput::Vision(effort) = report.control_output {
                     appstate.esp_motor_setpoints = effort.motor_setpoints;
+                }
+
+                if let Some(data) = report.measurements.vision_data {
+                    if let Err(err) = appstate
+                        .camera_fps_data
+                        .insert(0, (Instant::now().as_millis() as f64, data.camera_fps))
+                    {
+                        defmt::error!("APPSTATE: {:?}", err);
+                    }
+                } else {
+                    defmt::warn!("APPSTATE: report.measurements.vision_data = NONE");
                 }
             }
         }

@@ -13,6 +13,7 @@ pub struct HmiState {
     pub motor_selection_tab_state: MotorSelectionTab,
     pub selected_motor: &'static MotorTypes,
     pub control_mode: ControlMode,
+    pub graph_overlay_mode: bool,
     pub motor_setpoints: MotorSetpoints,
     pub encoder_pos: i16,
     pub enable: bool,
@@ -31,6 +32,10 @@ impl HmiState {
         const LEN: i16 = MOTORS.len() as i16;
         let wrapped = idx.rem_euclid(LEN) as usize;
         self.selected_motor = &MOTORS[wrapped];
+    }
+
+    pub fn get_selected_motor_idx(&self) -> Option<usize> {
+        MOTORS.iter().position(|m| m == self.get_selected_motor())
     }
 
     pub fn next_motor_selection_tab(&mut self) {
@@ -80,6 +85,7 @@ impl Default for HmiState {
             enable: false,
             motor_selection_tab_state: MotorSelectionTab::NoSelection,
             control_mode: ControlMode::Manual,
+            graph_overlay_mode: false,
             motor_setpoints: MotorSetpoints::reset(),
             encoder_pos: 0i16,
         }

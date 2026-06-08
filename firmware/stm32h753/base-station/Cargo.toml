@@ -53,4 +53,8 @@ l9110 = { version = "0.1.0", path = "../l9110" }
 # as5048-pwm = { version = "0.1.0", path = "../as5048-pwm" }
 
 messenger-mouse = { path = "../../messenger_mouse", features = ["use-defmt"]}
+embedded-alloc = "0.7.0"
+mousefood = { version = "0.5.0", default-features = false, features = ["fonts", "blink"] }
+ratatui = { version = "0.30.1", default-features = false }
+embedded-graphics-unicodefonts = "0.2.0"
 

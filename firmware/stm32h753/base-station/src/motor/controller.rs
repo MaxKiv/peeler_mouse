@@ -35,22 +35,22 @@ async fn control_motors() {
         info!("MOTOR: new appstate {:?}", new_appstate);
 
         // Is hmi enable toggled on?
-        if new_appstate.hmi_enable {
+        if new_appstate.hmi_state.enable {
             // Send ESP32 its setpoint
             // For control_mode manual => ESP follows HMI setpoint
             // For control_mode vision => ESP calculates its own setpoint
             esp_tx.send(Esp32Setpoint {
-                control_mode: new_appstate.hmi_control_mode.clone(),
-                knife_setpoint: new_appstate.hmi_motor_setpoints.knife,
+                control_mode: new_appstate.hmi_state.control_mode.clone(),
+                knife_setpoint: new_appstate.hmi_state.motor_setpoints.knife,
             });
 
             // Send translational/rotational motors their setpoints
             let (rotation_setpoint, translation_setpoint) =
-                if new_appstate.hmi_control_mode == ControlMode::Manual {
+                if new_appstate.hmi_state.control_mode == ControlMode::Manual {
                     // For control_mode manual => motors follows HMI setpoint
                     (
-                        new_appstate.hmi_motor_setpoints.rotation,
-                        new_appstate.hmi_motor_setpoints.translation,
+                        new_appstate.hmi_state.motor_setpoints.rotation,
+                        new_appstate.hmi_state.motor_setpoints.translation,
                     )
                 } else {
                     // For control_mode manual => motors follows setpoints calculated by ESP

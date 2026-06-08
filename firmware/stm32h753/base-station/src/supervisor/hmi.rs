@@ -56,9 +56,17 @@ pub async fn supervise_hmi() {
 
             // Mode button
             Either6::Second(_) => {
-                // Cycles to next type / mode of MotorAction for currently selected motor
-                let current = hmi_state.get_current_motor_action();
-                hmi_state.set_current_motor_action(current.next());
+                match hmi_state.control_mode {
+                    ControlMode::Manual => {
+                        // Cycles to next type / mode of MotorAction for currently selected motor
+                        let current = hmi_state.get_current_motor_action();
+                        hmi_state.set_current_motor_action(current.next());
+                    }
+                    ControlMode::Vision => {
+                        // Cycle between normal and graph overlay mode
+                        hmi_state.graph_overlay_mode = !hmi_state.graph_overlay_mode;
+                    }
+                }
             }
 
             // Start button, enables all motors

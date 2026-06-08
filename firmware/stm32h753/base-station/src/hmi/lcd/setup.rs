@@ -6,9 +6,18 @@ use embassy_stm32::{
     i2c::{Config, I2c},
     peripherals::*,
 };
+use mousefood::{EmbeddedBackend, EmbeddedBackendConfig};
 use oled_async::{builder::Builder, mode::GraphicsMode, prelude::DisplayRotation};
+use ratatui::Terminal;
 
-use crate::{Irqs, hmi::lcd::manage_display};
+use crate::{
+    Irqs,
+    comms::task::REPORT_WATCH,
+    hmi::lcd::manage_display,
+    supervisor::{appstate::APP_STATE_WATCH, task::HMI_STATE_WATCH},
+};
+
+extern crate alloc;
 
 /// Period at which this task is ticked
 const ADDRESS: u8 = 0x3C;
@@ -41,7 +50,15 @@ pub fn setup(p: LcdPeripherals, spawner: &Spawner) {
     let raw_disp = Builder::new(Display {})
         .with_rotation(DisplayRotation::Rotate0)
         .connect(i2c_interface);
-    let disp: GraphicsMode<_, _, { SSD1309_FRAMEBUFFER_SIZE }> = raw_disp.into();
+    let display: GraphicsMode<_, _, { SSD1309_FRAMEBUFFER_SIZE }> = raw_disp.into();
 
-    spawner.spawn(manage_display(disp)).unwrap();
+    // Inputs
+    let appstate_rx = APP_STATE_WATCH
+        .receiver()
+        .expect("increase APPSTATE_WATCH N");
+    let report_rx = REPORT_WATCH.receiver().expect("increase REPORT_WATCH N");
+
+    spawner
+        .spawn(manage_display(display, appstate_rx, report_rx))
+        .unwrap();
 }

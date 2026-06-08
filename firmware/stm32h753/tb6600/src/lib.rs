@@ -1,6 +1,6 @@
 #![no_std]
 
-use defmt::{error, info, trace, warn};
+use defmt::{info, trace};
 use embassy_stm32::{
     time::Hertz,
     timer::{GeneralInstance4Channel, simple_pwm::SimplePwm},
@@ -8,7 +8,6 @@ use embassy_stm32::{
 use embedded_hal::digital::OutputPin;
 use embedded_hal_async::delay::DelayNs;
 use thiserror::Error;
-use uom::si::{f32::Velocity, velocity::millimeter_per_second};
 
 use messenger_mouse::motor::MotorDirection as Direction;
 
@@ -76,7 +75,7 @@ where
     // Move the stepper at given step frequency
     pub async fn run_hertz(&mut self, freq: Hertz, dir: Direction) -> Result<(), TB6600Error> {
         // Make sure the motor is going in the right direction
-        self.set_direction(dir.clone()).await?;
+        self.set_direction(dir).await?;
 
         // Start PWM at requested step frequency
         if let Hertz(0) = freq {

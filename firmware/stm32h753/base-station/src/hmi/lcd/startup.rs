@@ -55,4 +55,8 @@ pub async fn startup_display(
 
     // Give people time to appreciate the beautiful splash screen
     Timer::after_millis(350).await;
+
+    // Yeah that's enough :)
+    display.clear();
+    display.flush().await.unwrap();
 }
