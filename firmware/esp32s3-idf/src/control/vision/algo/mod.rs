@@ -12,7 +12,7 @@ use uom::si::{f32::Velocity, velocity::millimeter_per_second};
 
 use crate::{
     actuation::stepper::motor_task::VISION_MAX_SPEED_MM_PS,
-    camera::framebuffer_view::FrameBufferView,
+    camera::framebuffer_view::{BoundingBox, FrameBufferView, Pixel},
     control::vision::{
         algo::{average::simple_average, encoder_test::periodic_encoder_test, joris::vision_joris},
         HORIZONTAL_SOBEL_KERNEL,
@@ -24,16 +24,6 @@ enum Algo {
     SimpleAverage,
     Complex,
     Joris,
-}
-
-struct Pixel {
-    x: usize,
-    y: usize,
-}
-struct BoundingBox {
-    start: Pixel,
-    width: usize,
-    height: usize,
 }
 
 const ALGO: Algo = Algo::Joris;

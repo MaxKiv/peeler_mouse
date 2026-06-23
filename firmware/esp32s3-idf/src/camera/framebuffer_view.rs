@@ -51,8 +51,47 @@ impl FrameBufferView {
         self.fb.data()
     }
 
+    /// Iterate over framebuffer rows
     pub fn rows(&self) -> impl Iterator<Item = &[u8]> {
         self.data().chunks(self.width)
+    }
+
+    /// Iterate over framebuffer rows inside the given BoundingBox
+    pub fn bb_rows(&self, bb: BoundingBox) -> impl Iterator<Item = &[u8]> {
+        const BYTE_PER_PIXEL: usize = 1; // Grayscale
+
+        // check boundingbox dimensions
+        let bb_end_x = bb.start.x + bb.width;
+        let bb_end_y = bb.start.y + bb.height;
+        if bb_end_x > self.width || bb_end_y > self.height {
+            panic!("bb_rows: BoundingBox out of frame bounds");
+        }
+
+        // Assume no padding
+        let stride = self.width;
+
+        // Create a raw slice pointer to the buffer start
+        let fb_ptr = *self.fb.fb;
+        let buf_start =
+            unsafe { std::slice::from_raw_parts((*fb_ptr).buf, (*fb_ptr).len) }.as_ptr();
+
+        // Construct FrameBuffer BB rows iterator
+        (bb.start.y..bb_end_y).map(move |bb_row_y| {
+            // Find start byte of framebuffer in this BB row
+            let row_bb_y_offset = bb_row_y * stride;
+
+            // Combined offset for top left of BB
+            let bb_row_slice_start_byte = row_bb_y_offset + bb.start.x;
+
+            let bb_row_slice_len = bb.width;
+
+            unsafe {
+                // Pointer arithmetic to get the start of this specific row segment
+                let ptr = buf_start.add(bb_row_slice_start_byte);
+
+                std::slice::from_raw_parts(ptr, bb_row_slice_len)
+            }
+        })
     }
 
     /// SAFETY: Only call this from the camera task when control loop is done
@@ -75,4 +114,15 @@ impl From<camera::timeval> for EspCamTimeStamp {
             tv_usec: value.tv_usec,
         }
     }
+}
+
+pub struct Pixel {
+    pub x: usize,
+    pub y: usize,
+}
+
+pub struct BoundingBox {
+    pub start: Pixel,
+    pub width: usize,
+    pub height: usize,
 }

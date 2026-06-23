@@ -4,7 +4,8 @@ use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Wa
 use messenger_mouse::{VisionAlgorithmOutput, VisionMotorSetpoint};
 
 use crate::{
-    camera::framebuffer_view::FrameBufferView, control::vision::algo::IDEAL_BLADE_DEPTH_PX,
+    camera::framebuffer_view::FrameBufferView,
+    control::vision::algo::{IDEAL_BLADE_DEPTH_PX, VISION_BOUNDING_BOX},
 };
 
 pub static ALGO_INTERMEDIATE_WATCH: Watch<Cs, Arc<FrameBufferView>, 1> = Watch::new();
@@ -59,106 +60,36 @@ pub fn vision_joris(frame: Arc<FrameBufferView>) -> VisionAlgorithmOutput {
     // For each column we compute the first order derivative using finite difference
     //   diff[col] = -(pixel[col+1] - pixel[col])
     // and locate the column with the largest positive value (bright -> dark edge).
-    // Sub-pixel position is refined with a parabolic fit through the 3 samples
-    // around the maximum.
-    //
-    // We store positions as fixed-point ×256 (i32) to stay in integer maths on
-    // the ESP32S3 while still carrying sub-pixel information.
 
-    // Pre-allocate on the stack when rows ≤ 480; heap otherwise.
-    let mut peaks: Vec<i32> = Vec::with_capacity(h); // ×256 fixed-point columns
+    // Vertical forward difference peak row indices
+    let mut peaks_rows: [usize; VISION_BOUNDING_BOX.width] = [0usize; VISION_BOUNDING_BOX.width];
+    // Vertical forward difference peak values
+    let mut peaks: [i32; VISION_BOUNDING_BOX.width] = [0i32; VISION_BOUNDING_BOX.width];
 
-    for col in 0..w {
-        let col_start = col * h;
-        let col_pixels = &buf[col_start..col_start + h];
+    // Iterate (BB, BB+1) rows
+    for (row_idx, (curr_row, next_row)) in frame
+        .bb_rows(VISION_BOUNDING_BOX)
+        .zip(frame.bb_rows(VISION_BOUNDING_BOX).skip(1))
+        .enumerate()
+    {
+        // Iterate colums
+        for (col_idx, (curr_col, next_col)) in curr_row.iter().zip(next_row).enumerate() {
+            // Compute forward difference
+            let forward_diff: i32 = (next_col - curr_col) as i32;
 
-        // Find argmax of the negated forward difference.
-        let mut best_col: usize = 1;
-        let mut best_val: i32 = i32::MIN;
-
-        // We skip col 0 and col w-2 so the parabola always has left and right
-        // neighbours.
-        for col in 1..(w - 2) {
-            let diff = row_pixels[col] as i32 - row_pixels[col + 1] as i32; // negated diff
-            if diff > best_val {
-                best_val = diff;
-                best_col = col;
+            // Track peaks: largest forward difference per column
+            if forward_diff > peaks[col_idx] {
+                peaks[col_idx] = forward_diff;
+                peaks_rows[col_idx] = row_idx;
             }
         }
-
-        // Parabolic sub-pixel refinement: fit y = a·x² + b·x + c through the
-        // three samples at (best_col-1, best_col, best_col+1), then compute the
-        // vertex x = -b / (2a).
-        //
-        // With y₀ = left, y₁ = centre, y₂ = right and x₀ = best_col-1:
-        //   a = (y₀ - 2·y₁ + y₂) / 2
-        //   b = (y₂ - y₀) / 2
-        //   vertex_offset = -b / (2a) = (y₀ - y₂) / (2·(y₀ - 2·y₁ + y₂))
-        //
-        // We scale by 256 to avoid floats.
-
-        let y0 = row_pixels[best_col - 1] as i32 - row_pixels[best_col] as i32; // diff at col-1
-        let y1 = row_pixels[best_col] as i32 - row_pixels[best_col + 1] as i32; // diff at col (our max)
-        let y2 = row_pixels[best_col + 1] as i32 - row_pixels[best_col + 2] as i32; // diff at col+1
-
-        // denom = y0 - 2·y1 + y2  (= 2a, always ≤ 0 at a maximum)
-        let denom = y0 - 2 * y1 + y2;
-
-        let peak_fp = if denom != 0 {
-            // offset×256 = (y0 - y2)·128 / denom
-            // Clamp to ±1 pixel to avoid wild swings on flat rows.
-            let numer = (y0 - y2) * 128; // ×256/2
-            let offset = numer / denom; // already ×256 units
-            let offset = offset.clamp(-256, 256);
-            (best_col as i32) * 256 + offset
-        } else {
-            (best_col as i32) * 256
-        };
-
-        peaks.push(peak_fp);
     }
 
-    // ── stage 2: IQR outlier rejection ───────────────────────────────────────
-    //
-    // Sort a copy, find Q1 and Q3, then keep only rows whose peak is within
-    //   [median - IQR_SCALE/10 × IQR,  median + IQR_SCALE/10 × IQR]
+    // -- stage 2: find average row index of vertical derivate peak
 
-    let mut sorted = peaks.clone();
-    sorted.sort_unstable();
+    let avg_peak_row_idx: usize =
+        (peaks_rows.iter().sum() + VISION_BOUNDING_BOX.width / 2) / VISION_BOUNDING_BOX.width;
 
-    let n = sorted.len();
-    let q1 = sorted[n / 4];
-    let q3 = sorted[3 * n / 4];
-    let iqr = q3 - q1; // in ×256 fixed-point
-
-    // threshold = IQR_SCALE * iqr / 10
-    let threshold = IQR_SCALE * iqr / 10;
-
-    let median_all = sorted[n / 2];
-    let lo = median_all - threshold;
-    let hi = median_all + threshold;
-
-    // Collect valid peaks (those inside the fence).
-    let valid: Vec<i32> = peaks
-        .iter()
-        .copied()
-        .filter(|&p| p >= lo && p <= hi)
-        .collect();
-
-    if valid.len() < (h / 4).max(4) {
-        // Fewer than 25% of rows survived — image probably has no clear edge.
-        return BAD_OUTPUT;
-    }
-
-    // ── stage 3: median of valid peaks → edge position ───────────────────────
-    let mut valid_sorted = valid.clone();
-    valid_sorted.sort_unstable();
-    let edge_fp = valid_sorted[valid_sorted.len() / 2]; // ×256 fixed-point
-    let edge_px = edge_fp / 256; // integer pixel column
-
-    // ── stage 4: compare to frame centre → motor command ─────────────────────
-    //
-    // Positive error  → edge is to the RIGHT of centre → knife needs to go UP
     // Negative error  → edge is to the LEFT of centre  → knife needs to go DOWN
     // (flip the sign convention here to match your motor wiring)
 
