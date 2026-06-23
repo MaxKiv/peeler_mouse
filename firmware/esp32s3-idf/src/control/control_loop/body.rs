@@ -10,9 +10,9 @@ use embassy_time::{Duration, Ticker, WithTimeout};
 use esp_idf_hal::ledc::LedcDriver;
 use log::*;
 use messenger_mouse::{
-    encoder::EncoderState, motor::MotorAction, Esp32Setpoint, VisionAlgorithmOutput, VisionData,
+    encoder::EncoderState, motor::MotorAction, Esp32Setpoint, VisionData, VisionMotorSetpoint,
 };
-use messenger_mouse::{ControlOutput, Esp32Status, LED_BRIGHTNESS};
+use messenger_mouse::{ControlOutput, Esp32Status, VisionAlgorithmOutput, LED_BRIGHTNESS};
 
 use crate::{
     actuation::stepper::{
@@ -53,7 +53,7 @@ pub async fn control_loop(
     let mut ticker = Ticker::every(CONTROL_LOOP_FREQUENCY);
 
     // Latest framebuffer signal
-    let framebuffer_rx = FRAMEBUFFER_CONTROL_LOOP_CHANNEL.receiver();
+    let mut framebuffer_rx = FRAMEBUFFER_CONTROL_LOOP_CHANNEL.receiver().unwrap();
 
     // Report sender
     let report_tx = REPORT_WATCH.sender();
@@ -120,7 +120,7 @@ pub async fn control_loop(
                 // - Transform this output into a MotorAction
 
                 // Get latest framebuffer from camera
-                let frame = framebuffer_rx.receive().await;
+                let frame = framebuffer_rx.changed().await;
                 warn!("CONTROL: frame: {}", frame.generation);
 
                 let timestamp = frame.timestamp.clone();
@@ -166,6 +166,10 @@ pub async fn control_loop(
 
                 (ControlOutput::Vision(control_effort), Some(vision_data))
             } else {
+                // Manual mode doesn't use the camera frame, release framebuffer immediately
+                // TODO: this feels hacky -> bad architecture
+                FRAME_DONE_SIGNAL.signal(());
+
                 (ControlOutput::Manual, None)
             };
 

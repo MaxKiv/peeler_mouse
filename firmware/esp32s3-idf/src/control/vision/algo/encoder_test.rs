@@ -3,15 +3,15 @@ use std::sync::{
     Arc,
 };
 
-use messenger_mouse::VisionAlgorithmOutput;
+use messenger_mouse::{VisionAlgorithmOutput, VisionMotorSetpoint};
 
 use crate::{
     camera::framebuffer_view::FrameBufferView,
-    control::vision::algo::{HIGH_THRESHOLD, LOW_THRESHOLD},
+    control::vision::algo::{HIGH_THRESHOLD, IDEAL_BLADE_DEPTH_PX, LOW_THRESHOLD},
 };
 
 // Switches between moving up and down periodically
-pub fn periodic_encoder_test(_: Arc<FrameBufferView>) -> Option<VisionAlgorithmOutput> {
+pub fn periodic_encoder_test(_: Arc<FrameBufferView>) -> VisionAlgorithmOutput {
     const SPEED: u8 = 100;
     const HI: u32 = HIGH_THRESHOLD as u32 + 1;
     const LO: u32 = LOW_THRESHOLD as u32 - 1;
@@ -29,11 +29,17 @@ pub fn periodic_encoder_test(_: Arc<FrameBufferView>) -> Option<VisionAlgorithmO
 
     let out = OUT.load(Ordering::Relaxed) as u64;
 
-    if out > HIGH_THRESHOLD {
-        Some(VisionAlgorithmOutput::Up(SPEED))
+    let knife_setpoint = if out > HIGH_THRESHOLD {
+        VisionMotorSetpoint::Up(SPEED)
     } else if out < LOW_THRESHOLD {
-        Some(VisionAlgorithmOutput::Down(SPEED))
+        VisionMotorSetpoint::Down(SPEED)
     } else {
-        Some(VisionAlgorithmOutput::Hold)
+        VisionMotorSetpoint::Hold
+    };
+
+    VisionAlgorithmOutput {
+        knife_setpoint: Some(knife_setpoint),
+        target_blade_depth_px: IDEAL_BLADE_DEPTH_PX,
+        current_blade_depth_px: None,
     }
 }

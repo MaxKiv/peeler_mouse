@@ -15,7 +15,7 @@ pub fn handle_root(request: Request<&mut EspHttpConnection<'_>>) -> anyhow::Resu
 
             <script>
             // Configuration
-            const UPDATE_INTERVAL_MS = 500; // How often to fetch the camera
+            const UPDATE_INTERVAL_MS = 400; // How often to fetch the camera
             let fetchTimer = null;
 
             async function fetchFrame() {
@@ -116,7 +116,7 @@ pub fn handle_root(request: Request<&mut EspHttpConnection<'_>>) -> anyhow::Resu
             function drawLine(ctx, startX, startY, endX, endY) {
               // Draw Line
               ctx.beginPath();
-              ctx.strokeStyle = "#00FF00"; // Green
+              ctx.strokeStyle = "#FF0000"; // Red
               ctx.moveTo(startX, startY);
               ctx.lineTo(endX, endY);
               ctx.stroke();
@@ -130,9 +130,9 @@ pub fn handle_root(request: Request<&mut EspHttpConnection<'_>>) -> anyhow::Resu
               const boxH = 170;
 
               const startX = 0;
-              const startY = height/2;
+              const startY = h/2;
               const endX = 1000;
-              const endY = height/2;
+              const endY = h/2;
 
               // Reset transformation to ensure we draw on top of the image
               ctx.save();

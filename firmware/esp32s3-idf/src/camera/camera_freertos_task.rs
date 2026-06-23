@@ -1,30 +1,37 @@
 use std::sync::Arc;
 
-use crate::camera::{
-    esp_cam_wrapper::Camera,
-    framebuffer_view::{FrameBufferView, FRAME_DONE_SIGNAL},
-    peripherals::CameraPeripherals,
-    CameraConfig,
+use crate::{
+    camera::{
+        esp_cam_wrapper::Camera,
+        framebuffer_view::{FrameBufferView, FRAME_DONE_SIGNAL},
+        peripherals::CameraPeripherals,
+        CameraConfig,
+    },
+    comms::comms_task::SETPOINT_WATCH,
 };
 
 use embassy_sync::{
-    blocking_mutex::raw::CriticalSectionRawMutex as Cs, channel::Channel, watch::Watch,
+    blocking_mutex::raw::CriticalSectionRawMutex as Cs,
+    channel::Channel,
+    watch::{self, Watch},
 };
 
 use embassy_time::Instant;
 use esp_idf_sys::*;
 use log::*;
+use messenger_mouse::{motor::ControlMode, Esp32Setpoint};
 
-pub static FRAMEBUFFER_CONTROL_LOOP_CHANNEL: Channel<Cs, Arc<FrameBufferView>, 1> = Channel::new();
+pub static FRAMEBUFFER_CONTROL_LOOP_CHANNEL: Watch<Cs, Arc<FrameBufferView>, 1> = Watch::new();
 pub static FRAMEBUFFER_WEBSERVER_CHANNEL: Watch<Cs, Arc<FrameBufferView>, 1> = Watch::new();
 pub static FRAMEBUFFER_SD_CHANNEL: Watch<Cs, Arc<FrameBufferView>, 1> = Watch::new();
 static mut CAMERA_TASK_ARGS: Option<CameraTaskArgs> = None;
 
 pub struct CameraTaskArgs {
     camera_peripherals: Option<CameraPeripherals>,
-    control_loop_tx: &'static Channel<Cs, Arc<FrameBufferView>, 1>,
+    control_loop_tx: &'static Watch<Cs, Arc<FrameBufferView>, 1>,
     webserver_watch: &'static Watch<Cs, Arc<FrameBufferView>, 1>,
     sd_signal: &'static Watch<Cs, Arc<FrameBufferView>, 1>,
+    setpoint_receiver: &'static Watch<Cs, Esp32Setpoint, 2>,
 }
 
 pub fn setup_freertos(camera_peripherals: CameraPeripherals) {
@@ -36,6 +43,7 @@ pub fn setup_freertos(camera_peripherals: CameraPeripherals) {
             control_loop_tx: &FRAMEBUFFER_CONTROL_LOOP_CHANNEL,
             webserver_watch: &FRAMEBUFFER_WEBSERVER_CHANNEL,
             sd_signal: &FRAMEBUFFER_SD_CHANNEL,
+            setpoint_receiver: &SETPOINT_WATCH,
         });
 
         xTaskCreatePinnedToCore(
@@ -59,9 +67,10 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
     // Get our camera args
     let args = &mut *(arg as *mut CameraTaskArgs);
 
-    let control_loop_tx = args.control_loop_tx;
-    let webserver_watch = args.webserver_watch;
+    let control_loop_tx = args.control_loop_tx.sender();
+    let webserver_watch = args.webserver_watch.sender();
     let sd_signal = args.sd_signal;
+    let mut setpoint_receiver = args.setpoint_receiver.receiver().unwrap();
 
     let camera_peripherals = args
         .camera_peripherals
@@ -141,19 +150,14 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
             let fb_view = Arc::new(FrameBufferView::from_driver(frame, fps));
             FRAME_DONE_SIGNAL.reset();
             // Send it to the control task for consumption
-            if let Err(err) = control_loop_tx.try_send(fb_view.clone()) {
-                log::error!(
-                    "CAMERA: unable to send frame control task -> dropping frame: {:?}",
-                    err
-                );
-            }
+            control_loop_tx.send(fb_view.clone());
 
             // If webserver is enabled, copy the framebuffer for consumption there
             // Note: each FB copy takes ~30ms, this directly impacts control loop perf
             #[cfg(feature = "webserver")]
             {
                 // Send to Webserver task
-                webserver_watch.sender().send(fb_view.clone());
+                webserver_watch.send(fb_view.clone());
             }
 
             // If SD logging is enabled, copy the framebuffer for consumption there
@@ -188,15 +192,14 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
                 // Wait for 1ms
                 vTaskDelay(1)
             }
-            warn!("CAMERA: SIGNALED");
 
             // Force the watch to release its Arc clone
             // Next frame will overwrite it anyway
             #[cfg(feature = "webserver")]
-            webserver_watch.sender().clear();
+            webserver_watch.clear();
 
             // The Esp-camera driver requires us to release the framebuffer in this task
-            // Now is a good time, as the control loop has indicated it's done with it
+            // Now is a good time, as the control loop has indicated it's done with the frame
             // SAFETY: This upholds the Esp-camera driver constraint of releasing its framebuffer in
             // the same FreeRtos task that produced it
             debug!(

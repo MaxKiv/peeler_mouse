@@ -6,10 +6,13 @@ pub mod comms;
 pub mod control;
 pub mod encoder;
 pub mod request;
-pub mod sd;
+
 pub mod server;
 pub mod util;
 pub mod wifi;
+
+#[cfg(feature = "sd")]
+pub mod sd;
 
 use crate::actuation::stepper::peripherals::{MotorPeripherals, StepperPeripherals};
 use crate::camera::peripherals::CameraPeripherals;

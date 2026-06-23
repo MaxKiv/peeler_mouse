@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use messenger_mouse::{
     motor::{MotorAction, MotorDirection, MotorSetpoints, MotorVelocitySetpoint},
-    ControlEffort, LedSetpoint, VisionAlgorithmOutput, LED_BRIGHTNESS,
+    ControlEffort, LedSetpoint, VisionAlgorithmOutput, VisionMotorSetpoint, LED_BRIGHTNESS,
 };
 use uom::si::{f32::Velocity, velocity::millimeter_per_second};
 
@@ -26,22 +26,59 @@ enum Algo {
     Joris,
 }
 
+struct Pixel {
+    x: usize,
+    y: usize,
+}
+struct BoundingBox {
+    start: Pixel,
+    width: usize,
+    height: usize,
+}
+
 const ALGO: Algo = Algo::Joris;
 
 const HIGH_THRESHOLD: u64 = (u8::MAX / 2 + 20) as u64;
 const LOW_THRESHOLD: u64 = (u8::MAX / 2 - 20) as u64;
+const VISION_BOUNDING_BOX: BoundingBox = BoundingBox {
+    start: Pixel { x: 90, y: 30 },
+    width: 100,
+    height: 100,
+};
 
-pub fn get_control_output_from_vision(algo_out: VisionAlgorithmOutput) -> ControlEffort {
+/*
+    Blade Depth Explanation
+
+                 \\                                                       // -
+                  \\                       KNIFE                         //  |
+                   \\    Knife blade                                    //   |
+Ideal Blade depth ->\\                                                 //    | <- Blade
+#################### \\ <- Current cutting depth ~= 20% blade depth   //     |
+##################### \\---------------------------------------------//      |
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~... -
+                                                                             |
+                                                                             | <- Cable Inner Layer
+                                                                             |
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~... -
+####################### CABLE ISOLATION #################################... | <- Cable Outer Layer
+#########################################################################... -
+
+    Current cutting depth should be controlled to blade depth / 2.
+    Else we are cutting too deep or shallow.
+*/
+const IDEAL_BLADE_DEPTH_PX: usize = 120;
+
+pub fn get_control_output_from_vision(algo_out: VisionMotorSetpoint) -> ControlEffort {
     let knife_action = match algo_out {
-        VisionAlgorithmOutput::Hold => MotorAction::Hold,
-        VisionAlgorithmOutput::Up(speed) => {
+        VisionMotorSetpoint::Hold => MotorAction::Hold,
+        VisionMotorSetpoint::Up(speed) => {
             MotorAction::MoveVelocity(MotorVelocitySetpoint::new_forward(Velocity::new::<
                 millimeter_per_second,
             >(
                 speed as f32 / u8::MAX as f32 * VISION_MAX_SPEED_MM_PS,
             )))
         }
-        VisionAlgorithmOutput::Down(speed) => {
+        VisionMotorSetpoint::Down(speed) => {
             MotorAction::MoveVelocity(MotorVelocitySetpoint::new_reverse(Velocity::new::<
                 millimeter_per_second,
             >(
@@ -80,13 +117,13 @@ pub async fn calculate_control_effort(frame: Arc<FrameBufferView>) -> VisionAlgo
         Some(output) => output,
         None => {
             log::error!("VISION: Algorithm returned None -> using default HOLD");
-            VisionAlgorithmOutput::Hold
+            VisionMotorSetpoint::Hold
         }
     }
 }
 
 // 3x3 Convolution with horizontal sobel kernel to determine midline point
-pub fn complex_algo(frame: Arc<FrameBufferView>) -> Option<VisionAlgorithmOutput> {
+pub fn complex_algo(frame: Arc<FrameBufferView>) -> VisionAlgorithmOutput {
     let out = 0;
 
     log::info!("VISION: starting for GEN {}", frame.generation);
@@ -125,12 +162,18 @@ pub fn complex_algo(frame: Arc<FrameBufferView>) -> Option<VisionAlgorithmOutput
 
     log::info!("VISION: outputs {}", out);
 
-    if out > HIGH_THRESHOLD {
-        Some(VisionAlgorithmOutput::Up(100))
+    let knife_setpoint = if out > HIGH_THRESHOLD {
+        VisionMotorSetpoint::Up(100)
     } else if out < LOW_THRESHOLD {
-        Some(VisionAlgorithmOutput::Down(100))
+        VisionMotorSetpoint::Down(100)
     } else {
-        Some(VisionAlgorithmOutput::Hold)
+        VisionMotorSetpoint::Hold
+    };
+
+    VisionAlgorithmOutput {
+        knife_setpoint: Some(knife_setpoint),
+        target_blade_depth_px: IDEAL_BLADE_DEPTH_PX,
+        current_blade_depth_px: None,
     }
 }
 

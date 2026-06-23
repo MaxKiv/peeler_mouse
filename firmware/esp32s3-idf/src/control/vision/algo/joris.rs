@@ -1,9 +1,11 @@
 use std::sync::Arc;
 
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Watch};
-use messenger_mouse::VisionAlgorithmOutput;
+use messenger_mouse::{VisionAlgorithmOutput, VisionMotorSetpoint};
 
-use crate::camera::framebuffer_view::FrameBufferView;
+use crate::{
+    camera::framebuffer_view::FrameBufferView, control::vision::algo::IDEAL_BLADE_DEPTH_PX,
+};
 
 pub static ALGO_INTERMEDIATE_WATCH: Watch<Cs, Arc<FrameBufferView>, 1> = Watch::new();
 
@@ -18,6 +20,12 @@ const IQR_SCALE: i32 = 12; // ×10 fixed-point, so 1.2 → 12
 /// Error ≥ this → speed = 255. Scales linearly below.
 const FULL_SPEED_PX: i32 = 80;
 
+const BAD_OUTPUT: VisionAlgorithmOutput = VisionAlgorithmOutput {
+    knife_setpoint: None,
+    target_blade_depth_px: IDEAL_BLADE_DEPTH_PX,
+    current_blade_depth_px: None,
+};
+
 /// Run the cable-edge detection on one GRAYSCALE frame.
 ///
 /// Returns the direction and magnitude the motor should move so that the
@@ -25,7 +33,7 @@ const FULL_SPEED_PX: i32 = 80;
 ///
 /// Returns `None` when the frame format is not GRAYSCALE or too few valid
 /// rows survive outlier rejection to make a reliable estimate.
-pub fn vision_joris(frame: Arc<FrameBufferView>) -> Option<VisionAlgorithmOutput> {
+pub fn vision_joris(frame: Arc<FrameBufferView>) -> VisionAlgorithmOutput {
     // Safety: we only read the pixel buffer, never write it.
     let buf: &[u8] = unsafe {
         let fb_ptr = *frame.fb.fb; // *mut camera_fb_t
@@ -35,15 +43,22 @@ pub fn vision_joris(frame: Arc<FrameBufferView>) -> Option<VisionAlgorithmOutput
     let w = frame.width;
     let h = frame.height;
 
+    // sanity check frame width & height
     if w < 3 || h < 1 || buf.len() < w * h {
-        return None;
+        log::error!(
+            "VISION: bad width: {} and/or height: {} and/or buf.len(): {}",
+            w,
+            h,
+            buf.len()
+        );
+        return BAD_OUTPUT;
     }
 
-    // ── stage 1: per-row peak positions ──────────────────────────────────────
+    // -- stage 1: find per-colum first order derivate peak positions --------------
     //
-    // For each row we compute the horizontal finite difference
+    // For each column we compute the first order derivative using finite difference
     //   diff[col] = -(pixel[col+1] - pixel[col])
-    // and locate the column with the largest positive value (bright→dark edge).
+    // and locate the column with the largest positive value (bright -> dark edge).
     // Sub-pixel position is refined with a parabolic fit through the 3 samples
     // around the maximum.
     //
@@ -53,9 +68,9 @@ pub fn vision_joris(frame: Arc<FrameBufferView>) -> Option<VisionAlgorithmOutput
     // Pre-allocate on the stack when rows ≤ 480; heap otherwise.
     let mut peaks: Vec<i32> = Vec::with_capacity(h); // ×256 fixed-point columns
 
-    for row in 0..h {
-        let row_start = row * w;
-        let row_pixels = &buf[row_start..row_start + w];
+    for col in 0..w {
+        let col_start = col * h;
+        let col_pixels = &buf[col_start..col_start + h];
 
         // Find argmax of the negated forward difference.
         let mut best_col: usize = 1;
@@ -132,11 +147,10 @@ pub fn vision_joris(frame: Arc<FrameBufferView>) -> Option<VisionAlgorithmOutput
 
     if valid.len() < (h / 4).max(4) {
         // Fewer than 25% of rows survived — image probably has no clear edge.
-        return None;
+        return BAD_OUTPUT;
     }
 
     // ── stage 3: median of valid peaks → edge position ───────────────────────
-
     let mut valid_sorted = valid.clone();
     valid_sorted.sort_unstable();
     let edge_fp = valid_sorted[valid_sorted.len() / 2]; // ×256 fixed-point
@@ -152,17 +166,21 @@ pub fn vision_joris(frame: Arc<FrameBufferView>) -> Option<VisionAlgorithmOutput
     let error = edge_px - centre_px; // signed pixels
 
     if error.abs() <= DEAD_ZONE_PX {
-        return Some(VisionAlgorithmOutput::Hold);
+        return Some(VisionMotorSetpoint::Hold);
     }
 
-    // Map |error| → speed 0..=255, clamped.
+    // Map error -> speed 0..=255, clamped.
     let speed = ((error.abs() * 255) / FULL_SPEED_PX).clamp(0, 255) as u8;
 
-    let output = if error > 0 {
-        VisionAlgorithmOutput::Up(speed)
+    let knife_setpoint = if error > 0 {
+        VisionMotorSetpoint::Up(speed)
     } else {
-        VisionAlgorithmOutput::Down(speed)
+        VisionMotorSetpoint::Down(speed)
     };
 
-    Some(output)
+    VisionAlgorithmOutput {
+        knife_setpoint: Some(knife_setpoint),
+        target_blade_depth_px: IDEAL_BLADE_DEPTH_PX,
+        current_blade_depth_px: None,
+    }
 }
