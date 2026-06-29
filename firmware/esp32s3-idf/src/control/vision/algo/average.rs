@@ -4,7 +4,7 @@ use messenger_mouse::{VisionAlgorithmOutput, VisionMotorSetpoint};
 
 use crate::{
     camera::framebuffer_view::FrameBufferView,
-    control::vision::algo::{HIGH_THRESHOLD, IDEAL_BLADE_DEPTH_PX, LOW_THRESHOLD},
+    control::vision::algo::{HIGH_THRESHOLD, LOW_THRESHOLD, VISION_ZERO_LINE_HEIGHT},
 };
 
 // Simple average
@@ -23,7 +23,8 @@ pub fn simple_average(frame: Arc<FrameBufferView>) -> VisionAlgorithmOutput {
 
     VisionAlgorithmOutput {
         knife_setpoint: Some(knife_setpoint),
-        target_blade_depth_px: IDEAL_BLADE_DEPTH_PX,
-        current_blade_depth_px: None,
+        zero_line_height_px: VISION_ZERO_LINE_HEIGHT,
+        transition_line_height_px: None,
+        tearing_detected: false,
     }
 }

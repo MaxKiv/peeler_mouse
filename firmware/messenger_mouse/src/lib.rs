@@ -101,22 +101,56 @@ pub enum Esp32Status {
     Fault,
 }
 
+/*
+    Blade Depth Explanation
+
+                 \\                                                       // -
+                  \\                       KNIFE                         //  |
+                   \\    Knife blade                                    //   |
+    Zero Line     ->\\                                                 //    | <- Blade
+#################### \\ <- Current Transition Line ~= 20% blade depth //     |
+##################### \\---------------------------------------------//      |
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~... -
+                                                                             |
+                                                                             | <- Cable Inner Layer
+                                                                             |
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~... -
+####################### CABLE ISOLATION #################################... | <- Cable Outer Layer
+#########################################################################... -
+
+    Transition Line should be controlled to blade depth / 2.
+    Else we are cutting too deep or shallow.
+*/
+#[derive(Deserialize, Serialize, Clone, Debug, Default)]
+#[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
+pub struct VisionAlgorithmOutput {
+    pub knife_setpoint: Option<VisionMotorSetpoint>,
+    /// Statically determined blade depth target
+    /// Should correspond to blade depth /2
+    /// Depends on camera and blade geometry
+    pub zero_line_height_px: usize,
+    /// Current calculated blade depth
+    pub transition_line_height_px: Option<usize>,
+    /// Was tearing detected during this control loop pass?
+    pub tearing_detected: bool,
+}
+
 #[derive(Deserialize, Serialize, Clone, Debug, Default)]
 #[cfg_attr(feature = "use-defmt", derive(defmt::Format))]
 /// Esp32 Vision algorithm output
-pub enum VisionAlgorithmOutput {
+pub enum VisionMotorSetpoint {
     Up(u8),
     #[default]
     Hold,
     Down(u8),
 }
 
-impl core::fmt::Display for VisionAlgorithmOutput {
+impl core::fmt::Display for VisionMotorSetpoint {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            VisionAlgorithmOutput::Up(value) => write!(f, "Up({})", value),
-            VisionAlgorithmOutput::Hold => write!(f, "Hold"),
-            VisionAlgorithmOutput::Down(value) => write!(f, "Down({})", value),
+            VisionMotorSetpoint::Up(value) => write!(f, "Up({})", value),
+            VisionMotorSetpoint::Hold => write!(f, "Hold"),
+            VisionMotorSetpoint::Down(value) => write!(f, "Down({})", value),
         }
     }
 }

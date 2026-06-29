@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+
+<body>
+  <br>
+  <div style="position: relative;">
+    <canvas id="camCanvas"></canvas>
+    <canvas id="legendCanvas" style="position: absolute; left: 380px;" width="100" height="100"></canvas>
+  </div>
+  <br>
+
+  <script>
+    // Configuration
+    const UPDATE_INTERVAL_MS = 400; // How often to fetch the camera
+    let fetchTimer = null;
+
+    // cache last known overlay
+    let overlay = {
+      zero_line: [0, 0, 0, 0],
+      transition_line: [0, 0, 0, 0],
+      bb: [0, 0, 0, 0],
+      tearing_detected: 0
+    };
+    async function fetchOverlay() {
+      try {
+        const res = await fetch("/overlay", {cache: "no-store"});
+        if (res.ok) overlay = await res.json();
+      } catch (e) { /* keep last known */}
+    }
+
+    async function fetchFrame() {
+      let res;
+      try {
+        // 'no-store' ensures we get fresh data from the ESP
+        res = await fetch("/camera", {cache: "no-store"});
+      } catch (e) {
+        console.error("Fetch failed:", e);
+        return;
+      }
+
+      if (!res.ok) {
+        if (res.status === 503) {
+          console.log("No frame available yet");
+          return;
+        }
+        console.error("Camera error:", res.status);
+        // Optional: Stop updates if we keep failing? 
+        // clearInterval(fetchTimer);
+        return;
+      }
+
+      // Attempt to fetch latest vision algo overlay
+      fetchOverlay();
+
+      // Store cam bytes in a raw byte buffer
+      const buf = await res.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+
+      let idx = 0;
+
+      function skipWhitespace() {
+        while (idx < bytes.length && bytes[idx] <= 32) idx++;
+      }
+
+      // Read a single token from the PGM image
+      function readToken() {
+        skipWhitespace();
+        if (bytes[idx] === 35) { // '#'
+          while (bytes[idx++] !== 10);
+          return readToken();
+        }
+        let start = idx;
+        while (idx < bytes.length && bytes[idx] > 32) idx++;
+        return String.fromCharCode(...bytes.slice(start, idx));
+      }
+
+      // Confirm PGM magic number
+      const magic = readToken();
+      if (magic !== "P5") {
+        console.error("Not a P5 PGM");
+        return;
+      }
+
+      // Get width, height and max pixel value
+      const width = parseInt(readToken(), 10);
+      const height = parseInt(readToken(), 9);
+      const maxval = parseInt(readToken(), 10);
+
+      // Check if these seem right
+      if (!Number.isFinite(width) || !Number.isFinite(height) || maxval !== 255) {
+        console.error("Invalid PGM header");
+        return;
+      }
+
+      const expected = width * height;
+      const pixelData = bytes.slice(idx, idx + expected);
+      if (pixelData.length !== expected) {
+        console.error("Truncated PGM payload");
+        return;
+      }
+
+      const canvas = document.getElementById("camCanvas");
+
+      // Resize canvas only if dimensions changed to avoid flicker/layout thrashing
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+
+      // Create image object on canvas
+      const ctx = canvas.getContext("2d");
+      ctx.reset();
+      const img = ctx.createImageData(width, height);
+
+      // 1. Draw the raw image data (Grayscale -> RGB)
+      for (let i = 0; i < expected; i++) {
+        const v = pixelData[i];
+        const o = i * 4;
+        img.data[o + 0] = v;     // R
+        img.data[o + 1] = v;     // G
+        img.data[o + 2] = v;     // B
+        img.data[o + 3] = 255;   // A
+      }
+      ctx.putImageData(img, 0, 0);
+
+      // 2. Draw the Box and Line on top
+      drawOverlays(ctx, width, height, overlay);
+      // 3. Draw overlay legend on its own canvas
+      drawLegend();
+    }
+
+    function drawOverlays(ctx, w, h, overlay) {
+      if (!overlay || !Array.isArray(overlay.bb)) {
+        console.warn('Invalid overlay data');
+        return;
+      }
+
+      ctx.save();
+
+      // Optional: Add semi-transparent background to make lines pop
+      ctx.globalAlpha = 1.0;
+
+      const colors = {
+        boundingBox: '#00FF00',
+        zeroLine: '#FF0000',
+        transitionLine: '#0000FF',
+        tearing: '#FF0000'
+      };
+
+      const lineWidths = {
+        boxes: 2,
+        lines: 2,
+        tearing: 5
+      };
+
+      // Draw Bounding Box (GREEN)
+      ctx.strokeStyle = colors.boundingBox;
+      ctx.lineWidth = lineWidths.boxes;
+      try {
+        ctx.strokeRect(...overlay.bb);
+      } catch (e) {
+        console.error('Failed to draw bounding box:', e);
+      }
+
+      // Draw Zero Line (RED)
+      ctx.strokeStyle = colors.zeroLine;
+      ctx.lineWidth = lineWidths.lines;
+      try {
+        ctx.beginPath();
+        ctx.moveTo(overlay.zero_line[0], overlay.zero_line[1]);
+        ctx.lineTo(overlay.zero_line[2], overlay.zero_line[3]);
+        ctx.stroke();
+      } catch (e) {
+        console.error('Failed to draw zero line:', e);
+      }
+
+      // Draw Transition Line (BLUE)
+      ctx.strokeStyle = colors.transitionLine;
+      ctx.lineWidth = lineWidths.lines;
+      try {
+        ctx.beginPath();
+        ctx.moveTo(overlay.transition_line[0], overlay.transition_line[1]);
+        ctx.lineTo(overlay.transition_line[2], overlay.transition_line[3]);
+        ctx.stroke();
+      } catch (e) {
+        console.error('Failed to draw transition line:', e);
+      }
+
+      // Tearing Indicator (RED BORDER)
+      if (overlay.tearing_detected === true) {
+        ctx.strokeStyle = colors.tearing;
+        ctx.lineWidth = lineWidths.tearing;
+        ctx.strokeRect(0, 0, w, h);
+      }
+
+      ctx.restore();
+    }
+
+    function drawLegend() {
+      const width = 150;
+      const height = 100;
+      const canvas = document.getElementById("legendCanvas");
+      // Resize canvas only if dimensions changed to avoid flicker/layout thrashing
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+
+      const ctx = canvas.getContext("2d");
+
+      // White background
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, width, height);
+
+      const startX = 10;   // Left margin for legend
+      const startY = 10;   // Top margin
+      const itemGap = 25;  // Space between entries
+
+      ctx.font = "12px sans-serif";
+
+      const items = [
+        {label: 'Bounding Box', color: '#00FF00', size: 8},
+        {label: 'Zero Line', color: '#FF0000', size: 8},
+        {label: 'Transition Line', color: '#0000FF', size: 8},
+        {label: 'Tearing Detected', color: '#FF0000', size: 20}
+      ];
+
+      let yPos = startY;
+
+      items.forEach(item => {
+        // Color swatch (line or square depending on type)
+        if (item.size > 10) {
+          // For tearing indicator, show as thicker bar
+          ctx.fillStyle = item.color;
+          ctx.fillRect(startX, yPos - item.size / 2, 10, item.size);
+        } else {
+          // Thin line swatch
+          ctx.beginPath();
+          ctx.strokeStyle = item.color;
+          ctx.lineWidth = 2;
+          ctx.moveTo(startX, yPos);
+          ctx.lineTo(startX + 10, yPos);
+          ctx.stroke();
+        }
+
+        // Text label
+        ctx.fillStyle = "#000000";
+        ctx.textBaseline = "middle";
+        ctx.fillText(item.label, startX + 20, yPos);
+
+        yPos += itemGap;
+      });
+
+    }
+
+    // Start continuous loop
+    function startUpdates() {
+      if (fetchTimer) clearInterval(fetchTimer);
+      fetchTimer = setInterval(fetchFrame, UPDATE_INTERVAL_MS);
+    }
+
+    // Initial load
+    startUpdates();
+  </script>
+</body>
+
+</html>

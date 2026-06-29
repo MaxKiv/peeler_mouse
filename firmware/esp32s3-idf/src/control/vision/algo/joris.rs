@@ -5,26 +5,27 @@ use messenger_mouse::{VisionAlgorithmOutput, VisionMotorSetpoint};
 
 use crate::{
     camera::framebuffer_view::FrameBufferView,
-    control::vision::algo::{IDEAL_BLADE_DEPTH_PX, VISION_BOUNDING_BOX},
+    control::vision::algo::{
+        vertical_gradient::VerticalGradient, VISION_BOUNDING_BOX, VISION_TEARING_DETECTION_NUM_COL,
+        VISION_TEARING_GRADIENT_VALUE_THRESHOLD, VISION_ZERO_LINE_HEIGHT,
+    },
 };
 
 pub static ALGO_INTERMEDIATE_WATCH: Watch<Cs, Arc<FrameBufferView>, 1> = Watch::new();
 
 // ---- tuning constants -------------------------------------------------------
-/// Pixels from the frame centre that counts as "close enough" → Hold
-const DEAD_ZONE_PX: i32 = 8;
-
-/// IQR scale factor for outlier rejection (matches Python sf_iqr=1.2)
-const IQR_SCALE: i32 = 12; // ×10 fixed-point, so 1.2 → 12
+/// Pixels from the zero line that counts as "close enough" -> Hold current depth
+const DEAD_ZONE_ROWS: i32 = 8;
 
 /// Motor speed: full-speed threshold in pixels from centre.
-/// Error ≥ this → speed = 255. Scales linearly below.
+/// Error ≥ this -> speed = 255. Scales linearly below.
 const FULL_SPEED_PX: i32 = 80;
 
 const BAD_OUTPUT: VisionAlgorithmOutput = VisionAlgorithmOutput {
     knife_setpoint: None,
-    target_blade_depth_px: IDEAL_BLADE_DEPTH_PX,
-    current_blade_depth_px: None,
+    zero_line_height_px: VISION_ZERO_LINE_HEIGHT,
+    transition_line_height_px: None,
+    tearing_detected: false,
 };
 
 /// Run the cable-edge detection on one GRAYSCALE frame.
@@ -55,18 +56,22 @@ pub fn vision_joris(frame: Arc<FrameBufferView>) -> VisionAlgorithmOutput {
         return BAD_OUTPUT;
     }
 
-    // -- stage 1: find per-colum first order derivate peak positions --------------
+    // -- 1: find per-colum vertical gradient peak positions --------------
     //
-    // For each column we compute the first order derivative using finite difference
+    // For each column we compute the gradient using finite difference
     //   diff[col] = -(pixel[col+1] - pixel[col])
-    // and locate the column with the largest positive value (bright -> dark edge).
+    // and locate the column with the largest positive value.
 
-    // Vertical forward difference peak row indices
-    let mut peaks_rows: [usize; VISION_BOUNDING_BOX.width] = [0usize; VISION_BOUNDING_BOX.width];
-    // Vertical forward difference peak values
-    let mut peaks: [i32; VISION_BOUNDING_BOX.width] = [0i32; VISION_BOUNDING_BOX.width];
+    // Initialise vertical gradent peak row indices
+    let mut peaks: [VerticalGradient; VISION_BOUNDING_BOX.width] = [VerticalGradient {
+        value: 0,
+        row_idx: 0,
+    };
+        VISION_BOUNDING_BOX.width];
+    let mut tearing_cnt = 0;
+    let mut tearing_detected: bool = false;
 
-    // Iterate (BB, BB+1) rows
+    // Iterate a set of (i, i+1) bounding box rows
     for (row_idx, (curr_row, next_row)) in frame
         .bb_rows(VISION_BOUNDING_BOX)
         .zip(frame.bb_rows(VISION_BOUNDING_BOX).skip(1))
@@ -74,44 +79,74 @@ pub fn vision_joris(frame: Arc<FrameBufferView>) -> VisionAlgorithmOutput {
     {
         // Iterate colums
         for (col_idx, (curr_col, next_col)) in curr_row.iter().zip(next_row).enumerate() {
-            // Compute forward difference
-            let forward_diff: i32 = (next_col - curr_col) as i32;
+            // Compute vertical gradient using forward difference
+            let forward_diff: i32 = *next_col as i32 - *curr_col as i32;
 
-            // Track peaks: largest forward difference per column
-            if forward_diff > peaks[col_idx] {
-                peaks[col_idx] = forward_diff;
-                peaks_rows[col_idx] = row_idx;
+            // -- 2: Tearing detection
+            // If vertical gradient exceeds tearing threshold, mark it
+            // If 80% of columns have are marked, tearing happend
+            // If tearing happend, discard current frame
+            if forward_diff > VISION_TEARING_GRADIENT_VALUE_THRESHOLD {
+                tearing_cnt += 1;
+                if tearing_cnt > VISION_TEARING_DETECTION_NUM_COL {
+                    tearing_detected = true;
+                    // Tearing detected!
+                    // return VisionAlgorithmOutput {
+                    //     tearing_detected: true,
+                    //     knife_setpoint: None,
+                    //     zero_line_height_px: VISION_ZERO_LINE_HEIGHT,
+                    //     transition_line_height_px: None,
+                    // };
+                }
+            }
+
+            // Track peaks: largest vertical gradient per column
+            if forward_diff > peaks[col_idx].value {
+                peaks[col_idx] = VerticalGradient {
+                    value: forward_diff,
+                    row_idx,
+                };
             }
         }
     }
+    // -- 3: find median row index of vertical derivate peaks
+    peaks.sort_by(|a, b| a.value.cmp(&b.value));
+    let median = peaks[peaks.len() / 2];
 
-    // -- stage 2: find average row index of vertical derivate peak
+    log::info!("3: median: {:?}", median);
 
-    let avg_peak_row_idx: usize =
-        (peaks_rows.iter().sum() + VISION_BOUNDING_BOX.width / 2) / VISION_BOUNDING_BOX.width;
+    // -- 4: find transition line & its delta to zero line
+    let transition_line = median.row_idx;
+    let delta: i32 = VISION_ZERO_LINE_HEIGHT as i32 - transition_line as i32;
 
-    // Negative error  → edge is to the LEFT of centre  → knife needs to go DOWN
-    // (flip the sign convention here to match your motor wiring)
+    log::info!("4: transition_line, delta: {}, {}", transition_line, delta);
 
-    let centre_px = (w / 2) as i32;
-    let error = edge_px - centre_px; // signed pixels
-
-    if error.abs() <= DEAD_ZONE_PX {
-        return Some(VisionMotorSetpoint::Hold);
-    }
-
-    // Map error -> speed 0..=255, clamped.
-    let speed = ((error.abs() * 255) / FULL_SPEED_PX).clamp(0, 255) as u8;
-
-    let knife_setpoint = if error > 0 {
-        VisionMotorSetpoint::Up(speed)
+    // -- 5: Calculate control output
+    let abs_delta = delta.abs();
+    // Is delta within Dead zone?
+    if abs_delta <= DEAD_ZONE_ROWS {
+        // Delta within dead zone, hold current depth
+        VisionAlgorithmOutput {
+            knife_setpoint: Some(VisionMotorSetpoint::Hold),
+            zero_line_height_px: VISION_ZERO_LINE_HEIGHT,
+            tearing_detected: false,
+            transition_line_height_px: Some(transition_line),
+        }
     } else {
-        VisionMotorSetpoint::Down(speed)
-    };
+        // Delta outside dead zone, adjust knife
+        // Linear map delta -> knife speed 0..=255, clamped.
+        let speed = ((abs_delta * 255) / FULL_SPEED_PX).clamp(0, 255) as u8;
+        let knife_setpoint = if delta > 0 {
+            VisionMotorSetpoint::Up(speed)
+        } else {
+            VisionMotorSetpoint::Down(speed)
+        };
 
-    VisionAlgorithmOutput {
-        knife_setpoint: Some(knife_setpoint),
-        target_blade_depth_px: IDEAL_BLADE_DEPTH_PX,
-        current_blade_depth_px: None,
+        VisionAlgorithmOutput {
+            knife_setpoint: Some(knife_setpoint),
+            zero_line_height_px: VISION_ZERO_LINE_HEIGHT,
+            tearing_detected,
+            transition_line_height_px: Some(transition_line),
+        }
     }
 }

@@ -11,6 +11,7 @@ use crate::{
     server::handlers::{
         camera::{grayscale::handle_camera_grayscale, jpeg::handle_camera_jpeg},
         error::handle_error,
+        overlay::handle_overlay,
         root::handle_root,
     },
     wifi::WifiState,
@@ -30,7 +31,7 @@ pub async fn server_task(mut wifi_state_receiver: Receiver<'static, Cs, WifiStat
 
                         // Set up HTTP server handlers
                         if let Err(err) = server.fn_handler("/", Method::Get, handle_root) {
-                            error!("Unable to set up HTTP Server root handler: {err}, retrying...");
+                            error!("Unable to set up HTTP Server root handler: {err}");
                         }
 
                         if let Err(err) =
@@ -43,7 +44,7 @@ pub async fn server_task(mut wifi_state_receiver: Receiver<'static, Cs, WifiStat
                                 }
                             })
                         {
-                            error!("Unable to set up HTTP Server root handler: {err}, retrying...");
+                            error!("Unable to set up HTTP Server root handler: {err}");
                         }
 
                         // let sender = setpoint_sender.clone();
@@ -54,6 +55,12 @@ pub async fn server_task(mut wifi_state_receiver: Receiver<'static, Cs, WifiStat
                         // {
                         //     error!("Unable to set up HTTP Server root handler: {err}, retrying...");
                         // }
+
+                        // Set up HTTP server handlers
+                        if let Err(err) = server.fn_handler("/overlay", Method::Get, handle_overlay)
+                        {
+                            error!("Unable to set up HTTP Server output handler: {err}");
+                        }
 
                         info!(
                             "HTTP server handlers set up, keeping alive until wifi connected is dropped"

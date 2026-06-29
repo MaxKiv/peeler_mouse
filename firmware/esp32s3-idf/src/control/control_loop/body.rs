@@ -1,6 +1,6 @@
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::watch::Sender;
-use esp_idf_sys::EspError;
+use embassy_sync::watch::{Sender, Watch};
+use esp_idf_sys::{esp_timer_get_time, EspError};
 use messenger_mouse::motor::ControlMode;
 use std::{sync::Arc, time::Instant};
 
@@ -12,7 +12,9 @@ use log::*;
 use messenger_mouse::{
     encoder::EncoderState, motor::MotorAction, Esp32Setpoint, VisionData, VisionMotorSetpoint,
 };
-use messenger_mouse::{ControlOutput, Esp32Status, VisionAlgorithmOutput, LED_BRIGHTNESS};
+use messenger_mouse::{
+    ControlEffort, ControlOutput, Esp32Status, VisionAlgorithmOutput, LED_BRIGHTNESS,
+};
 
 use crate::{
     actuation::stepper::{
@@ -27,6 +29,8 @@ use crate::{
     control::vision::algo::{calculate_control_effort, get_control_output_from_vision},
     encoder::encoder_task::ENCODER_STATE,
 };
+
+pub static VISION_OUTPUT_WATCH: Watch<Cs, VisionAlgorithmOutput, 1> = Watch::new();
 
 const CONTROL_LOOP_FREQUENCY: Duration = Duration::from_hz(5);
 const HOME_TIMEOUT: Duration = Duration::from_secs(30);
@@ -57,6 +61,8 @@ pub async fn control_loop(
 
     // Report sender
     let report_tx = REPORT_WATCH.sender();
+
+    let vision_tx = VISION_OUTPUT_WATCH.sender();
 
     let mut encoder_rx = ENCODER_STATE
         .receiver()
@@ -136,15 +142,15 @@ pub async fn control_loop(
                 detect_tearing(current_gen, last_gen, current_hash, last_hash);
 
                 // Calculate control effort through vision algorithm
-                let vision_output = {
-                    let result = get_control_effort(frame).await;
-                    result
-                };
+                let vision_output = get_control_effort(frame).await;
                 // Processing is done; Tell the camera task
-                warn!("CONTORL: vision done -> signalling camera_freertos_task");
+                warn!("CONTROL: vision done -> signalling camera_freertos_task");
                 FRAME_DONE_SIGNAL.signal(());
 
-                // Convert into motor command
+                // Send vision algo output to webserver
+                vision_tx.send(vision_output.clone());
+
+                // Convert vision algo output into motor command
                 let control_effort = get_control_output_from_vision(vision_output.clone());
 
                 info!(
@@ -270,16 +276,12 @@ fn detect_tearing(current_gen: u32, last_gen: u32, current_hash: u32, last_hash:
 
 // Calculate control effort + telemetry
 async fn get_control_effort(frame: Arc<FrameBufferView>) -> VisionAlgorithmOutput {
-    let start = Instant::now();
+    let start_us = unsafe { esp_timer_get_time() }; // Has microsecond granularity
 
     let out = calculate_control_effort(frame).await;
 
-    let dur = Instant::now().duration_since(start);
-    log::warn!(
-        "CONTROL: took {}ms to find new output: {:?}",
-        dur.as_millis(),
-        out,
-    );
+    let dur_us = unsafe { esp_timer_get_time() } - start_us;
+    log::warn!("CONTROL: took {}us to find new output: {:?}", dur_us, out,);
 
     out
 }

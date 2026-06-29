@@ -58,8 +58,6 @@ impl FrameBufferView {
 
     /// Iterate over framebuffer rows inside the given BoundingBox
     pub fn bb_rows(&self, bb: BoundingBox) -> impl Iterator<Item = &[u8]> {
-        const BYTE_PER_PIXEL: usize = 1; // Grayscale
-
         // check boundingbox dimensions
         let bb_end_x = bb.start.x + bb.width;
         let bb_end_y = bb.start.y + bb.height;
@@ -116,11 +114,13 @@ impl From<camera::timeval> for EspCamTimeStamp {
     }
 }
 
+#[derive(Default)]
 pub struct Pixel {
     pub x: usize,
     pub y: usize,
 }
 
+#[derive(Default)]
 pub struct BoundingBox {
     pub start: Pixel,
     pub width: usize,

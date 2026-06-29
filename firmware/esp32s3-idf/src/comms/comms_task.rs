@@ -14,6 +14,7 @@ use esp_idf_hal::{
     units::Hertz,
 };
 use log::*;
+use messenger_mouse::VisionAlgorithmOutput;
 
 use crate::comms::periperhals::CommsPeripherals;
 

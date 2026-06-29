@@ -1,6 +1,7 @@
 pub mod average;
 pub mod encoder_test;
 pub mod joris;
+pub mod vertical_gradient;
 
 use std::sync::Arc;
 
@@ -12,29 +13,54 @@ use uom::si::{f32::Velocity, velocity::millimeter_per_second};
 
 use crate::{
     actuation::stepper::motor_task::VISION_MAX_SPEED_MM_PS,
-    camera::framebuffer_view::{BoundingBox, FrameBufferView, Pixel},
+    camera::{
+        framebuffer_view::{BoundingBox, FrameBufferView, Pixel},
+        FRAME_SIZE,
+    },
     control::vision::{
-        algo::{average::simple_average, encoder_test::periodic_encoder_test, joris::vision_joris},
+        algo::{
+            average::simple_average, encoder_test::periodic_encoder_test, joris::vision_joris,
+            vertical_gradient::VerticalGradient,
+        },
         HORIZONTAL_SOBEL_KERNEL,
     },
 };
 
-enum Algo {
+/// Enum of possible vision algorithms
+pub enum Algo {
     PeriodicEncoderTest,
     SimpleAverage,
     Complex,
     Joris,
 }
 
-const ALGO: Algo = Algo::Joris;
-
+// QVGA (width, height) = (320x240)
 const HIGH_THRESHOLD: u64 = (u8::MAX / 2 + 20) as u64;
 const LOW_THRESHOLD: u64 = (u8::MAX / 2 - 20) as u64;
-const VISION_BOUNDING_BOX: BoundingBox = BoundingBox {
-    start: Pixel { x: 90, y: 30 },
-    width: 100,
-    height: 100,
+
+/// Which vision algorithm to use
+pub const ALGO: Algo = Algo::Joris;
+
+/// Vertical gradient threshold value to decide tearing happend in this column
+pub const VISION_TEARING_GRADIENT_VALUE_THRESHOLD: i32 = 100;
+/// Decide tearing happend if 80% of columns have a vertical gradient > tearing threshold
+pub const VISION_TEARING_DETECTION_NUM_COL: usize =
+    (FRAME_SIZE.get_dimensions().0 as f32 * 0.8) as usize;
+
+/// Pixel to place top left corner of bounding box
+pub const VISION_BOUNDING_BOX_START_PIXEL: Pixel = Pixel {
+    // x: (FRAME_SIZE.get_dimensions().0 as f32 * 0.3) as usize,
+    x: (FRAME_SIZE.get_dimensions().0 as f32 * 0.3) as usize,
+    y: 0,
 };
+/// Bounding box size definition
+pub const VISION_BOUNDING_BOX: BoundingBox = BoundingBox {
+    start: VISION_BOUNDING_BOX_START_PIXEL, // Place top left corner of BB at this pixel
+    width: (FRAME_SIZE.get_dimensions().0 as f32 * 0.40) as usize, // BB width: 40% of image width
+    height: FRAME_SIZE.get_dimensions().1,  // BB height: 100% of image height
+};
+
+pub const VISION_ZERO_LINE_HEIGHT: usize = 120;
 
 /*
     Blade Depth Explanation
@@ -42,8 +68,8 @@ const VISION_BOUNDING_BOX: BoundingBox = BoundingBox {
                  \\                                                       // -
                   \\                       KNIFE                         //  |
                    \\    Knife blade                                    //   |
-Ideal Blade depth ->\\                                                 //    | <- Blade
-#################### \\ <- Current cutting depth ~= 20% blade depth   //     |
+    Zero Line     ->\\                                                 //    | <- Blade
+#################### \\ <- Current Transition Line ~= 20% blade depth //     |
 ##################### \\---------------------------------------------//      |
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~... -
                                                                              |
@@ -53,62 +79,76 @@ Ideal Blade depth ->\\                                                 //    | <
 ####################### CABLE ISOLATION #################################... | <- Cable Outer Layer
 #########################################################################... -
 
-    Current cutting depth should be controlled to blade depth / 2.
+    Transition Line should be controlled to Zero line
     Else we are cutting too deep or shallow.
 */
-const IDEAL_BLADE_DEPTH_PX: usize = 120;
 
-pub fn get_control_output_from_vision(algo_out: VisionMotorSetpoint) -> ControlEffort {
-    let knife_action = match algo_out {
-        VisionMotorSetpoint::Hold => MotorAction::Hold,
-        VisionMotorSetpoint::Up(speed) => {
-            MotorAction::MoveVelocity(MotorVelocitySetpoint::new_forward(Velocity::new::<
-                millimeter_per_second,
-            >(
-                speed as f32 / u8::MAX as f32 * VISION_MAX_SPEED_MM_PS,
-            )))
-        }
-        VisionMotorSetpoint::Down(speed) => {
-            MotorAction::MoveVelocity(MotorVelocitySetpoint::new_reverse(Velocity::new::<
-                millimeter_per_second,
-            >(
-                -(speed as f32 / u8::MAX as f32 * VISION_MAX_SPEED_MM_PS),
-            )))
-        }
-    };
+pub fn get_control_output_from_vision(algo_out: VisionAlgorithmOutput) -> ControlEffort {
+    if algo_out.tearing_detected {
+        log::error!("CONTROL: tearing detected! -> discarding frame");
 
-    ControlEffort {
-        motor_setpoints: MotorSetpoints {
-            translation: MotorAction::new_velocity(
-                MotorDirection::Forward,
-                Velocity::new::<millimeter_per_second>(0.0),
-            ),
-            rotation: MotorAction::new_velocity(
-                MotorDirection::Forward,
-                Velocity::new::<millimeter_per_second>(1.0),
-            ),
-            knife: knife_action,
-        },
-        led: LedSetpoint {
-            brightness: LED_BRIGHTNESS,
-        },
+        ControlEffort {
+            motor_setpoints: MotorSetpoints {
+                translation: MotorAction::new_velocity(
+                    MotorDirection::Forward,
+                    Velocity::new::<millimeter_per_second>(0.0),
+                ),
+                rotation: MotorAction::new_velocity(
+                    MotorDirection::Forward,
+                    Velocity::new::<millimeter_per_second>(1.0),
+                ),
+                knife: MotorAction::Hold,
+            },
+            led: LedSetpoint {
+                brightness: LED_BRIGHTNESS,
+            },
+        }
+    } else {
+        // No tearing
+        let knife_action = match algo_out.knife_setpoint {
+            Some(VisionMotorSetpoint::Up(speed)) => {
+                MotorAction::MoveVelocity(MotorVelocitySetpoint::new_forward(Velocity::new::<
+                    millimeter_per_second,
+                >(
+                    speed as f32 / u8::MAX as f32 * VISION_MAX_SPEED_MM_PS,
+                )))
+            }
+            Some(VisionMotorSetpoint::Down(speed)) => {
+                MotorAction::MoveVelocity(MotorVelocitySetpoint::new_reverse(Velocity::new::<
+                    millimeter_per_second,
+                >(
+                    -(speed as f32 / u8::MAX as f32 * VISION_MAX_SPEED_MM_PS),
+                )))
+            }
+            Some(VisionMotorSetpoint::Hold) => MotorAction::Hold,
+            None => MotorAction::Hold,
+        };
+
+        ControlEffort {
+            motor_setpoints: MotorSetpoints {
+                translation: MotorAction::new_velocity(
+                    MotorDirection::Forward,
+                    Velocity::new::<millimeter_per_second>(0.0),
+                ),
+                rotation: MotorAction::new_velocity(
+                    MotorDirection::Forward,
+                    Velocity::new::<millimeter_per_second>(1.0),
+                ),
+                knife: knife_action,
+            },
+            led: LedSetpoint {
+                brightness: LED_BRIGHTNESS,
+            },
+        }
     }
 }
 
 pub async fn calculate_control_effort(frame: Arc<FrameBufferView>) -> VisionAlgorithmOutput {
-    let out = match ALGO {
+    match ALGO {
         Algo::SimpleAverage => simple_average(frame),
         Algo::Complex => complex_algo(frame),
         Algo::PeriodicEncoderTest => periodic_encoder_test(frame),
         Algo::Joris => vision_joris(frame),
-    };
-
-    match out {
-        Some(output) => output,
-        None => {
-            log::error!("VISION: Algorithm returned None -> using default HOLD");
-            VisionMotorSetpoint::Hold
-        }
     }
 }
 
@@ -162,8 +202,9 @@ pub fn complex_algo(frame: Arc<FrameBufferView>) -> VisionAlgorithmOutput {
 
     VisionAlgorithmOutput {
         knife_setpoint: Some(knife_setpoint),
-        target_blade_depth_px: IDEAL_BLADE_DEPTH_PX,
-        current_blade_depth_px: None,
+        zero_line_height_px: VISION_ZERO_LINE_HEIGHT,
+        transition_line_height_px: None,
+        tearing_detected: false,
     }
 }
 
