@@ -3,6 +3,7 @@ pub mod startup;
 
 extern crate alloc;
 use alloc::vec::Vec;
+use embassy_futures::select::{Either, select};
 
 use core::fmt::Write;
 use defmt::*;
@@ -33,8 +34,9 @@ use ratatui::{
     Terminal,
     buffer::Buffer,
     layout::{Alignment, Constraint, Direction, Layout, Rect, Spacing},
-    style::{Color, Modifier, Style},
+    style::{Color, Modifier, Style, Stylize},
     symbols::{Marker, merge::MergeStrategy},
+    text::Line,
     widgets::{
         Axis, Block, BorderType, Borders, Chart, Dataset, GraphType, Paragraph, Row, Table,
         TableState,
@@ -50,8 +52,9 @@ use crate::{
         button::BUTTON_WATCH_SIZE,
         lcd::{setup::SSD1309_FRAMEBUFFER_SIZE, startup::startup_display},
     },
+    ringbuffer::RingBuffer,
     supervisor::{
-        HmiState, MotorSelectionTab, MotorTypes,
+        HmiState, MotorSelectionTab, MotorTypes, OverlayMode,
         appstate::{APP_STATE_WATCH, AppState},
     },
 };
@@ -63,6 +66,7 @@ const LCD_PERIOD: Duration = Duration::from_millis(100);
 // UI related
 const TEXT_OFFSET_WIDTH: i32 = 4;
 const TEXT_OFFSET_HEIGHT: i32 = 14;
+const REPORT_WINDOW_N: usize = 32;
 
 pub enum MotorMovementDirection {
     Rotational,
@@ -76,9 +80,16 @@ struct FontStyles<'a> {
     unselected: embedded_graphics::mono_font::MonoTextStyle<'a, BinaryColor>,
 }
 
+pub struct AggregatedMeasurements {
+    pub tl_data: RingBuffer<f64, REPORT_WINDOW_N>,
+    pub camera_fps_data: RingBuffer<f64, REPORT_WINDOW_N>,
+    pub report_cnt: usize,
+}
+
 pub struct UIState {
     pub motors: TableState,
     pub options: TableState,
+    pub aggregated_measurements: AggregatedMeasurements,
 }
 
 #[embassy_executor::task]
@@ -110,6 +121,11 @@ pub async fn manage_display(
     let mut ui_state = UIState {
         motors: TableState::new().with_selected(Some(1)),
         options: TableState::new().with_selected(None),
+        aggregated_measurements: AggregatedMeasurements {
+            tl_data: RingBuffer::new(),
+            camera_fps_data: RingBuffer::new(),
+            report_cnt: 0,
+        },
     };
     ui_state.motors.select_first();
     ui_state.motors.select_first_column();
@@ -120,36 +136,54 @@ pub async fn manage_display(
 
     // UI render loop
     loop {
-        // Get latest HmiState & Esp32Report
-        let state = appstate_rx.try_get().unwrap_or_default();
-        let report = match report_rx.try_get() {
-            Some(report) => report,
-            _ => {
-                warn!("Didn't get a report from ESP32 -> using default");
-                Esp32Report::default()
+        match select(ticker.next(), report_rx.changed()).await {
+            // Ticker expired
+            Either::First(_) => {
+                // Get latest HmiState & Esp32Report
+                let state = appstate_rx.try_get().unwrap_or_default();
+                let report = match report_rx.try_get() {
+                    Some(report) => report,
+                    _ => {
+                        warn!("Didn't get a report from ESP32 -> using default");
+                        Esp32Report::default()
+                    }
+                };
+
+                // Combine into UIState
+                modify_ui_state(&mut ui_state, &state.hmi_state);
+
+                // Ratatui rendering
+                if let Err(_) = terminal.draw(|f| render_ui(f, &state, &report, &mut ui_state)) {
+                    error!("Unable to draw to display");
+                }
+
+                // Manually flush the LCD screen
+                if terminal.backend_mut().display_mut().flush().await.is_err() {
+                    error!("Unable to flush display");
+                }
             }
-        };
-
-        // Combine into UIState
-        modify_ui_state(&mut ui_state, &state.hmi_state, &report);
-
-        // Ratatui rendering
-        if let Err(_) = terminal.draw(|f| render_ui(f, &state, &report, &mut ui_state)) {
-            error!("Unable to draw to display");
+            // New report -> track latest measurements for displaying
+            Either::Second(new_report) => {
+                if let Some(vision_data) = new_report.measurements.vision_data {
+                    let _ = ui_state
+                        .aggregated_measurements
+                        .camera_fps_data
+                        .push(vision_data.camera_fps);
+                    let _ = ui_state.aggregated_measurements.tl_data.push(
+                        vision_data
+                            .vision_output
+                            .transition_line_height_px
+                            .unwrap_or_default() as f64,
+                    );
+                }
+                ui_state.aggregated_measurements.report_cnt += 1;
+            }
         }
-
-        // Manually flush the LCD screen
-        if terminal.backend_mut().display_mut().flush().await.is_err() {
-            error!("Unable to flush display");
-        }
-
-        // Timekeeping
-        ticker.next().await;
     }
 }
 
 /// Modifies UIState based on current HMIState & Esp32Report
-fn modify_ui_state(ui_state: &mut UIState, state: &HmiState, report: &Esp32Report) {
+fn modify_ui_state(ui_state: &mut UIState, state: &HmiState) {
     match state.control_mode {
         ControlMode::Manual => {
             // Select motor row
@@ -239,29 +273,50 @@ fn render_ui(
     .spacing(Spacing::Overlap(1)) // Overlap borders
     .areas(area);
 
-    if state.hmi_state.graph_overlay_mode && state.hmi_state.control_mode == ControlMode::Vision {
-        // ------ Graph -------
-        render_graph(f, state, report);
-    } else {
-        // ------ Motors table -------
-        render_motor_table(f, motors, &state.hmi_state, report, ui_state);
+    match state.hmi_state.overlay_mode {
+        OverlayMode::Default => {
+            // ------ Motors table -------
+            render_motor_table(f, motors, &state.hmi_state, report, ui_state);
 
-        // ------ Options table -------
-        render_options_table(f, options, &state.hmi_state, report, ui_state);
+            // ------ Options table -------
+            render_options_table(f, options, &state.hmi_state, report, ui_state);
+        }
+        OverlayMode::CameraFPS => render_graph_camera_fps(f, ui_state),
+        // OverlayMode::TransitionLine => render_graph_transition_line(f, state, report),
+        // OverlayMode::TearingDetection => render_graph_tearing_detection(f, state, report),
+        _ => {
+            f.render_widget("TODO", area);
+        }
     }
 }
 
-fn render_graph(f: &mut ratatui::Frame<'_>, state: &AppState, report: &Esp32Report) {
+fn render_graph_camera_fps(f: &mut ratatui::Frame<'_>, ui_state: &UIState) {
     let area = f.area();
+    let measurements = &ui_state.aggregated_measurements;
+
+    // construct ratatui dataset bs type
+    let mut cam_data_scratch = [(0f64, 0f64); REPORT_WINDOW_N];
+    let cam_dataset =
+        construct_ratatui_dataset(&measurements.camera_fps_data, &mut cam_data_scratch[..]);
 
     let datasets = Vec::from([Dataset::default()
         .graph_type(GraphType::Scatter)
         .marker(Marker::Braille)
-        .data(state.camera_fps_data.as_slice())]);
+        .data(cam_dataset)]);
 
     let chart = Chart::new(datasets)
-        .x_axis(Axis::default().title("Time").bounds([0.0, 5000.0])) // TODO: sliding window
-        .y_axis(Axis::default().title("Camera FPS").bounds([0.0, 10.0]));
+        .x_axis(
+            Axis::default()
+                .title("Time")
+                .bounds([0.0, measurements.camera_fps_data.len() as f64])
+                .labels(["#"]),
+        )
+        .y_axis(
+            Axis::default()
+                .title("Camera FPS")
+                .bounds([1.0, 4.0])
+                .labels(["Hz"]),
+        );
 
     f.render_widget(chart, area);
 }
@@ -348,7 +403,11 @@ fn render_options_table(
     ui_state: &mut UIState,
 ) {
     let vision_output_str = if let Some(vision) = &report.measurements.vision_data {
-        format!(64; "{}", vision.vision_output).unwrap_or_default()
+        if let Some(sp) = &vision.vision_output.knife_setpoint {
+            format!(64; "{}", sp).unwrap_or_default()
+        } else {
+            format!(64; "None").unwrap_or_default()
+        }
     } else {
         format!(64; "").unwrap_or_default()
     };
@@ -360,7 +419,11 @@ fn render_options_table(
     };
 
     let crossing_str = if let Some(vision) = &report.measurements.vision_data {
-        format!(64; "todo").unwrap_or_default()
+        if let Some(tld) = vision.vision_output.transition_line_height_px {
+            format!(64; "TLD: {}px", tld).unwrap_or_default()
+        } else {
+            format!(64; "TLD: None").unwrap_or_default()
+        }
     } else {
         format!(64; "").unwrap_or_default()
     };
@@ -408,4 +471,16 @@ fn render_options_table(
         );
 
     f.render_stateful_widget(table, area, &mut ui_state.options);
+}
+
+fn construct_ratatui_dataset<'a, const N: usize>(
+    data: &RingBuffer<f64, N>,
+    dataset: &'a mut [(f64, f64)],
+) -> &'a [(f64, f64)] {
+    for i in 0..data.len() {
+        dataset[i].0 = i as f64;
+        dataset[i].1 = data.peek(i).unwrap().clone();
+    }
+
+    &dataset[..data.len()]
 }

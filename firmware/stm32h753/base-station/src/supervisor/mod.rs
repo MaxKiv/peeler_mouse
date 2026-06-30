@@ -7,13 +7,32 @@ pub mod cmd;
 pub mod hmi;
 pub mod task;
 
+#[derive(Debug, Clone, Copy, PartialEq, defmt::Format)]
+pub enum OverlayMode {
+    Default,
+    TransitionLine,
+    CameraFPS,
+    TearingDetection,
+}
+
+impl OverlayMode {
+    pub fn next(&self) -> Self {
+        match self {
+            OverlayMode::Default => OverlayMode::TransitionLine,
+            OverlayMode::TransitionLine => OverlayMode::CameraFPS,
+            OverlayMode::CameraFPS => OverlayMode::TearingDetection,
+            OverlayMode::TearingDetection => OverlayMode::Default,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, defmt::Format)]
 /// Menu items / tabs the HMI can be in
 pub struct HmiState {
     pub motor_selection_tab_state: MotorSelectionTab,
     pub selected_motor: &'static MotorTypes,
     pub control_mode: ControlMode,
-    pub graph_overlay_mode: bool,
+    pub overlay_mode: OverlayMode,
     pub motor_setpoints: MotorSetpoints,
     pub encoder_pos: i16,
     pub enable: bool,
@@ -68,12 +87,14 @@ impl HmiState {
 
     pub fn stop_all(&mut self) {
         self.control_mode = ControlMode::Manual;
+        self.overlay_mode = OverlayMode::Default;
         self.enable = false;
     }
 
     pub fn reset_all(&mut self) {
         self.motor_selection_tab_state = MotorSelectionTab::default();
         self.motor_setpoints = MotorSetpoints::reset();
+        self.overlay_mode = OverlayMode::Default;
         self.stop_all();
     }
 }
@@ -85,7 +106,7 @@ impl Default for HmiState {
             enable: false,
             motor_selection_tab_state: MotorSelectionTab::NoSelection,
             control_mode: ControlMode::Manual,
-            graph_overlay_mode: false,
+            overlay_mode: OverlayMode::Default,
             motor_setpoints: MotorSetpoints::reset(),
             encoder_pos: 0i16,
         }

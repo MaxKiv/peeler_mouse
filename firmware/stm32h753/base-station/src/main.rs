@@ -5,6 +5,7 @@ pub mod clocks;
 pub mod comms;
 pub mod hmi;
 pub mod motor;
+pub mod ringbuffer;
 pub mod supervisor;
 
 use defmt::*;

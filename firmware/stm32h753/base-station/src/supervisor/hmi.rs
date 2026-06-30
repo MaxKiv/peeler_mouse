@@ -64,7 +64,7 @@ pub async fn supervise_hmi() {
                     }
                     ControlMode::Vision => {
                         // Cycle between normal and graph overlay mode
-                        hmi_state.graph_overlay_mode = !hmi_state.graph_overlay_mode;
+                        hmi_state.overlay_mode = hmi_state.overlay_mode.next();
                     }
                 }
             }

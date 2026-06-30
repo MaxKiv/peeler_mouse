@@ -1,6 +1,8 @@
 use defmt::info;
 use embassy_futures::select::{Either, select};
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Watch};
+use embassy_sync::{
+    blocking_mutex::raw::CriticalSectionRawMutex as Cs, signal::Signal, watch::Watch,
+};
 use embassy_time::{Duration, Instant, Ticker};
 use messenger_mouse::{
     ControlOutput,
@@ -9,6 +11,7 @@ use messenger_mouse::{
 
 use crate::{
     comms::task::REPORT_WATCH,
+    ringbuffer::RingBuffer,
     supervisor::{HmiState, MotorTypes, task::HMI_STATE_WATCH},
 };
 
@@ -26,7 +29,6 @@ pub const MOTORS: [MotorTypes; 3] = [
 pub struct AppState {
     pub hmi_state: HmiState,
     pub esp_motor_setpoints: MotorSetpoints,
-    pub camera_fps_data: heapless::Vec<(f64, f64), 32>,
 }
 
 impl Default for AppState {
@@ -34,7 +36,6 @@ impl Default for AppState {
         Self {
             hmi_state: HmiState::default(),
             esp_motor_setpoints: MotorSetpoints::default(),
-            camera_fps_data: heapless::Vec::new(),
         }
     }
 }
@@ -44,13 +45,11 @@ impl Default for AppState {
 pub async fn manage_appstate() {
     info!("Starting to manage appstate");
 
-    // let mut ticker = Ticker::every(TASK_PERIOD);
-
     // ---- Receivers -----
     let mut hmi_state_rx = HMI_STATE_WATCH.receiver().unwrap();
     let mut report_rx = REPORT_WATCH.receiver().expect("increase REPORT_WATCH N");
 
-    // ----- Motor controller setpoint tx -----
+    // ----- Senders -----
     let appstate_tx = APP_STATE_WATCH.sender();
 
     // ----- Init Application State -----
@@ -71,22 +70,9 @@ pub async fn manage_appstate() {
                 if let ControlOutput::Vision(effort) = report.control_output {
                     appstate.esp_motor_setpoints = effort.motor_setpoints;
                 }
-
-                if let Some(data) = report.measurements.vision_data {
-                    if let Err(err) = appstate
-                        .camera_fps_data
-                        .insert(0, (Instant::now().as_millis() as f64, data.camera_fps))
-                    {
-                        defmt::error!("APPSTATE: {:?}", err);
-                    }
-                } else {
-                    defmt::warn!("APPSTATE: report.measurements.vision_data = NONE");
-                }
             }
         }
 
         appstate_tx.send(appstate.clone());
-
-        // ticker.next().await;
     }
 }
