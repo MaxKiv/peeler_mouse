@@ -6,17 +6,19 @@ use messenger_mouse::{ControlOutput, motor::MotorSetpoints};
 
 use crate::{
     comms::task::REPORT_WATCH,
-    supervisor::{HmiState, MotorTypes, task::HMI_STATE_WATCH},
+    supervisor::{ControlParameterType, HmiState, MotorType, task::HMI_STATE_WATCH},
 };
 
 // Throttle uart traffic
 const TASK_PERIOD: Duration = Duration::from_millis(100);
 pub static APP_STATE_WATCH: Watch<Cs, AppState, 3> = Watch::new();
 
-pub const MOTORS: [MotorTypes; 3] = [
-    MotorTypes::Cut,
-    MotorTypes::Rotation,
-    MotorTypes::Translation,
+pub const MOTORS: [MotorType; 3] = [MotorType::Cut, MotorType::Rotation, MotorType::Translation];
+
+pub const PARAMS: [ControlParameterType; 3] = [
+    ControlParameterType::ZeroLine,
+    ControlParameterType::Gain,
+    ControlParameterType::Lead,
 ];
 
 #[derive(Debug, Clone, defmt::Format)]

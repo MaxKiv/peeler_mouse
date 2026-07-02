@@ -42,6 +42,7 @@ async fn control_motors() {
             esp_tx.send(Esp32Setpoint {
                 control_mode: new_appstate.hmi_state.control_mode.clone(),
                 knife_setpoint: new_appstate.hmi_state.motor_setpoints.knife,
+                control_params: new_appstate.hmi_state.parameter_setpoints,
             });
 
             // Send translational/rotational motors their setpoints

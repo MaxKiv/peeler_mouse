@@ -14,8 +14,12 @@ use static_cell::StaticCell;
 
 use crate::{Irqs, comms::peripherals::CommsPeripherals};
 
-static RX_BUF: StaticCell<[u8; 2048]> = StaticCell::new();
-static TX_BUF: StaticCell<[u8; 2048]> = StaticCell::new();
+/// NOTE: The massive buffer size is a bandaid fix for ratatui::terminal.draw() being synchronous
+/// and blocking the executor for ~20ms
+/// Sadly we have enough RAM
+const BUFLEN: usize = 8192;
+static RX_BUF: StaticCell<[u8; BUFLEN]> = StaticCell::new();
+static TX_BUF: StaticCell<[u8; BUFLEN]> = StaticCell::new();
 
 static REPORT_PIPE: StaticCell<pipe::Pipe<Cs, { messenger_mouse::REPORT_BYTES * 4 }>> =
     StaticCell::new();
@@ -39,8 +43,8 @@ pub fn setup(spawner: &Spawner, p: CommsPeripherals) {
     uart_cfg.baudrate = messenger_mouse::BAUDRATE;
     let rx = p.rx;
     let tx = p.tx;
-    let tx_buffer = &mut TX_BUF.init([0u8; 2048])[..];
-    let rx_buffer = &mut RX_BUF.init([0u8; 2048])[..];
+    let tx_buffer = &mut TX_BUF.init([0u8; BUFLEN])[..];
+    let rx_buffer = &mut RX_BUF.init([0u8; BUFLEN])[..];
     let uart = BufferedUart::new(p.uart, rx, tx, tx_buffer, rx_buffer, Irqs, uart_cfg).unwrap();
 
     // Split UART into RX/TX halves

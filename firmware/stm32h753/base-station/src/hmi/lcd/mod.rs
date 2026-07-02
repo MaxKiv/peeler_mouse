@@ -20,7 +20,7 @@ use embedded_graphics::Drawable;
 use embedded_graphics::pixelcolor::BinaryColor;
 use heapless::{String, format};
 use messenger_mouse::{
-    ControlOutput, Esp32Report,
+    ControlOutput, Esp32Report, FRAME_SIZE,
     motor::{ControlMode, MotorAction, MotorDirection},
 };
 use mousefood::{EmbeddedBackend, EmbeddedBackendConfig};
@@ -45,7 +45,7 @@ use crate::{
         lcd::{setup::SSD1309_FRAMEBUFFER_SIZE, startup::startup_display},
     },
     ringbuffer::RingBuffer,
-    supervisor::{HmiState, MotorSelectionTab, OverlayMode, appstate::AppState},
+    supervisor::{HmiState, OverlayMode, SelectionState, appstate::AppState},
 };
 
 pub static LCD_INPUT: Watch<ThreadModeRawMutex, bool, { BUTTON_WATCH_SIZE }> = Watch::new();
@@ -79,7 +79,7 @@ pub struct AggregatedMeasurements {
 
 pub struct UIState {
     pub motors: TableState,
-    pub options: TableState,
+    pub parameters: TableState,
     pub aggregated_measurements: AggregatedMeasurements,
 }
 
@@ -111,7 +111,7 @@ pub async fn manage_display(
     // Set up ui state
     let mut ui_state = UIState {
         motors: TableState::new().with_selected(Some(1)),
-        options: TableState::new().with_selected(None),
+        parameters: TableState::new().with_selected(None),
         aggregated_measurements: AggregatedMeasurements {
             tl_data: RingBuffer::new(),
             camera_fps_data: RingBuffer::new(),
@@ -203,18 +203,27 @@ fn modify_ui_state(ui_state: &mut UIState, state: &HmiState) {
 
             ui_state
                 .motors
-                .select_column(match state.motor_selection_tab_state {
-                    MotorSelectionTab::NoSelection => Some(0),
-                    MotorSelectionTab::MotorSelected => Some(1),
+                .select_column(match state.motor_selection_state {
+                    SelectionState::NoSelection => Some(0),
+                    SelectionState::Selected => Some(1),
                 });
 
-            ui_state.options.select_cell(None);
+            ui_state.parameters.select_cell(None);
         }
         ControlMode::Vision => {
             // Clear motor selection
             ui_state.motors.select_cell(None);
 
-            ui_state.options.select_first();
+            ui_state
+                .parameters
+                .select_column(match state.parameter_selection_state {
+                    SelectionState::NoSelection => Some(0),
+                    SelectionState::Selected => Some(1),
+                });
+
+            ui_state
+                .parameters
+                .select(state.get_selected_parameter_idx());
         }
     }
 }
@@ -287,7 +296,11 @@ fn render_ui(
 
     match state.hmi_state.overlay_mode {
         OverlayMode::Default => {
-            // TODO: rendering tables seem to take ~20ms per table, this f's up comms since its synchronous
+            // TODO: rendering tables seem to take ~20ms per table, this can f up comms since its synchronous
+            // I see two possible fixes:
+            // 1. move away from ratatui::table
+            // 2. Replace ratatui::Terminal::draw() with its components, insert awaits
+            // For now I accept life sucks, increase comms ringbuffer size and move on
             // ------ Motors table -------
             render_motor_table(f, motors, &state.hmi_state, report, ui_state);
 
@@ -303,9 +316,7 @@ fn render_ui(
         }
         OverlayMode::TearingDetection => {
             render_graph_tearing_detection(f, &ui_state.aggregated_measurements)
-        } // _ => {
-          //     f.render_widget("TODO", area);
-          // }
+        }
     }
 }
 
@@ -325,7 +336,7 @@ fn render_graph_tearing_detection(
     );
 
     let datasets = Vec::from([Dataset::default()
-        .graph_type(GraphType::Scatter)
+        .graph_type(GraphType::Line)
         .marker(Marker::Custom('X'))
         .data(dataset)]);
 
@@ -344,8 +355,8 @@ fn render_graph_transition_error(
     f: &mut ratatui::Frame<'_>,
     measurements: &AggregatedMeasurements,
 ) {
-    const ERR_MAX: f64 = 120.0;
-    const ERR_MIN: f64 = -120.0;
+    const ERR_MAX: f64 = ((FRAME_SIZE.get_dimensions().1 + 30) / 2) as f64;
+    const ERR_MIN: f64 = -(((FRAME_SIZE.get_dimensions().1 + 30) / 2) as f64);
     let area = f.area();
 
     // construct ratatui dataset bs type
@@ -369,7 +380,7 @@ fn render_graph_transition_error(
 }
 
 fn render_graph_transition_line(f: &mut ratatui::Frame<'_>, measurements: &AggregatedMeasurements) {
-    const TL_MAX: f64 = 240.0;
+    const TL_MAX: f64 = (FRAME_SIZE.get_dimensions().1 + 30) as f64;
     let area = f.area();
 
     // construct ratatui dataset bs type
@@ -401,7 +412,7 @@ fn render_graph_camera_fps(f: &mut ratatui::Frame<'_>, measurements: &Aggregated
         construct_ratatui_dataset(&measurements.camera_fps_data, &mut cam_data_scratch[..]);
 
     let datasets = Vec::from([Dataset::default()
-        .graph_type(GraphType::Scatter)
+        .graph_type(GraphType::Line)
         .marker(Marker::Braille)
         .data(cam_dataset)]);
 
@@ -513,20 +524,32 @@ fn render_options_table(
         format!(64; "").unwrap_or_default()
     };
 
-    let crossing_str = if let Some(vision) = &report.measurements.vision_data {
+    let zc_str = format!(64; "{}px",
+        state.parameter_setpoints.zero_line_px)
+    .unwrap_or_default();
+
+    let gain_str = format!(64; "{}",
+        state.parameter_setpoints.gain)
+    .unwrap_or_default();
+
+    let lead_str = format!(64; "{:>2.1}",
+        state.parameter_setpoints.lead)
+    .unwrap_or_default();
+
+    let tl_str = if let Some(vision) = &report.measurements.vision_data {
         if let Some(tld) = vision.vision_output.transition_line_height_px {
-            format!(64; "TLD: {}px", tld).unwrap_or_default()
+            format!(64; "TL {}px", tld).unwrap_or_default()
         } else {
-            format!(64; "TLD: None").unwrap_or_default()
+            format!(64; "TL None").unwrap_or_default()
         }
     } else {
         format!(64; "").unwrap_or_default()
     };
 
     let rows = [
-        Row::new(["Mid Pos", "XXXX", &crossing_str]),
-        Row::new(["Adj Spd", "YYYY", &vision_output_str]),
-        Row::new(["Lead   ", "ZZZZ", &cam_stats_str]),
+        Row::new(["ZC SP ", &zc_str, &tl_str]),
+        Row::new(["Gain  ", &gain_str, &vision_output_str]),
+        Row::new(["Lead  ", &lead_str, &cam_stats_str]),
     ];
     let widths = [
         Constraint::Length(8),
@@ -565,7 +588,7 @@ fn render_options_table(
                 .border_type(BorderType::Rounded),
         );
 
-    f.render_stateful_widget(table, area, &mut ui_state.options);
+    f.render_stateful_widget(table, area, &mut ui_state.parameters);
 }
 
 fn construct_ratatui_dataset<'a, const N: usize>(

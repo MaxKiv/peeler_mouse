@@ -6,6 +6,7 @@ pub mod vertical_gradient;
 use std::sync::Arc;
 
 use messenger_mouse::{
+    control_params::{ControlParams, LEAD_MAX},
     motor::{MotorAction, MotorDirection, MotorSetpoints, MotorVelocitySetpoint},
     ControlEffort, LedSetpoint, VisionAlgorithmOutput, VisionMotorSetpoint, LED_BRIGHTNESS,
 };
@@ -60,7 +61,11 @@ pub const VISION_BOUNDING_BOX: BoundingBox = BoundingBox {
     height: FRAME_SIZE.get_dimensions().1,  // BB height: 100% of image height
 };
 
-pub const VISION_ZERO_LINE_HEIGHT: usize = 120;
+const VISION_TEARING_VEL_ROT_MM_PS: f32 = 1.0;
+const VISION_TEARING_VEL_LIN_MM_PS: f32 = 0.0;
+const VISION_DEFAULT_VEL_ROT_MM_PS: f32 = 1.0;
+const VISION_DEFAULT_VEL_LIN_MM_PS: f32 = 0.01; // Defaults to a lead of 1%
+const VISION_MAX_VEL_LIN_MM_PS: f32 = 0.1; // Defaults to a lead of 1%
 
 /*
     Blade Depth Explanation
@@ -83,7 +88,10 @@ pub const VISION_ZERO_LINE_HEIGHT: usize = 120;
     Else we are cutting too deep or shallow.
 */
 
-pub fn get_control_output_from_vision(algo_out: VisionAlgorithmOutput) -> ControlEffort {
+pub fn get_control_output_from_vision(
+    algo_out: VisionAlgorithmOutput,
+    control_params: &ControlParams,
+) -> ControlEffort {
     if algo_out.tearing_detected {
         log::error!("CONTROL: tearing detected! -> discarding frame");
 
@@ -91,11 +99,11 @@ pub fn get_control_output_from_vision(algo_out: VisionAlgorithmOutput) -> Contro
             motor_setpoints: MotorSetpoints {
                 translation: MotorAction::new_velocity(
                     MotorDirection::Forward,
-                    Velocity::new::<millimeter_per_second>(0.0),
+                    Velocity::new::<millimeter_per_second>(VISION_TEARING_VEL_LIN_MM_PS),
                 ),
                 rotation: MotorAction::new_velocity(
                     MotorDirection::Forward,
-                    Velocity::new::<millimeter_per_second>(1.0),
+                    Velocity::new::<millimeter_per_second>(VISION_TEARING_VEL_ROT_MM_PS),
                 ),
                 knife: MotorAction::Hold,
             },
@@ -124,15 +132,18 @@ pub fn get_control_output_from_vision(algo_out: VisionAlgorithmOutput) -> Contro
             None => MotorAction::Hold,
         };
 
+        let lin_speed: f32 = (control_params.lead / LEAD_MAX * VISION_DEFAULT_VEL_LIN_MM_PS)
+            .clamp(0.0, VISION_MAX_VEL_LIN_MM_PS);
+
         ControlEffort {
             motor_setpoints: MotorSetpoints {
                 translation: MotorAction::new_velocity(
                     MotorDirection::Forward,
-                    Velocity::new::<millimeter_per_second>(0.0),
+                    Velocity::new::<millimeter_per_second>(VISION_DEFAULT_VEL_ROT_MM_PS),
                 ),
                 rotation: MotorAction::new_velocity(
                     MotorDirection::Forward,
-                    Velocity::new::<millimeter_per_second>(1.0),
+                    Velocity::new::<millimeter_per_second>(lin_speed),
                 ),
                 knife: knife_action,
             },
@@ -143,17 +154,23 @@ pub fn get_control_output_from_vision(algo_out: VisionAlgorithmOutput) -> Contro
     }
 }
 
-pub async fn calculate_control_effort(frame: Arc<FrameBufferView>) -> VisionAlgorithmOutput {
+pub async fn calculate_control_effort(
+    frame: Arc<FrameBufferView>,
+    control_params: &ControlParams,
+) -> VisionAlgorithmOutput {
     match ALGO {
-        Algo::SimpleAverage => simple_average(frame),
-        Algo::Complex => complex_algo(frame),
-        Algo::PeriodicEncoderTest => periodic_encoder_test(frame),
-        Algo::Joris => vision_joris(frame),
+        Algo::SimpleAverage => simple_average(frame, control_params),
+        Algo::Complex => complex_algo(frame, control_params),
+        Algo::PeriodicEncoderTest => periodic_encoder_test(frame, control_params),
+        Algo::Joris => vision_joris(frame, control_params),
     }
 }
 
 // 3x3 Convolution with horizontal sobel kernel to determine midline point
-pub fn complex_algo(frame: Arc<FrameBufferView>) -> VisionAlgorithmOutput {
+pub fn complex_algo(
+    frame: Arc<FrameBufferView>,
+    control_params: &ControlParams,
+) -> VisionAlgorithmOutput {
     let out = 0;
 
     log::info!("VISION: starting for GEN {}", frame.generation);
@@ -202,7 +219,7 @@ pub fn complex_algo(frame: Arc<FrameBufferView>) -> VisionAlgorithmOutput {
 
     VisionAlgorithmOutput {
         knife_setpoint: Some(knife_setpoint),
-        zero_line_height_px: VISION_ZERO_LINE_HEIGHT,
+        zero_line_height_px: control_params.zero_line_px,
         transition_line_height_px: None,
         tearing_detected: false,
     }

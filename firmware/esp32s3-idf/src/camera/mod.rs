@@ -6,7 +6,7 @@ pub mod framesize;
 pub mod peripherals;
 pub mod pixelformat;
 
-use crate::camera::{framesize::FrameSize, pixelformat::PixelFormat};
+use crate::camera::pixelformat::PixelFormat;
 
 #[cfg(not(feature = "streaming"))]
 pub const PIXEL_FORMAT: PixelFormat = PixelFormat::GRAYSCALE;
@@ -28,13 +28,14 @@ pub const FB_COUNT: usize = 2;
 #[cfg(feature = "streaming")]
 pub const XCLK_FREQ: i32 = 10_000_000;
 
-pub const FRAME_SIZE: FrameSize = FrameSize::FramesizeQvga; // 320x240
+pub const FRAME_SIZE: framesize::FrameSize =
+    framesize::FrameSize::from_messenger_mouse(&messenger_mouse::FRAME_SIZE);
 pub const FRAMEBUFFER_LEN: usize = FRAME_SIZE.get_dimensions().0 * FRAME_SIZE.get_dimensions().1;
 pub const JPEG_QUALITY: i32 = 30;
 
 pub struct CameraConfig {
     pub pixel_format: PixelFormat,
-    pub frame_size: FrameSize,
+    pub frame_size: framesize::FrameSize,
     pub framebuffer_len: usize,
     pub xclk_freq: i32,
     pub jpeg_quality: i32,

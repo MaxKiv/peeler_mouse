@@ -28,21 +28,21 @@ pub fn handle_overlay(request: Request<&mut EspHttpConnection<'_>>) -> anyhow::R
         zero_line: (
             Pixel {
                 x: 0,
-                y: vision_output.zero_line_height_px,
+                y: vision_output.zero_line_height_px as usize,
             },
             Pixel {
                 x: FRAME_SIZE.get_dimensions().0,
-                y: vision_output.zero_line_height_px,
+                y: vision_output.zero_line_height_px as usize,
             },
         ),
         transition_line: (
             Pixel {
                 x: 0,
-                y: vision_output.transition_line_height_px.unwrap_or_default(),
+                y: vision_output.transition_line_height_px.unwrap_or_default() as usize,
             },
             Pixel {
                 x: FRAME_SIZE.get_dimensions().0,
-                y: vision_output.transition_line_height_px.unwrap_or_default(),
+                y: vision_output.transition_line_height_px.unwrap_or_default() as usize,
             },
         ),
         bounding_box: VISION_BOUNDING_BOX,

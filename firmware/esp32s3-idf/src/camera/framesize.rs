@@ -102,6 +102,13 @@ impl FrameSize {
             FrameSize::FramesizeInvalid => (0, 0),
         }
     }
+
+    // Some more sinning
+    pub const fn from_messenger_mouse(other: &messenger_mouse::FrameSize) -> Self {
+        match other {
+            messenger_mouse::FrameSize::FramesizeQvga => Self::FramesizeQvga,
+        }
+    }
 }
 
 impl From<FrameSize> for camera::framesize_t {
@@ -135,6 +142,15 @@ impl From<FrameSize> for camera::framesize_t {
             FrameSize::FramesizeQsxga => framesize_t_FRAMESIZE_QSXGA, // 2560x1920
             FrameSize::Framesize5mp => framesize_t_FRAMESIZE_5MP, // 2592x1944
             FrameSize::FramesizeInvalid => framesize_t_FRAMESIZE_INVALID,
+        }
+    }
+}
+
+// Forgive me for I have sinned
+impl From<messenger_mouse::FrameSize> for FrameSize {
+    fn from(other: messenger_mouse::FrameSize) -> Self {
+        match other {
+            messenger_mouse::FrameSize::FramesizeQvga => FrameSize::FramesizeQvga,
         }
     }
 }

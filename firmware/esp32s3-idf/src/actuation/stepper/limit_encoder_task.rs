@@ -91,7 +91,7 @@ async fn detect_stalls(
         if is_stalled {
             *previously_stalled = true;
             tx.send(StallEvent::Stalled);
-            log::warn!(
+            log::info!(
                 "ENCODER STALL: ~~~~ STALLED ~~~~ {}:{} -> {}:{}",
                 before.encoder_data.angle,
                 before.encoder_data.revolution,
@@ -101,7 +101,7 @@ async fn detect_stalls(
         } else if !is_stalled && *previously_stalled {
             *previously_stalled = false;
             tx.send(StallEvent::Resolved);
-            log::warn!(
+            log::info!(
                 "ENCODER STALL: ~~~~ RESOLVED ~~~~ {}:{} -> {}:{}",
                 before.encoder_data.angle,
                 before.encoder_data.revolution,

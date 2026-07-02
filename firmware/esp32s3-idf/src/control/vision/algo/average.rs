@@ -1,14 +1,17 @@
 use std::sync::Arc;
 
-use messenger_mouse::{VisionAlgorithmOutput, VisionMotorSetpoint};
+use messenger_mouse::{control_params::ControlParams, VisionAlgorithmOutput, VisionMotorSetpoint};
 
 use crate::{
     camera::framebuffer_view::FrameBufferView,
-    control::vision::algo::{HIGH_THRESHOLD, LOW_THRESHOLD, VISION_ZERO_LINE_HEIGHT},
+    control::vision::algo::{HIGH_THRESHOLD, LOW_THRESHOLD},
 };
 
 // Simple average
-pub fn simple_average(frame: Arc<FrameBufferView>) -> VisionAlgorithmOutput {
+pub fn simple_average(
+    frame: Arc<FrameBufferView>,
+    control_params: &ControlParams,
+) -> VisionAlgorithmOutput {
     let mut out = frame.data().into_iter().map(|x| *x as u64).sum::<u64>();
     let frame_size = (frame.height * frame.width) as u64;
     out = out / frame_size;
@@ -23,7 +26,7 @@ pub fn simple_average(frame: Arc<FrameBufferView>) -> VisionAlgorithmOutput {
 
     VisionAlgorithmOutput {
         knife_setpoint: Some(knife_setpoint),
-        zero_line_height_px: VISION_ZERO_LINE_HEIGHT,
+        zero_line_height_px: control_params.zero_line_px,
         transition_line_height_px: None,
         tearing_detected: false,
     }

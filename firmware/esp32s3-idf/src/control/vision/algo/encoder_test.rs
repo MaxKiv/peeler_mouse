@@ -3,15 +3,18 @@ use std::sync::{
     Arc,
 };
 
-use messenger_mouse::{VisionAlgorithmOutput, VisionMotorSetpoint};
+use messenger_mouse::{control_params::ControlParams, VisionAlgorithmOutput, VisionMotorSetpoint};
 
 use crate::{
     camera::framebuffer_view::FrameBufferView,
-    control::vision::algo::{HIGH_THRESHOLD, LOW_THRESHOLD, VISION_ZERO_LINE_HEIGHT},
+    control::vision::algo::{HIGH_THRESHOLD, LOW_THRESHOLD},
 };
 
 // Switches between moving up and down periodically
-pub fn periodic_encoder_test(_: Arc<FrameBufferView>) -> VisionAlgorithmOutput {
+pub fn periodic_encoder_test(
+    _: Arc<FrameBufferView>,
+    control_params: &ControlParams,
+) -> VisionAlgorithmOutput {
     const SPEED: u8 = 100;
     const HI: u32 = HIGH_THRESHOLD as u32 + 1;
     const LO: u32 = LOW_THRESHOLD as u32 - 1;
@@ -39,7 +42,7 @@ pub fn periodic_encoder_test(_: Arc<FrameBufferView>) -> VisionAlgorithmOutput {
 
     VisionAlgorithmOutput {
         knife_setpoint: Some(knife_setpoint),
-        zero_line_height_px: VISION_ZERO_LINE_HEIGHT,
+        zero_line_height_px: control_params.zero_line_px,
         transition_line_height_px: None,
         tearing_detected: false,
     }

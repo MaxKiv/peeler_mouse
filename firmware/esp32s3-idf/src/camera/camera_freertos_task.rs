@@ -31,7 +31,6 @@ pub struct CameraTaskArgs {
     control_loop_tx: &'static Watch<Cs, Arc<FrameBufferView>, 1>,
     webserver_watch: &'static Watch<Cs, Arc<FrameBufferView>, 1>,
     sd_signal: &'static Watch<Cs, Arc<FrameBufferView>, 1>,
-    setpoint_receiver: &'static Watch<Cs, Esp32Setpoint, 2>,
 }
 
 pub fn setup_freertos(camera_peripherals: CameraPeripherals) {
@@ -43,7 +42,6 @@ pub fn setup_freertos(camera_peripherals: CameraPeripherals) {
             control_loop_tx: &FRAMEBUFFER_CONTROL_LOOP_CHANNEL,
             webserver_watch: &FRAMEBUFFER_WEBSERVER_CHANNEL,
             sd_signal: &FRAMEBUFFER_SD_CHANNEL,
-            setpoint_receiver: &SETPOINT_WATCH,
         });
 
         xTaskCreatePinnedToCore(
@@ -70,7 +68,6 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
     let control_loop_tx = args.control_loop_tx.sender();
     let webserver_watch = args.webserver_watch.sender();
     let sd_signal = args.sd_signal;
-    let mut setpoint_receiver = args.setpoint_receiver.receiver().unwrap();
 
     let camera_peripherals = args
         .camera_peripherals

@@ -1,19 +1,34 @@
 #![no_std]
 
+pub mod control_params;
 pub mod encoder;
 pub mod motor;
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    control_params::ControlParams,
     encoder::EncoderState,
     motor::{ControlMode, MotorAction, MotorSetpoints},
 };
+
+pub enum FrameSize {
+    FramesizeQvga, // 320x240
+}
+
+impl FrameSize {
+    pub const fn get_dimensions(&self) -> (usize, usize) {
+        match self {
+            FrameSize::FramesizeQvga => (320, 240),
+        }
+    }
+}
 
 pub const REPORT_BYTES: usize = core::mem::size_of::<Esp32Report>();
 pub const SETPOINT_BYTES: usize = core::mem::size_of::<Esp32Setpoint>();
 pub const BAUDRATE: u32 = 115200;
 pub const LED_BRIGHTNESS: f32 = 0.1;
+pub const FRAME_SIZE: FrameSize = FrameSize::FramesizeQvga; // 320x240
 
 pub fn serialize_report(report: Esp32Report, buf: &mut [u8]) -> postcard::Result<&mut [u8]> {
     postcard::to_slice_cobs(&report, buf)
@@ -64,6 +79,7 @@ pub struct ControlEffort {
 /// Esp32 setpoint, produced by stm32
 pub struct Esp32Setpoint {
     pub control_mode: ControlMode,
+    pub control_params: ControlParams,
     pub knife_setpoint: MotorAction,
 }
 
@@ -72,6 +88,7 @@ impl Esp32Setpoint {
         Self {
             control_mode: ControlMode::Manual,
             knife_setpoint: MotorAction::Coast,
+            control_params: ControlParams::reset(),
         }
     }
 }
@@ -128,9 +145,9 @@ pub struct VisionAlgorithmOutput {
     /// Statically determined blade depth target
     /// Should correspond to blade depth /2
     /// Depends on camera and blade geometry
-    pub zero_line_height_px: usize,
+    pub zero_line_height_px: u32,
     /// Current calculated blade depth
-    pub transition_line_height_px: Option<usize>,
+    pub transition_line_height_px: Option<u32>,
     /// Was tearing detected during this control loop pass?
     pub tearing_detected: bool,
 }

@@ -1,6 +1,7 @@
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::watch::{Sender, Watch};
 use esp_idf_sys::{esp_timer_get_time, EspError};
+use messenger_mouse::control_params::ControlParams;
 use messenger_mouse::motor::ControlMode;
 use std::{sync::Arc, time::Instant};
 
@@ -42,7 +43,7 @@ pub async fn control_loop(
 ) {
     info!("CONTROL: Entering Startup");
 
-    // Boot indicator
+    // Blink LEDS on control loop start
     boot_indication(&mut led).await;
 
     info!("CONTROL: Initialising");
@@ -62,6 +63,7 @@ pub async fn control_loop(
     // Report sender
     let report_tx = REPORT_WATCH.sender();
 
+    // Vision Algo output sender
     let vision_tx = VISION_OUTPUT_WATCH.sender();
 
     let mut encoder_rx = ENCODER_STATE
@@ -74,7 +76,6 @@ pub async fn control_loop(
         .expect("not enough KNIFE_MOTOR_HOME N");
 
     // Startup: Ask motor controller to start homing
-
     #[cfg(feature = "home_on_startup")]
     {
         info!("CONTROL: Startup -> Homing motor");
@@ -117,67 +118,71 @@ pub async fn control_loop(
         };
 
         // Run vision algorithm if enabled
-        let (control_output, vision_data) =
-            if let ControlMode::Vision = latest_setpoint.control_mode {
-                // Run vision routine
-                // - Get latest framebuffer
-                // - Attempt to detect tearing
-                // - Calculating vision algorithm output
-                // - Transform this output into a MotorAction
+        let (control_output, vision_data) = if let ControlMode::Vision =
+            latest_setpoint.control_mode
+        {
+            // Run vision routine
+            // - Get latest framebuffer
+            // - Attempt to detect tearing
+            // - Calculating vision algorithm output
+            // - Transform this output into a MotorAction
 
-                // Get latest framebuffer from camera
-                let frame = framebuffer_rx.changed().await;
-                warn!("CONTROL: frame: {}", frame.generation);
+            // Get latest framebuffer from camera
+            let frame = framebuffer_rx.changed().await;
+            warn!("CONTROL: frame: {}", frame.generation);
 
-                let timestamp = frame.timestamp.clone();
-                let gen = frame.generation;
-                let camera_fps = frame.fps;
+            let timestamp = frame.timestamp.clone();
+            let gen = frame.generation;
+            let camera_fps = frame.fps;
 
-                // info!("CONTROL: got framebuffer gen {}", gen);
+            // info!("CONTROL: got framebuffer gen {}", gen);
 
-                // Tearing detection
-                let current_gen = frame.generation;
-                let current_hash = frame.calculate_checksum();
-                let last_hash = frame.hash;
-                detect_tearing(current_gen, last_gen, current_hash, last_hash);
+            // Tearing detection
+            let current_gen = frame.generation;
+            let current_hash = frame.calculate_checksum();
+            let last_hash = frame.hash;
+            detect_tearing(current_gen, last_gen, current_hash, last_hash);
 
-                // Calculate control effort through vision algorithm
-                let vision_output = get_control_effort(frame).await;
-                // Processing is done; Tell the camera task
-                warn!("CONTROL: vision done -> signalling camera_freertos_task");
-                FRAME_DONE_SIGNAL.signal(());
+            // Calculate control effort through vision algorithm
+            let vision_output = get_control_effort(frame, &latest_setpoint.control_params).await;
+            // Processing is done; Tell the camera task
+            warn!("CONTROL: vision done -> signalling camera_freertos_task");
+            FRAME_DONE_SIGNAL.signal(());
 
-                // Send vision algo output to webserver
-                vision_tx.send(vision_output.clone());
+            // Send vision algo output to webserver
+            vision_tx.send(vision_output.clone());
 
-                // Convert vision algo output into motor command
-                let control_effort = get_control_output_from_vision(vision_output.clone());
+            // Convert vision algo output into motor command
+            let control_effort = get_control_output_from_vision(
+                vision_output.clone(),
+                &latest_setpoint.control_params,
+            );
 
-                info!(
-                    "CONTROL: VISION frame {} -> vision alg: {:?} -> control effort: {:?}",
-                    gen, vision_output, control_effort,
-                );
+            info!(
+                "CONTROL: VISION frame {} -> vision alg: {:?} -> control effort: {:?}",
+                gen, vision_output, control_effort,
+            );
 
-                // Export in nice type
-                let vision_data = VisionData {
-                    generation: gen,
-                    timestamp_s: timestamp.tv_sec,
-                    timestamp_us: timestamp.tv_usec,
-                    camera_fps,
-                    vision_output,
-                };
-
-                // Bookkeeping
-                last_gen = vision_data.generation;
-
-                (ControlOutput::Vision(control_effort), Some(vision_data))
-            } else {
-                // Manual mode doesn't use the camera frame, release framebuffer immediately
-                // TODO: this feels hacky -> bad architecture
-                FRAME_DONE_SIGNAL.signal(());
-
-                (ControlOutput::Manual, None)
+            // Export in nice type
+            let vision_data = VisionData {
+                generation: gen,
+                timestamp_s: timestamp.tv_sec,
+                timestamp_us: timestamp.tv_usec,
+                camera_fps,
+                vision_output,
             };
+
+            // Bookkeeping
+            last_gen = vision_data.generation;
+
+            (ControlOutput::Vision(control_effort), Some(vision_data))
+        } else {
+            // Manual mode doesn't use the camera frame, release framebuffer immediately
+            // TODO: this feels hacky -> bad architecture
+            FRAME_DONE_SIGNAL.signal(());
+
+            (ControlOutput::Manual, None)
+        };
 
         // Actuate LED
         let brightness = if let ControlOutput::Vision(effort) = &control_output {
@@ -213,7 +218,7 @@ pub async fn control_loop(
         };
 
         // Report to STM32
-        warn!("CONTROL: sending  report {:?}", report);
+        debug!("CONTROL: sending  report {:?}", report);
         report_tx.send(report);
 
         // Throttle control loop
@@ -252,7 +257,7 @@ fn detect_tearing(current_gen: u32, last_gen: u32, current_hash: u32, last_hash:
     let gen_mismatch = (current_gen <= last_gen) && last_gen != 0;
 
     if hash_mismatch {
-        error!(
+        warn!(
             "CONTROL: Aliasing detected! old & new checksum mismatch: {} != {}, continuing...",
             current_hash, last_hash
         );
@@ -260,7 +265,7 @@ fn detect_tearing(current_gen: u32, last_gen: u32, current_hash: u32, last_hash:
     }
 
     if gen_mismatch {
-        error!(
+        warn!(
             "CONTROL: Aliasing detected! last gen >= current gen {} >= {}, continuing...",
             last_gen, current_gen
         );
@@ -275,10 +280,13 @@ fn detect_tearing(current_gen: u32, last_gen: u32, current_hash: u32, last_hash:
 }
 
 // Calculate control effort + telemetry
-async fn get_control_effort(frame: Arc<FrameBufferView>) -> VisionAlgorithmOutput {
+async fn get_control_effort(
+    frame: Arc<FrameBufferView>,
+    control_params: &ControlParams,
+) -> VisionAlgorithmOutput {
     let start_us = unsafe { esp_timer_get_time() }; // Has microsecond granularity
 
-    let out = calculate_control_effort(frame).await;
+    let out = calculate_control_effort(frame, control_params).await;
 
     let dur_us = unsafe { esp_timer_get_time() } - start_us;
     log::warn!("CONTROL: took {}us to find new output: {:?}", dur_us, out,);

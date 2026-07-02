@@ -9,7 +9,7 @@ use crate::supervisor::task::{
     BUTTON_A, BUTTON_B, BUTTON_C, BUTTON_D, ENCODER_DATA, ENCODER_PRESSED, HMI_STATE_WATCH,
     MAX_CUT_VELOCITY_MM_PS, MAX_ROTATION_VELOCITY_MM_PS, MAX_TRANSLATION_VELOCITY_MM_PS,
 };
-use crate::supervisor::{HmiState, MotorSelectionTab, MotorTypes};
+use crate::supervisor::{ControlParameterType, HmiState, MotorType, OverlayMode, SelectionState};
 
 /// Main supervisor loop, maps HMI inputs to Hmi state changes
 #[embassy_executor::task]
@@ -45,6 +45,7 @@ pub async fn supervise_hmi() {
             encoder_data_rx.changed(),
         )
         .await
+        // Massive match statement that maps hardware events to HmiState
         {
             // Vision button
             Either6::First(_) => {
@@ -88,7 +89,18 @@ pub async fn supervise_hmi() {
 
             // Encoder button pressed -> Switch motor selection tab
             Either6::Fifth(_) => {
-                hmi_state.next_motor_selection_tab();
+                // Only act on encoder knob presses in default overlaymode
+                if hmi_state.overlay_mode == OverlayMode::Default {
+                    // Meaning of the encoder press changes based on control mode
+                    match hmi_state.control_mode {
+                        ControlMode::Manual => {
+                            hmi_state.select_next_motor();
+                        }
+                        ControlMode::Vision => {
+                            hmi_state.select_next_parameter();
+                        }
+                    }
+                }
             }
 
             // Encoder count change
@@ -102,52 +114,18 @@ pub async fn supervise_hmi() {
                     encoder_data.count, encoder_pos, encoder_delta
                 );
 
-                match hmi_state.motor_selection_tab_state {
-                    // No motor selected => select new motor
-                    MotorSelectionTab::NoSelection => {
-                        // Select motor based on encoder position
-                        hmi_state.select_new_motor_idx(encoder_pos);
-                    }
-
-                    // Motor selected => change speed
-                    MotorSelectionTab::MotorSelected => {
-                        let current_action = hmi_state.get_current_motor_action();
-                        match current_action {
-                            MotorAction::Hold | MotorAction::Coast | MotorAction::Home => {
-                                // Turning encoder does nothing
-                            }
-                            MotorAction::MoveVelocity(sp) => {
-                                // Change target velocity based on encoder delta
-                                let new_setpoint = calculate_new_motor_speed(
-                                    sp.speed,
-                                    encoder_delta,
-                                    hmi_state.get_selected_motor(),
-                                );
-
-                                hmi_state.set_current_motor_action(MotorAction::MoveVelocity(
-                                    new_setpoint.clone(),
-                                ));
-
-                                // Log change in speed
-                                debug!(
-                                    "Supervisor - Setting {} {}mm/s {}",
-                                    hmi_state.selected_motor,
-                                    new_setpoint.speed.get::<millimeter_per_second>(),
-                                    new_setpoint.dir
-                                );
-                            }
-                            MotorAction::MovePosition(mut sp) => {
-                                sp.target +=
-                                    Length::new::<micrometer>((encoder_delta * 100).into());
-                                sp.speed = Velocity::new::<millimeter_per_second>(
-                                    messenger_mouse::motor::POSITION_MODE_VELOCITY_MM_PS,
-                                );
-
-                                hmi_state.set_current_motor_action(MotorAction::MovePosition(sp));
-                            }
+                // Only act on encoder turns in default overlaymode
+                if hmi_state.overlay_mode == OverlayMode::Default {
+                    // Meaning of the encoder knob changes depending on control mode
+                    match hmi_state.control_mode {
+                        ControlMode::Manual => {
+                            do_encoder_turn_manual(&mut hmi_state, encoder_pos, encoder_delta)
+                        }
+                        ControlMode::Vision => {
+                            do_encoder_turn_vision(&mut hmi_state, encoder_pos, encoder_delta)
                         }
                     }
-                };
+                }
 
                 // Keep track of encoder position
                 hmi_state.encoder_pos = encoder_pos;
@@ -161,29 +139,111 @@ pub async fn supervise_hmi() {
     }
 }
 
+/// Everything that should be done when the encoder turns in ControlMode::Manual
+fn do_encoder_turn_manual(hmi_state: &mut HmiState, encoder_pos: i16, encoder_delta: i16) {
+    match hmi_state.motor_selection_state {
+        // No motor selected => select new motor
+        SelectionState::NoSelection => {
+            // Select motor based on encoder position
+            hmi_state.select_motor_from_idx(encoder_pos);
+        }
+
+        // Motor selected => change speed
+        SelectionState::Selected => {
+            let current_action = hmi_state.get_current_motor_action();
+            match current_action {
+                MotorAction::Hold | MotorAction::Coast | MotorAction::Home => {
+                    // Turning encoder does nothing
+                }
+                MotorAction::MoveVelocity(sp) => {
+                    // Change target velocity based on encoder delta
+                    let new_setpoint = calculate_new_motor_speed(
+                        sp.speed,
+                        encoder_delta,
+                        hmi_state.get_selected_motor(),
+                    );
+
+                    hmi_state
+                        .set_current_motor_action(MotorAction::MoveVelocity(new_setpoint.clone()));
+
+                    // Log change in speed
+                    debug!(
+                        "Supervisor - Setting {} {}mm/s {}",
+                        hmi_state.selected_motor,
+                        new_setpoint.speed.get::<millimeter_per_second>(),
+                        new_setpoint.dir
+                    );
+                }
+                MotorAction::MovePosition(mut sp) => {
+                    sp.target += Length::new::<micrometer>((encoder_delta * 100).into());
+                    sp.speed = Velocity::new::<millimeter_per_second>(
+                        messenger_mouse::motor::POSITION_MODE_VELOCITY_MM_PS,
+                    );
+
+                    hmi_state.set_current_motor_action(MotorAction::MovePosition(sp));
+                }
+            }
+        }
+    };
+}
+
+/// Everything that should be done when the encoder turns in ControlMode::Vision
+fn do_encoder_turn_vision(hmi_state: &mut HmiState, encoder_pos: i16, encoder_delta: i16) {
+    match hmi_state.parameter_selection_state {
+        // No motor selected => select new parameter
+        SelectionState::NoSelection => {
+            // Select motor based on encoder position
+            hmi_state.select_parameter_from_idx(encoder_pos);
+        }
+
+        SelectionState::Selected => match hmi_state.selected_parameter {
+            ControlParameterType::ZeroLine => {
+                // In/decrease zero line
+                hmi_state.set_param_zero_crossing(
+                    hmi_state.parameter_setpoints.zero_line_px + encoder_delta as u32,
+                );
+            }
+            ControlParameterType::Gain => {
+                // In/decrease zero line
+                hmi_state.set_param_gain(hmi_state.parameter_setpoints.gain + encoder_delta as f32);
+            }
+            ControlParameterType::Lead => {
+                // In/decrease zero line
+                hmi_state.set_param_lead(
+                    hmi_state.parameter_setpoints.lead + 0.1 * encoder_delta as f32,
+                );
+            }
+        },
+    };
+    warn!(
+        "do_encoder_turn_vision: {:?}",
+        hmi_state.parameter_setpoints
+    );
+}
+
 /// Calculates the new motor speed after a new encoder delta is received
 /// This depends on the previous and maximum motor speed.
 pub fn calculate_new_motor_speed(
     current_speed: Velocity,
     encoder_delta: i16,
-    selected_motor: &MotorTypes,
+    selected_motor: &MotorType,
 ) -> MotorVelocitySetpoint {
     const ROT_STEP_MM_PS: f32 = 0.1;
     const LIN_STEP_MM_PS: f32 = 0.01;
     const CUT_STEP_MM_PS: f32 = 0.1;
 
     let (min, max, step) = match selected_motor {
-        MotorTypes::Translation => (
+        MotorType::Translation => (
             -MAX_TRANSLATION_VELOCITY_MM_PS,
             MAX_TRANSLATION_VELOCITY_MM_PS,
             LIN_STEP_MM_PS,
         ),
-        MotorTypes::Rotation => (
+        MotorType::Rotation => (
             -MAX_ROTATION_VELOCITY_MM_PS,
             MAX_ROTATION_VELOCITY_MM_PS,
             ROT_STEP_MM_PS,
         ),
-        MotorTypes::Cut => (
+        MotorType::Cut => (
             -MAX_CUT_VELOCITY_MM_PS,
             MAX_CUT_VELOCITY_MM_PS,
             CUT_STEP_MM_PS,
