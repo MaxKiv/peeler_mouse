@@ -2,7 +2,7 @@ use defmt::*;
 use embassy_executor::Spawner;
 use embassy_stm32::usart::{self, BufferedUart, BufferedUartRx, BufferedUartTx};
 use embassy_sync::{
-    blocking_mutex::raw::CriticalSectionRawMutex as Cs,
+    blocking_mutex::raw::ThreadModeRawMutex as Cs,
     pipe::{self, Pipe},
     watch::{self, Watch},
 };
@@ -116,6 +116,7 @@ pub async fn deserialise_reports(
 
         for &byte in &buf[..n] {
             if byte == 0 {
+                // NOTE: drop single byte messages as these are likely noise
                 if framing_buf.len() > 1 {
                     // debug!("attempting to deserialize {:?}", framing_buf);
                     match messenger_mouse::deserialize_report(&mut framing_buf) {

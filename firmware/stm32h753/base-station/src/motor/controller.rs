@@ -32,7 +32,7 @@ async fn control_motors() {
         // Wait for a new application state to arive
         let new_appstate = appstate_rx.changed().await;
 
-        info!("MOTOR: new appstate {:?}", new_appstate);
+        debug!("MOTOR: new appstate {:?}", new_appstate);
 
         // Is hmi enable toggled on?
         if new_appstate.hmi_state.enable {

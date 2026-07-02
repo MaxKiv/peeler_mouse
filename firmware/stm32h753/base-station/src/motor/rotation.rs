@@ -4,7 +4,7 @@ use embassy_stm32::gpio::{Level, Output, Speed};
 use embassy_stm32::time::Hertz;
 use embassy_stm32::timer::simple_pwm::SimplePwm;
 use embassy_stm32::{Peri, peripherals::*};
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::watch::Watch;
 use embassy_time::Delay;
 use messenger_mouse::motor::MotorAction;
@@ -12,7 +12,7 @@ use tb6600::Tb6600;
 use uom::si::f32::Velocity;
 use uom::si::velocity::millimeter_per_second;
 
-pub static ROTATION_SETPOINT: Watch<CriticalSectionRawMutex, MotorAction, 2> = Watch::new();
+pub static ROTATION_SETPOINT: Watch<ThreadModeRawMutex, MotorAction, 2> = Watch::new();
 
 pub struct RotationMotorPeripherals {
     pub pwm: SimplePwm<'static, TIM4>,

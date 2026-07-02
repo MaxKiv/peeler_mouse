@@ -1,7 +1,7 @@
 [toolchain]
 channel = "stable"
 
-components = ["llvm-tools-preview", "rust-analyzer", "rustfmt", "clippy"]
+components = ["rust-src", "llvm-tools-preview", "rust-analyzer", "rustfmt", "clippy"]
 
 targets = [
     # "thumbv7m-none-eabi",     # For STM32F103C8

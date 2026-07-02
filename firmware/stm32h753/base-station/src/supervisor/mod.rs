@@ -11,6 +11,7 @@ pub mod task;
 pub enum OverlayMode {
     Default,
     TransitionLine,
+    TransitionError,
     CameraFPS,
     TearingDetection,
 }
@@ -19,7 +20,8 @@ impl OverlayMode {
     pub fn next(&self) -> Self {
         match self {
             OverlayMode::Default => OverlayMode::TransitionLine,
-            OverlayMode::TransitionLine => OverlayMode::CameraFPS,
+            OverlayMode::TransitionLine => OverlayMode::TransitionError,
+            OverlayMode::TransitionError => OverlayMode::CameraFPS,
             OverlayMode::CameraFPS => OverlayMode::TearingDetection,
             OverlayMode::TearingDetection => OverlayMode::Default,
         }

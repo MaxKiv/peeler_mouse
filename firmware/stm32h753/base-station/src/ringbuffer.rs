@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, defmt::Format)]
 pub struct RingBuffer<T, const N: usize> {
     data: [T; N],
     read_idx: usize,

@@ -11,7 +11,7 @@
 
 use defmt::*;
 use embassy_executor::Spawner;
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Watch};
+use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex as Cs, watch::Watch};
 
 use crate::hmi::button::BUTTON_WATCH_SIZE;
 use crate::hmi::encoder::data::EncoderData;

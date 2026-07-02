@@ -6,15 +6,13 @@ use embassy_stm32::{
     i2c::{Config, I2c},
     peripherals::*,
 };
-use mousefood::{EmbeddedBackend, EmbeddedBackendConfig};
 use oled_async::{builder::Builder, mode::GraphicsMode, prelude::DisplayRotation};
-use ratatui::Terminal;
 
 use crate::{
     Irqs,
     comms::task::REPORT_WATCH,
     hmi::lcd::manage_display,
-    supervisor::{appstate::APP_STATE_WATCH, task::HMI_STATE_WATCH},
+    supervisor::appstate::APP_STATE_WATCH,
 };
 
 extern crate alloc;

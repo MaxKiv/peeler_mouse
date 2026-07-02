@@ -89,7 +89,7 @@ async fn manage_encoder(encoder: QuadratureEncoder) {
             pos,
             filtered_delta,
         };
-        info!(
+        debug!(
             "encoder - count: {} - delta: {} - pos: {} - increase: {}",
             count, delta, pos, filtered_delta
         );
