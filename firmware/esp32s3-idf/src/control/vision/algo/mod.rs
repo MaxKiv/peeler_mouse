@@ -6,7 +6,7 @@ pub mod vertical_gradient;
 use std::sync::Arc;
 
 use messenger_mouse::{
-    control_params::{ControlParams, LEAD_MAX},
+    control_params::{ControlParams, CONTROL_LEAD_MAX},
     motor::{MotorAction, MotorDirection, MotorSetpoints, MotorVelocitySetpoint},
     ControlEffort, LedSetpoint, VisionAlgorithmOutput, VisionMotorSetpoint, LED_BRIGHTNESS,
 };
@@ -132,7 +132,8 @@ pub fn get_control_output_from_vision(
             None => MotorAction::Hold,
         };
 
-        let lin_speed: f32 = (control_params.lead / LEAD_MAX * VISION_DEFAULT_VEL_LIN_MM_PS)
+        let lin_speed: f32 = (control_params.lead / CONTROL_LEAD_MAX
+            * VISION_DEFAULT_VEL_LIN_MM_PS)
             .clamp(0.0, VISION_MAX_VEL_LIN_MM_PS);
 
         ControlEffort {

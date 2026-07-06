@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Watch};
 use messenger_mouse::{
-    control_params::{ControlParams, ZERO_LINE_DEFAULT_PX},
+    control_params::{ControlParams, CONTROL_ZERO_LINE_DEFAULT_PX},
     VisionAlgorithmOutput, VisionMotorSetpoint,
 };
 

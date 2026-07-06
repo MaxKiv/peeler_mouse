@@ -74,7 +74,6 @@ pub async fn encoder_task(p: EncoderPeripherals) {
                     // Happy path
                     Ok(angle) => {
                         // info!("ENCODER: got angle {}", angle);
-
                         encoder_state.encoder_data.update(angle);
                     }
 

@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-pub const ZERO_LINE_DEFAULT_PX: u32 = 120;
-pub const GAIN_DEFAULT: f32 = 1.0; // TODO
-pub const LEAD_DEFAULT: f32 = 0.0; // TODO
-pub const LEAD_MAX: f32 = 100.0; // TODO
+pub const CONTROL_ZERO_LINE_DEFAULT_PX: u32 = 130;
+pub const CONTROL_GAIN_DEFAULT: f32 = 10.0;
+pub const CONTROL_LEAD_DEFAULT: f32 = 23.0;
+pub const CONTROL_LEAD_MAX: f32 = 100.0;
 
 /// State of all the motors on the cable peeler
 #[derive(Deserialize, Serialize, Clone, Debug, Default, PartialEq)]
@@ -17,9 +17,9 @@ pub struct ControlParams {
 impl ControlParams {
     pub fn reset() -> Self {
         Self {
-            zero_line_px: ZERO_LINE_DEFAULT_PX,
-            gain: GAIN_DEFAULT,
-            lead: LEAD_DEFAULT,
+            zero_line_px: CONTROL_ZERO_LINE_DEFAULT_PX,
+            gain: CONTROL_GAIN_DEFAULT,
+            lead: CONTROL_LEAD_DEFAULT,
         }
     }
 }
