@@ -43,7 +43,7 @@ pub struct HmiState {
     pub overlay_mode: OverlayMode,
     pub motor_setpoints: MotorSetpoints,
     pub parameter_setpoints: ControlParams,
-    pub encoder_pos: i16,
+    pub encoder_pos: i32,
     pub enable: bool,
 }
 
@@ -81,8 +81,8 @@ impl HmiState {
             new.clamp(MIN_LEAD, messenger_mouse::control_params::LEAD_MAX);
     }
 
-    pub fn select_parameter_from_idx(&mut self, idx: i16) {
-        const LEN: i16 = PARAMS.len() as i16;
+    pub fn select_parameter_from_idx(&mut self, idx: i32) {
+        const LEN: i32 = PARAMS.len() as i32;
         let wrapped = idx.rem_euclid(LEN) as usize;
         self.selected_parameter = &PARAMS[wrapped];
     }
@@ -93,8 +93,8 @@ impl HmiState {
             .position(|m| m == self.get_selected_parameter())
     }
 
-    pub fn select_motor_from_idx(&mut self, idx: i16) {
-        const LEN: i16 = MOTORS.len() as i16;
+    pub fn select_motor_from_idx(&mut self, idx: i32) {
+        const LEN: i32 = MOTORS.len() as i32;
         let wrapped = idx.rem_euclid(LEN) as usize;
         self.selected_motor = &MOTORS[wrapped];
     }
@@ -159,7 +159,7 @@ impl Default for HmiState {
             parameter_selection_state: SelectionState::NoSelection,
             control_mode: ControlMode::Manual,
             overlay_mode: OverlayMode::Default,
-            encoder_pos: 0i16,
+            encoder_pos: 0,
             selected_motor: &MOTORS[0],
             selected_parameter: &PARAMS[0],
             parameter_setpoints: ControlParams::reset(),

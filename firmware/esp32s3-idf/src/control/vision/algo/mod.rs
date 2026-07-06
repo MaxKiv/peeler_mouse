@@ -64,7 +64,7 @@ pub const VISION_BOUNDING_BOX: BoundingBox = BoundingBox {
 const VISION_TEARING_VEL_ROT_MM_PS: f32 = 1.0;
 const VISION_TEARING_VEL_LIN_MM_PS: f32 = 0.0;
 const VISION_DEFAULT_VEL_ROT_MM_PS: f32 = 1.0;
-const VISION_DEFAULT_VEL_LIN_MM_PS: f32 = 0.01; // Defaults to a lead of 1%
+const VISION_DEFAULT_VEL_LIN_MM_PS: f32 = 0.1; // Defaults to a lead of 1%
 const VISION_MAX_VEL_LIN_MM_PS: f32 = 0.1; // Defaults to a lead of 1%
 
 /*
@@ -139,11 +139,11 @@ pub fn get_control_output_from_vision(
             motor_setpoints: MotorSetpoints {
                 translation: MotorAction::new_velocity(
                     MotorDirection::Forward,
-                    Velocity::new::<millimeter_per_second>(VISION_DEFAULT_VEL_ROT_MM_PS),
+                    Velocity::new::<millimeter_per_second>(lin_speed),
                 ),
                 rotation: MotorAction::new_velocity(
                     MotorDirection::Forward,
-                    Velocity::new::<millimeter_per_second>(lin_speed),
+                    Velocity::new::<millimeter_per_second>(VISION_DEFAULT_VEL_ROT_MM_PS),
                 ),
                 knife: knife_action,
             },

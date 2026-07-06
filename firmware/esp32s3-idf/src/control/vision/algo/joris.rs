@@ -18,7 +18,7 @@ pub static ALGO_INTERMEDIATE_WATCH: Watch<Cs, Arc<FrameBufferView>, 1> = Watch::
 
 // ---- tuning constants -------------------------------------------------------
 /// Pixels from the zero line that counts as "close enough" -> Hold current depth
-const DEAD_ZONE_ROWS: i32 = 8;
+const DEAD_ZONE_ROWS: i32 = 1;
 
 /// Motor speed: full-speed threshold in pixels from centre.
 /// Error ≥ this -> speed = 255. Scales linearly below.

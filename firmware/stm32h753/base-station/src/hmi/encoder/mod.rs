@@ -17,8 +17,8 @@ use crate::{
     supervisor::task::ENCODER_DATA,
 };
 
-const TASK_PERIOD: Duration = Duration::from_millis(50);
-const FAST_TURN_DELTA: i16 = 7;
+const TASK_PERIOD: Duration = Duration::from_millis(100);
+const FAST_TURN_DELTA: i32 = 7;
 
 pub struct QuadratureEncoderPeripherals<P1, P2>
 where
@@ -57,17 +57,17 @@ impl QuadratureEncoder {
 async fn manage_encoder(encoder: QuadratureEncoder) {
     let encoder_tx = ENCODER_DATA.sender();
     let mut ticker = Ticker::every(TASK_PERIOD);
-    let mut pos: i16 = 0;
-    let mut prev: i16 = 0;
+    let mut pos: i32 = 0;
+    let mut prev: i32 = 0;
 
     info!("Starting {} Encoder loop", encoder.name);
     loop {
         // Read out the encoder
-        let count = encoder.qei.count() as i16;
+        let count = encoder.qei.count() as i32;
         let dir: Direction = encoder.qei.read_direction().into();
 
         // Calculate delta
-        let delta = count.wrapping_sub(prev) as i16;
+        let delta = count.wrapping_sub(prev) as i32;
         let abs_delta = delta.abs();
 
         let increase = if abs_delta > FAST_TURN_DELTA { 10 } else { 1 };

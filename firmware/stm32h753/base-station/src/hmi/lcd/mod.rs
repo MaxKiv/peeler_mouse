@@ -176,7 +176,6 @@ pub async fn manage_display(
                     let _ = ui_state.aggregated_measurements.tl_data.push(tl_px as f64);
 
                     let error: i32 = zero_px as i32 - tl_px as i32;
-                    warn!("err: {}", error);
 
                     let _ = ui_state
                         .aggregated_measurements

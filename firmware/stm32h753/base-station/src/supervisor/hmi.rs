@@ -140,7 +140,7 @@ pub async fn supervise_hmi() {
 }
 
 /// Everything that should be done when the encoder turns in ControlMode::Manual
-fn do_encoder_turn_manual(hmi_state: &mut HmiState, encoder_pos: i16, encoder_delta: i16) {
+fn do_encoder_turn_manual(hmi_state: &mut HmiState, encoder_pos: i32, encoder_delta: i32) {
     match hmi_state.motor_selection_state {
         // No motor selected => select new motor
         SelectionState::NoSelection => {
@@ -175,7 +175,7 @@ fn do_encoder_turn_manual(hmi_state: &mut HmiState, encoder_pos: i16, encoder_de
                     );
                 }
                 MotorAction::MovePosition(mut sp) => {
-                    sp.target += Length::new::<micrometer>((encoder_delta * 100).into());
+                    sp.target += Length::new::<micrometer>((encoder_delta * 100) as f32);
                     sp.speed = Velocity::new::<millimeter_per_second>(
                         messenger_mouse::motor::POSITION_MODE_VELOCITY_MM_PS,
                     );
@@ -188,7 +188,7 @@ fn do_encoder_turn_manual(hmi_state: &mut HmiState, encoder_pos: i16, encoder_de
 }
 
 /// Everything that should be done when the encoder turns in ControlMode::Vision
-fn do_encoder_turn_vision(hmi_state: &mut HmiState, encoder_pos: i16, encoder_delta: i16) {
+fn do_encoder_turn_vision(hmi_state: &mut HmiState, encoder_pos: i32, encoder_delta: i32) {
     match hmi_state.parameter_selection_state {
         // No motor selected => select new parameter
         SelectionState::NoSelection => {
@@ -215,17 +215,13 @@ fn do_encoder_turn_vision(hmi_state: &mut HmiState, encoder_pos: i16, encoder_de
             }
         },
     };
-    warn!(
-        "do_encoder_turn_vision: {:?}",
-        hmi_state.parameter_setpoints
-    );
 }
 
 /// Calculates the new motor speed after a new encoder delta is received
 /// This depends on the previous and maximum motor speed.
 pub fn calculate_new_motor_speed(
     current_speed: Velocity,
-    encoder_delta: i16,
+    encoder_delta: i32,
     selected_motor: &MotorType,
 ) -> MotorVelocitySetpoint {
     const ROT_STEP_MM_PS: f32 = 0.1;
@@ -269,23 +265,19 @@ pub fn calculate_new_motor_speed(
     out
 }
 
-pub fn get_encoder_pos_delta(count: i16, last_pos: i16) -> (i16, i16) {
-    // const COUNT_MAP: [i16; 25] = [
-    //     0, 4, 8, 12, 16, 20, 23, 27, 31, 35, 39, 43, 47, 51, 55, 59, 63, 67, 71, 75, 79, 83, 87,
-    //     91, 95,
-    // ];
-    const COUNT_MAP: [i16; 25] = [
+pub fn get_encoder_pos_delta(count: i32, last_pos: i32) -> (i32, i32) {
+    const COUNT_MAP: [i32; 25] = [
         0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80, 84, 88,
         92, 96,
     ];
-    const LEN: i16 = COUNT_MAP.len() as i16;
+    const LEN: i32 = COUNT_MAP.len() as i32;
 
     let val = (100 * LEN + count) % COUNT_MAP[COUNT_MAP.len() - 1];
 
     let new_pos = COUNT_MAP
         .iter()
         .position(|&x| val < x)
-        .unwrap_or(COUNT_MAP.len() - 1) as i16;
+        .unwrap_or(COUNT_MAP.len() - 1) as i32;
 
     let mut delta = new_pos - last_pos;
 
