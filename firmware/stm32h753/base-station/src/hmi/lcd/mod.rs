@@ -235,6 +235,7 @@ fn get_motor_action_str<const N: usize>(
         MotorAction::Hold => format!(N; "HOLD").unwrap(),
         MotorAction::Coast => format!(N; "COAST").unwrap(),
         MotorAction::Home => format!(N; "HOMING").unwrap(),
+        MotorAction::Seek => format!(N; "SEEK").unwrap(),
         MotorAction::MoveVelocity(sp) => format!(
             N;
             "{} {:>4.2}mm/s",
@@ -531,8 +532,8 @@ fn render_options_table(
         state.parameter_setpoints.gain)
     .unwrap_or_default();
 
-    let lead_str = format!(64; "{:>2.1}",
-        state.parameter_setpoints.lead)
+    let speed_str = format!(64; "{:>2.1}",
+        state.parameter_setpoints.speed)
     .unwrap_or_default();
 
     let tl_str = if let Some(vision) = &report.measurements.vision_data {
@@ -548,7 +549,7 @@ fn render_options_table(
     let rows = [
         Row::new(["ZC SP ", &zc_str, &tl_str]),
         Row::new(["Gain  ", &gain_str, &vision_output_str]),
-        Row::new(["Lead  ", &lead_str, &cam_stats_str]),
+        Row::new(["Speed ", &speed_str, &cam_stats_str]),
     ];
     let widths = [
         Constraint::Length(8),

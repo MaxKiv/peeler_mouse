@@ -21,6 +21,15 @@ pub enum LimitSwitchState {
     Inactive,
 }
 
+/// Seeking status of the motor controller
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum SeekStatus {
+    NotStarted,
+    SeekingCable,
+    ReversingAway,
+    Done,
+}
+
 /// Homing status of the motor controller
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum HomeStatus {

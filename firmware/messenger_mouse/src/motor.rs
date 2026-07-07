@@ -18,6 +18,7 @@ pub enum MotorAction {
     Coast,
     Hold,
     Home,
+    Seek,
     MoveVelocity(MotorVelocitySetpoint),
     MovePosition(MotorPositionSetpoint),
 }
@@ -27,7 +28,8 @@ impl MotorAction {
         match self {
             MotorAction::Coast => MotorAction::Hold,
             MotorAction::Hold => MotorAction::Home,
-            MotorAction::Home => MotorAction::MoveVelocity(MotorVelocitySetpoint::new_safe()),
+            MotorAction::Home => MotorAction::Seek,
+            MotorAction::Seek => MotorAction::MoveVelocity(MotorVelocitySetpoint::new_safe()),
             MotorAction::MoveVelocity(_) => {
                 MotorAction::MovePosition(MotorPositionSetpoint::new_safe())
             }

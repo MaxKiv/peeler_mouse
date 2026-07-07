@@ -78,7 +78,16 @@ impl HmiState {
         const MIN_LEAD: f32 = 0.0; // no linear movement, just rotation
 
         self.parameter_setpoints.lead =
-            new.clamp(MIN_LEAD, messenger_mouse::control_params::LEAD_MAX);
+            new.clamp(MIN_LEAD, messenger_mouse::control_params::CONTROL_LEAD_MAX);
+    }
+
+    pub fn set_param_speed(&mut self, new: f32) {
+        const MIN_SPEED: f32 = 0.0; // no movement
+
+        self.parameter_setpoints.speed = new.clamp(
+            MIN_SPEED,
+            messenger_mouse::control_params::CONTROL_SPEED_MAX,
+        );
     }
 
     pub fn select_parameter_from_idx(&mut self, idx: i32) {
@@ -201,4 +210,5 @@ pub enum ControlParameterType {
     ZeroLine,
     Gain,
     Lead,
+    Speed,
 }

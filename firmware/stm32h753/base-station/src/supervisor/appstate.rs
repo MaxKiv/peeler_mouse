@@ -18,7 +18,7 @@ pub const MOTORS: [MotorType; 3] = [MotorType::Cut, MotorType::Rotation, MotorTy
 pub const PARAMS: [ControlParameterType; 3] = [
     ControlParameterType::ZeroLine,
     ControlParameterType::Gain,
-    ControlParameterType::Lead,
+    ControlParameterType::Speed,
 ];
 
 #[derive(Debug, Clone, defmt::Format)]

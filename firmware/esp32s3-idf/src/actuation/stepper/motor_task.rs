@@ -17,7 +17,7 @@ use crate::actuation::stepper::{
         state_machine::SPS,
         StepperAction,
     },
-    HomeStatus, LimitSwitchState, PositionModeStatus, LIMIT_EVENT,
+    HomeStatus, LimitSwitchState, PositionModeStatus, SeekStatus, LIMIT_EVENT,
 };
 
 /// Public: callers write MotorAction here
@@ -67,6 +67,7 @@ pub async fn control_knife_motor() {
     let mut current_action = MotorAction::default();
     let mut current_cmd = StepperAction::new_stopped();
     let mut home_status = HomeStatus::Lost;
+    let mut seek_status = SeekStatus::Done;
     let mut current_pos_steps = pos_rx.get().await;
     let target_pos_steps = Steps(0);
     let mut current_stall_state = StallEvent::default();
@@ -116,6 +117,7 @@ pub async fn control_knife_motor() {
 
                             MotorAction::MoveVelocity(sp) => {
                                 debug!("MOTOR HI: new velocity setpoint: {:?}", sp);
+                                seek_status = SeekStatus::NotStarted;
                                 StepperAction::MoveVelocity(sp)
                             }
 
@@ -125,6 +127,22 @@ pub async fn control_knife_motor() {
                                 home_tx.send(home_status.clone());
 
                                 StepperAction::new_homing()
+                            }
+
+                            MotorAction::Seek => {
+                                match seek_status {
+                                    SeekStatus::NotStarted => {
+                                        // New Seek command; start "seeking" the cable
+                                        error!("xxx seek start");
+                                        seek_status = SeekStatus::SeekingCable;
+                                        StepperAction::new_seek_forward()
+                                    }
+                                    _ => {
+                                        // Seek command received whilst seek is in progress or
+                                        // previously completed; ignore
+                                        current_cmd.clone()
+                                    }
+                                }
                             }
 
                             MotorAction::MovePosition(MotorPositionSetpoint { target, speed }) => {
@@ -171,22 +189,33 @@ pub async fn control_knife_motor() {
             Either4::Second(level) => {
                 if level == LimitSwitchState::Active {
                     // Limit switch pressed
-                    if let MotorAction::Home = current_action {
-                        // Press during Homing, expected
-                        info!("MOTOR: HOMING limit switch active detected, moving back");
-                    } else {
-                        // Whoops; We are not doing a homing action but we did hit the limit switch
-                        warn!("MOTOR: Limit switch hit but NOT in homing mode");
-                    }
+                    match current_action {
+                        MotorAction::Home => {
+                            info!("MOTOR: HOMING limit switch active detected, moving back");
 
-                    // Move back in reverse homing direction regardless of cause
-                    homing_start(
-                        &cmd_tx,
-                        &home_tx,
-                        &mut current_action,
-                        &mut current_cmd,
-                        &mut home_status,
-                    );
+                            // Move back in reverse homing direction
+                            homing_start(
+                                &cmd_tx,
+                                &home_tx,
+                                &mut current_action,
+                                &mut current_cmd,
+                                &mut home_status,
+                            );
+                        }
+                        _ => {
+                            // Whoops; We are not doing a homing action but we did hit the limit switch
+                            warn!("MOTOR: Limit switch hit but NOT in homing mode");
+
+                            // Move back in reverse homing direction
+                            homing_start(
+                                &cmd_tx,
+                                &home_tx,
+                                &mut current_action,
+                                &mut current_cmd,
+                                &mut home_status,
+                            );
+                        }
+                    }
                 } else {
                     // Limit switch disengaged again, we are now Homed!
                     homing_finished(
@@ -243,49 +272,31 @@ pub async fn control_knife_motor() {
                         }
                     }
 
-                    // MotorAction::MoveVelocity(ref mut sp) => {
-                    //     if new_stall {
-                    //         // Stalled during velocity movement, move in reverse direction
-                    //         sp.dir.flip();
-                    //
-                    //         set_action(
-                    //             MotorAction::MoveVelocity(sp.clone()),
-                    //             &mut current_action,
-                    //             StepperAction::new_stopped(),
-                    //             &mut current_cmd,
-                    //             &cmd_tx,
-                    //         );
-                    //     } else if stall_resolved {
-                    //         // Previous stall is now resolved
-                    //         // Coast motors
-                    //         set_action(
-                    //             MotorAction::Coast,
-                    //             &mut current_action,
-                    //             StepperAction::new_stopped(),
-                    //             &mut current_cmd,
-                    //             &cmd_tx,
-                    //         );
-                    //     }
-                    // }
-                    // MotorAction::MovePosition(_) => {
-                    //     if new_stall {
-                    //         // Stalled during position movement, stop moving
-                    //         // TODO: Is this right?
-                    //         set_action(
-                    //             MotorAction::Coast,
-                    //             &mut current_action,
-                    //             StepperAction::new_stopped(),
-                    //             &mut current_cmd,
-                    //             &cmd_tx,
-                    //         );
-                    //     }
-                    // }
-                    // MotorAction::Coast | MotorAction::Hold => {
-                    //     // Stalled during Coast or Hold
-                    //     // Expected; Purposly ignored
-                    // }
+                    MotorAction::Seek => {
+                        match new_stall_event {
+                            StallEvent::Stalled => {
+                                if seek_status == SeekStatus::SeekingCable {
+                                    error!("xxx seek start reverse");
+                                    seek_start_reverse(&cmd_tx, &mut current_cmd, &mut seek_status)
+                                }
+                            }
+                            StallEvent::Resolved => {
+                                if seek_status == SeekStatus::ReversingAway {
+                                    error!("xxx seek finished");
+                                    // Stall while seeking -> seek finished
+                                    seek_finished(
+                                        &cmd_tx,
+                                        &mut current_action,
+                                        &mut current_cmd,
+                                        &mut seek_status,
+                                    );
+                                }
+                            }
+                        }
+                    }
+
                     _ => {
-                        // Intentionally empty
+                        // Stalled in other modes; Intentionally empty
                     }
                 }
 
@@ -368,6 +379,40 @@ fn homing_finished(
 
     // Ask low level stepper task to reset position to zero
     pos_reset_tx.send(());
+}
+
+fn seek_start_reverse(
+    cmd_tx: &Sender<'static, CriticalSectionRawMutex, StepperAction, 1>,
+    current_cmd: &mut StepperAction,
+    seek_status: &mut SeekStatus,
+) {
+    let seek_cmd = StepperAction::new_seek_reverse();
+    *current_cmd = seek_cmd;
+    cmd_tx.send(current_cmd.clone());
+
+    // Update seek status
+    *seek_status = SeekStatus::ReversingAway;
+}
+
+fn seek_finished(
+    cmd_tx: &Sender<'static, CriticalSectionRawMutex, StepperAction, 1>,
+    current_action: &mut MotorAction,
+    current_cmd: &mut StepperAction,
+    seek_status: &mut SeekStatus,
+) {
+    // Stop stepping
+    set_action(
+        MotorAction::Hold,
+        current_action,
+        StepperAction::new_stopped(),
+        current_cmd,
+        cmd_tx,
+    );
+    cmd_tx.send(StepperAction::new_stopped());
+    *current_action = MotorAction::Hold;
+
+    // Update seek status
+    *seek_status = SeekStatus::Done;
 }
 
 /// Move towards limit switch

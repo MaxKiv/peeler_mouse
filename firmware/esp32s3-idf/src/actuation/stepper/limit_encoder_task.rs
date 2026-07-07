@@ -112,43 +112,6 @@ async fn detect_stalls(
     }
 }
 
-// Watches encoder for motor stalls
-// Informs others about them
-// #[embassy_executor::task]
-// pub async fn encoder_limit_switch() {
-//     log::info!("ENCODER STALL: starting encoder_limit_switch task");
-//
-//     let tx = LIMIT_EVENT.sender();
-//     let mut rx_ll_stepper_state = LOW_LEVEL_STEPPER_STATE.receiver().unwrap();
-//     let mut rx_stall_event = STALL_EVENT.receiver().unwrap();
-//
-//     loop {
-//         wait_for_stepper_state(&mut rx_ll_stepper_state, is_moving).await;
-//
-//         log::info!("ENCODER STALL: ");
-//
-//         let stalled = select(
-//             wait_for_stall_event(&mut rx_stall_event, StallEvent::Stalled),
-//             wait_for_stepper_state(&mut rx_ll_stepper_state, is_not_moving),
-//         )
-//         .await;
-//
-//         if stalled.is_first() {
-//             tx.send(LimitSwitchState::Active);
-//
-//             select(
-//                 wait_for_stall_event(&mut rx_stall_event, StallEvent::Resolved),
-//                 wait_for_stepper_state(&mut rx_ll_stepper_state, is_not_moving),
-//             )
-//             .await;
-//
-//             // Send Inactive regardless of which branch won
-//             // motor stopped normally or stall resolved; upstream needs a clean reset
-//             tx.send(LimitSwitchState::Inactive);
-//         }
-//     }
-// }
-
 async fn wait_for_stepper_state(
     rx: &mut Receiver<'_, CriticalSectionRawMutex, StepperState, 1>,
     predicate: impl Fn(StepperState) -> bool,

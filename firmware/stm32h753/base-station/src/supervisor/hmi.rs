@@ -7,9 +7,12 @@ use uom::si::velocity::millimeter_per_second;
 
 use crate::supervisor::task::{
     BUTTON_A, BUTTON_B, BUTTON_C, BUTTON_D, ENCODER_DATA, ENCODER_PRESSED, HMI_STATE_WATCH,
+};
+
+use crate::supervisor::{ControlParameterType, HmiState, MotorType, OverlayMode, SelectionState};
+use messenger_mouse::control_params::{
     MAX_CUT_VELOCITY_MM_PS, MAX_ROTATION_VELOCITY_MM_PS, MAX_TRANSLATION_VELOCITY_MM_PS,
 };
-use crate::supervisor::{ControlParameterType, HmiState, MotorType, OverlayMode, SelectionState};
 
 /// Main supervisor loop, maps HMI inputs to Hmi state changes
 #[embassy_executor::task]
@@ -152,7 +155,7 @@ fn do_encoder_turn_manual(hmi_state: &mut HmiState, encoder_pos: i32, encoder_de
         SelectionState::Selected => {
             let current_action = hmi_state.get_current_motor_action();
             match current_action {
-                MotorAction::Hold | MotorAction::Coast | MotorAction::Home => {
+                MotorAction::Hold | MotorAction::Coast | MotorAction::Home | MotorAction::Seek => {
                     // Turning encoder does nothing
                 }
                 MotorAction::MoveVelocity(sp) => {
@@ -198,7 +201,7 @@ fn do_encoder_turn_vision(hmi_state: &mut HmiState, encoder_pos: i32, encoder_de
 
         SelectionState::Selected => match hmi_state.selected_parameter {
             ControlParameterType::ZeroLine => {
-                // In/decrease zero line
+                // In/decrease zero line position
                 hmi_state.set_param_zero_crossing(
                     hmi_state.parameter_setpoints.zero_line_px + encoder_delta as u32,
                 );
@@ -208,9 +211,15 @@ fn do_encoder_turn_vision(hmi_state: &mut HmiState, encoder_pos: i32, encoder_de
                 hmi_state.set_param_gain(hmi_state.parameter_setpoints.gain + encoder_delta as f32);
             }
             ControlParameterType::Lead => {
-                // In/decrease zero line
+                // In/decrease lead
                 hmi_state.set_param_lead(
                     hmi_state.parameter_setpoints.lead + 0.1 * encoder_delta as f32,
+                );
+            }
+            ControlParameterType::Speed => {
+                // In/decrease speed
+                hmi_state.set_param_speed(
+                    hmi_state.parameter_setpoints.speed + 0.1 * encoder_delta as f32,
                 );
             }
         },

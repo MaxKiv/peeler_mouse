@@ -25,18 +25,11 @@ const DEAD_ZONE_ROWS: i32 = 1;
 const FULL_SPEED_PX: i32 = 80;
 const GAIN_FACTOR: f32 = 25.5;
 
-/// Run the cable-edge detection on one GRAYSCALE frame.
-///
-/// Returns the direction and magnitude the motor should move so that the
-/// detected dark edge is centred horizontally in the frame.
-///
-/// Returns `None` when the frame format is not GRAYSCALE or too few valid
-/// rows survive outlier rejection to make a reliable estimate.
+/// Determine the transition line (black -> white) of one grayscale image frame
 pub fn vision_joris(
     frame: Arc<FrameBufferView>,
     control_params: &ControlParams,
 ) -> VisionAlgorithmOutput {
-    // Safety: we only read the pixel buffer, never write it.
     let buf: &[u8] = unsafe {
         let fb_ptr = *frame.fb.fb; // *mut camera_fb_t
         std::slice::from_raw_parts((*fb_ptr).buf, (*fb_ptr).len)
@@ -63,10 +56,9 @@ pub fn vision_joris(
         };
     }
 
-    // -- 1: find per-colum vertical gradient peak positions --------------
-    //
+    // 1: find per-colum vertical gradient peak positions
     // For each column we compute the gradient using finite difference
-    //   diff[col] = -(pixel[col+1] - pixel[col])
+    // using diff[col] = -(pixel[col+1] - pixel[col])
     // and locate the column with the largest positive value.
 
     // Initialise vertical gradent peak row indices
@@ -76,7 +68,6 @@ pub fn vision_joris(
     };
         VISION_BOUNDING_BOX.width];
     let mut tearing_cnt = 0;
-    let mut tearing_detected: bool = false;
 
     // Iterate a set of (i, i+1) bounding box rows
     for (row_idx, (curr_row, next_row)) in frame
@@ -89,21 +80,20 @@ pub fn vision_joris(
             // Compute vertical gradient using forward difference
             let forward_diff: i32 = *next_col as i32 - *curr_col as i32;
 
-            // -- 2: Tearing detection
+            // 2: Tearing detection
             // If vertical gradient exceeds tearing threshold, mark it
             // If 80% of columns have are marked, tearing happend
             // If tearing happend, discard current frame
             if forward_diff > VISION_TEARING_GRADIENT_VALUE_THRESHOLD {
                 tearing_cnt += 1;
                 if tearing_cnt > VISION_TEARING_DETECTION_NUM_COL {
-                    tearing_detected = true;
                     // Tearing detected!
-                    // return VisionAlgorithmOutput {
-                    //     tearing_detected: true,
-                    //     knife_setpoint: None,
-                    //     zero_line_height_px: VISION_ZERO_LINE_HEIGHT,
-                    //     transition_line_height_px: None,
-                    // };
+                    return VisionAlgorithmOutput {
+                        tearing_detected: true,
+                        knife_setpoint: None,
+                        zero_line_height_px: zero_line,
+                        transition_line_height_px: None,
+                    };
                 }
             }
 
@@ -116,13 +106,13 @@ pub fn vision_joris(
             }
         }
     }
-    // -- 3: find median row index of vertical derivate peaks
+    // 3: find median row index of vertical derivate peaks
     peaks.sort_by(|a, b| a.value.cmp(&b.value));
     let median = peaks[peaks.len() / 2];
 
     log::info!("3: median: {:?}", median);
 
-    // -- 4: find transition line & its delta to zero line
+    // 4: find transition line & its delta to zero line
     let transition_line: u32 = median.row_idx as u32;
     let delta: i32 = zero_line as i32 - transition_line as i32;
 
@@ -153,7 +143,7 @@ pub fn vision_joris(
         VisionAlgorithmOutput {
             knife_setpoint: Some(knife_setpoint),
             zero_line_height_px: zero_line,
-            tearing_detected,
+            tearing_detected: false,
             transition_line_height_px: Some(transition_line),
         }
     }

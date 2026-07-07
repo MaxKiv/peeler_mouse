@@ -16,7 +16,7 @@ use crate::{
 };
 use messenger_mouse::encoder::EncoderState;
 
-const DURATION: Duration = Duration::from_hz(100);
+const DURATION: Duration = Duration::from_hz(50);
 
 pub static ENCODER_STATE: Watch<Cs, EncoderState, 2> = Watch::new();
 

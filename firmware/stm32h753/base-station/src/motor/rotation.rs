@@ -63,6 +63,9 @@ pub async fn manage_rotational_motor(mut tb: Tb6600<TIM4, Output<'static>, Delay
                     MotorAction::MovePosition(_sp) => {
                         error!("MovePosition not implemented yet");
                     }
+                    MotorAction::Seek => {
+                        error!("Seek not implemented yet");
+                    }
                 };
             }
         }
