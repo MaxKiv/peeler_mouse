@@ -88,7 +88,7 @@ pub struct EncoderState {
 
 impl PartialEq for EncoderState {
     fn eq(&self, other: &Self) -> bool {
-        const EPSILON_ANGLE: u32 = 100;
+        const EPSILON_ANGLE: u32 = 10;
 
         self.validity == other.validity
             && self.encoder_data.revolution == other.encoder_data.revolution

@@ -4,6 +4,7 @@ use embassy_sync::{
     watch::{Receiver, Sender, Watch},
 };
 use embassy_time::{Duration, Timer};
+use log::error;
 use messenger_mouse::encoder::EncoderState;
 
 use crate::{
@@ -13,7 +14,7 @@ use crate::{
 
 pub static STALL_EVENT: Watch<CriticalSectionRawMutex, StallEvent, 1> = Watch::new();
 pub static START_STALL_MONITOR: Watch<CriticalSectionRawMutex, StallMonitorCmd, 1> = Watch::new();
-pub const ENCODER_STALL_DEBOUNCE_DURATION: Duration = Duration::from_millis(300);
+pub const ENCODER_STALL_DEBOUNCE_DURATION: Duration = Duration::from_millis(200);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum StallMonitorCmd {
@@ -98,7 +99,7 @@ async fn detect_stalls(
                 after.encoder_data.angle,
                 after.encoder_data.revolution,
             );
-        } else if !is_stalled && *previously_stalled {
+        } else if !is_stalled {
             *previously_stalled = false;
             tx.send(StallEvent::Resolved);
             log::info!(

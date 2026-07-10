@@ -27,7 +27,8 @@ impl FrameSize {
 pub const REPORT_BYTES: usize = core::mem::size_of::<Esp32Report>();
 pub const SETPOINT_BYTES: usize = core::mem::size_of::<Esp32Setpoint>();
 pub const BAUDRATE: u32 = 115200;
-pub const LED_BRIGHTNESS: f32 = 0.1;
+pub const LED_BRIGHTNESS: f32 = 0.005;
+// pub const LED_BRIGHTNESS: f32 = 0.0;
 pub const FRAME_SIZE: FrameSize = FrameSize::FramesizeQvga; // 320x240
 
 pub fn serialize_report(report: Esp32Report, buf: &mut [u8]) -> postcard::Result<&mut [u8]> {

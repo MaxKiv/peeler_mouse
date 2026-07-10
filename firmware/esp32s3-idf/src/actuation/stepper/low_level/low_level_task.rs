@@ -50,10 +50,6 @@ pub async fn low_lvl_stepper_task(p: StepperPeripherals) {
     let mut pos_reset_rx = KNIFE_MOTOR_POS_RESET.receiver().unwrap();
     let mut cmd_rx = STEPPER_ACTION.receiver().unwrap();
 
-    #[cfg(feature = "limit_encoder")]
-    let mut tx_encoder_stall =
-        crate::actuation::stepper::limit_encoder_task::START_STALL_MONITOR.sender();
-
     // --- Local State ----
     info!("MOTOR LOW LVL: Init state");
 
@@ -154,7 +150,7 @@ pub async fn low_lvl_stepper_task(p: StepperPeripherals) {
                             sm.transition_to(StepperAction::Hold).await;
                         } else {
                             debug!(
-                                "YYY Target NOT reached {:?} -> {:?} @ {:?} & {:?}",
+                                "Target NOT reached {:?} -> {:?} @ {:?} & {:?}",
                                 sm.current_position,
                                 sm.target_position,
                                 sm.vel_state,

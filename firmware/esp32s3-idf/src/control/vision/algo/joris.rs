@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    ops::{Add, Sub},
+    sync::Arc,
+};
 
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex as Cs, watch::Watch};
 use messenger_mouse::{
@@ -80,23 +83,6 @@ pub fn vision_joris(
             // Compute vertical gradient using forward difference
             let forward_diff: i32 = *next_col as i32 - *curr_col as i32;
 
-            // 2: Tearing detection
-            // If vertical gradient exceeds tearing threshold, mark it
-            // If 80% of columns have are marked, tearing happend
-            // If tearing happend, discard current frame
-            if forward_diff > VISION_TEARING_GRADIENT_VALUE_THRESHOLD {
-                tearing_cnt += 1;
-                if tearing_cnt > VISION_TEARING_DETECTION_NUM_COL {
-                    // Tearing detected!
-                    return VisionAlgorithmOutput {
-                        tearing_detected: true,
-                        knife_setpoint: None,
-                        zero_line_height_px: zero_line,
-                        transition_line_height_px: None,
-                    };
-                }
-            }
-
             // Track peaks: largest vertical gradient per column
             if forward_diff > peaks[col_idx].value {
                 peaks[col_idx] = VerticalGradient {
@@ -106,19 +92,60 @@ pub fn vision_joris(
             }
         }
     }
-    // 3: find median row index of vertical derivate peaks
+
+    // 3: Tearing detection
+    let variance = welford_variance(&peaks);
+    let std = variance.isqrt() as i32;
+    let mut tearing_cnt = 0;
+    for p in peaks {
+        if p.value > 5 * std {
+            tearing_cnt += 1;
+        }
+    }
+    log::info!(
+        "VISION: frame gen {} (variance: {}, std: {}, # grad > 5*std: {})",
+        frame.generation,
+        variance,
+        std,
+        tearing_cnt
+    );
+    if tearing_cnt > VISION_BOUNDING_BOX.width * 6 / 10 {
+        // Tearing detected
+        log::warn!(
+            "VISION: TEARING DETECTED in frame gen {} (variance: {}, std: {}, # grad > 5*std: {})",
+            frame.generation,
+            variance,
+            std,
+            tearing_cnt
+        );
+
+        // If tearing happend, discard current frame
+        // return VisionAlgorithmOutput {
+        //     tearing_detected: true,
+        //     knife_setpoint: None,
+        //     zero_line_height_px: zero_line,
+        //     transition_line_height_px: None,
+        // };
+    }
+
+    // 4: IQR filtering
+    // Sort peaks on vertical gradient values
     peaks.sort_by(|a, b| a.value.cmp(&b.value));
-    let median = peaks[peaks.len() / 2];
+    // IQR filter on gradient values
+    let filtered_size = filter_iqr_inplace(&mut peaks);
 
-    log::info!("3: median: {:?}", median);
+    // 5: find median of iqr filter result, this is our transition line
+    let median = peaks[filtered_size / 2];
 
-    // 4: find transition line & its delta to zero line
+    log::info!("5: median: {:?} (tearing_cnt: {})", median, tearing_cnt);
+
+    // 6: find transition line & its delta to zero line
     let transition_line: u32 = median.row_idx as u32;
     let delta: i32 = zero_line as i32 - transition_line as i32;
 
-    log::info!("4: transition_line, delta: {}, {}", transition_line, delta);
+    log::info!("6: transition_line: {}, delta: {}", transition_line, delta);
 
-    // -- 5: Calculate control output
+    //  7: Calculate control output
     let abs_delta = delta.abs();
     // Is delta within Dead zone?
     if abs_delta <= DEAD_ZONE_ROWS {
@@ -147,4 +174,43 @@ pub fn vision_joris(
             transition_line_height_px: Some(transition_line),
         }
     }
+}
+
+/// IQR filters peaks, returns size of filtered collection
+fn filter_iqr_inplace(arr: &mut [VerticalGradient]) -> usize {
+    let q1 = arr[arr.len() / 4].value;
+    let q3 = arr[arr.len() * 3 / 4].value;
+    let iqr = q3 - q1;
+
+    let mut write = 0;
+    for read in 0..arr.len() {
+        if iqr_filter(arr[read].value, q1, q3, iqr) {
+            if write != read {
+                arr.swap(write, read);
+            }
+            write += 1;
+        }
+    }
+    write // number of elements kept
+}
+
+fn iqr_filter<T>(val: T, q1: T, q3: T, iqr: T) -> bool
+where
+    T: Add<Output = T> + Sub<Output = T> + PartialOrd + Clone + Copy,
+{
+    val < (q3 + iqr) && val > (q1 - iqr)
+}
+
+fn welford_variance(arr: &[VerticalGradient]) -> i64 {
+    let mut mean = 0i64;
+    let mut m2 = 0i64;
+
+    for (i, &x) in arr.iter().enumerate() {
+        let delta = x.value as i64 - mean;
+        mean += delta / ((i + 1) as i64);
+        m2 += delta * (x.value as i64 - mean);
+    }
+
+    let variance = m2 / (arr.len() as i64);
+    variance
 }

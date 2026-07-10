@@ -60,7 +60,7 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
     log::info!("Starting camera FreeRtos task");
 
     let mut x_last_wake_time = xTaskGetTickCount();
-    let mut last_time = Instant::now();
+    let mut last_time = unsafe { esp_timer_get_time() }; // Has microsecond granularity
 
     // Get our camera args
     let args = &mut *(arg as *mut CameraTaskArgs);
@@ -118,16 +118,13 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
         // Take picture!
         if let Some(frame) = cam.get_framebuffer() {
             // Figure out FPS
-            let now = Instant::now();
-            let time_since_last_fb = now.duration_since(last_time);
-            last_time = now;
-
-            // Convert the duration to seconds as an f64
-            let micros = time_since_last_fb.as_micros();
+            let now_us = unsafe { esp_timer_get_time() }; // Has microsecond granularity
+            let time_since_last_fb = now_us - last_time;
+            last_time = now_us;
 
             // Guard against a zero length interval
-            let fps = if micros > 0 {
-                1_000_000.0 / (micros as f64)
+            let fps = if time_since_last_fb > 0 {
+                1_000_000.0 / (time_since_last_fb as f64)
             } else {
                 f64::INFINITY
             };
@@ -139,7 +136,7 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
                 frame.height(),
                 frame.generation,
                 &frame.data(),
-                micros,
+                time_since_last_fb,
                 fps,
             );
 
@@ -156,7 +153,6 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
                 // Send to Webserver task
                 webserver_watch.send(fb_view.clone());
             }
-
             // If SD logging is enabled, copy the framebuffer for consumption there
             // Note: each FB copy takes ~30ms, this directly impacts control loop perf
             #[cfg(feature = "sd")]
@@ -194,18 +190,23 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
             // Next frame will overwrite it anyway
             #[cfg(feature = "webserver")]
             webserver_watch.clear();
+            control_loop_tx.clear();
 
             // The Esp-camera driver requires us to release the framebuffer in this task
             // Now is a good time, as the control loop has indicated it's done with the frame
             // SAFETY: This upholds the Esp-camera driver constraint of releasing its framebuffer in
             // the same FreeRtos task that produced it
             debug!(
-                "CAMERA: Arc strong_count before try_unwrap: {}",
+                "CAMERA: Arc strong_count before return to driver: {}",
                 Arc::strong_count(&fb_view)
             );
 
             if Arc::strong_count(&fb_view) > 1 {
-                log::warn!("CAMERA: Arc still has other owners after control signal & clearing webserver channel -> bug!");
+                log::warn!(
+                    "CAMERA: Arc count: {} -> still has other owners after control signal &
+                    clearing webserver channel -> bug!",
+                    Arc::strong_count(&fb_view)
+                );
             }
             // Release the esp-camera PSRAM framebuffer, accepting possible tearing for the
             // webserver
@@ -214,9 +215,12 @@ unsafe extern "C" fn camera_task(arg: *mut core::ffi::c_void) {
 
         // Timekeeping
         let last_wake_ptr: *mut u32 = &mut x_last_wake_time as _;
-        xTaskDelayUntil(
+        if xTaskDelayUntil(
             last_wake_ptr,
             configTICK_RATE_HZ / cfg.camera_target_fps as u32,
-        );
+        ) != 0
+        {
+            log::error!("CAMERA: camera task not delayed -> freertos cannot keep up!");
+        };
     }
 }

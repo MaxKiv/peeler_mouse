@@ -6,7 +6,7 @@ use crate::actuation::stepper::{
     peripherals::MotorPeripherals,
 };
 
-pub mod limit_encoder_task;
+pub mod encoder_stall_task;
 pub mod limit_switch_task;
 pub mod low_level;
 pub mod motor_task;
@@ -22,6 +22,7 @@ pub enum LimitSwitchState {
 }
 
 /// Seeking status of the motor controller
+/// Seeking is the act of positioning the knife at the correct initial cable peeling high
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SeekStatus {
     NotStarted,
@@ -56,7 +57,7 @@ pub fn run(spawner: &Spawner, p: MotorPeripherals) -> anyhow::Result<()> {
 
     #[cfg(feature = "home_encoder_stall")]
     {
-        use crate::actuation::stepper::limit_encoder_task::{
+        use crate::actuation::stepper::encoder_stall_task::{
             // encoder_limit_switch,
             monitor_encoder_stall,
         };

@@ -109,7 +109,7 @@ pub async fn control_loop(
             warn!("CONTROL: unable to get encoder state, position mode unreliable!");
             EncoderState::new()
         });
-        info!("CONTROL: Encoder state: {:?}", knife_encoder_state);
+        debug!("CONTROL: Encoder state: {:?}", knife_encoder_state);
 
         // update status
         let mut status = match &latest_setpoint.control_mode {
@@ -141,12 +141,15 @@ pub async fn control_loop(
             let current_gen = frame.generation;
             let current_hash = frame.calculate_checksum();
             let last_hash = frame.hash;
+
             detect_tearing(current_gen, last_gen, current_hash, last_hash);
+            // log::error!("xxx {:?}", frame.data());
+            // Timer::after_secs(30).await;
 
             // Calculate control effort through vision algorithm
             let vision_output = get_control_effort(frame, &latest_setpoint.control_params).await;
             // Processing is done; Tell the camera task
-            warn!("CONTROL: vision done -> signalling camera_freertos_task");
+            debug!("CONTROL: vision done -> signalling camera_freertos_task");
             FRAME_DONE_SIGNAL.signal(());
 
             // Send vision algo output to webserver
@@ -243,7 +246,7 @@ fn actuate_knife_motor(
     motor_tx: &Sender<CriticalSectionRawMutex, MotorAction, 2>,
 ) {
     // Actuate Knife adjustment motor
-    info!("CONTROL: MOTOR CMD {:?}", knife_motor_action);
+    debug!("CONTROL: MOTOR CMD {:?}", knife_motor_action);
     motor_tx.send(knife_motor_action);
 }
 

@@ -4,14 +4,19 @@ use embassy_sync::{
     watch::{Sender, Watch},
 };
 use log::*;
-use messenger_mouse::motor::{
-    MotorAction, MotorDirection, MotorPositionSetpoint, MotorVelocitySetpoint,
-    StepperPositionSetpoint, Steps,
+use messenger_mouse::{
+    control_params::{
+        HOMING_DETECTED_STALL_COUNT, SEEK_FORWARD_STALL_COUNT, SEEK_REVERSE_RESOLVE_COUNT,
+    },
+    motor::{
+        MotorAction, MotorDirection, MotorPositionSetpoint, MotorVelocitySetpoint,
+        StepperPositionSetpoint, Steps,
+    },
 };
 use uom::si::{f32::Velocity, velocity::millimeter_per_second};
 
 use crate::actuation::stepper::{
-    limit_encoder_task::{StallEvent, StallMonitorCmd},
+    encoder_stall_task::{StallEvent, StallMonitorCmd},
     low_level::{
         low_level_task::{position_to_steps, STEPPER_ACTION},
         state_machine::SPS,
@@ -67,14 +72,15 @@ pub async fn control_knife_motor() {
     let mut current_action = MotorAction::default();
     let mut current_cmd = StepperAction::new_stopped();
     let mut home_status = HomeStatus::Lost;
-    let mut seek_status = SeekStatus::Done;
+    let mut seek_status = SeekStatus::NotStarted;
     let mut current_pos_steps = pos_rx.get().await;
     let target_pos_steps = Steps(0);
-    let mut current_stall_state = StallEvent::default();
+    let mut stall_cnt = 0;
+    let mut resolve_cnt = 0;
 
     let tx_encoder_stall_cmd =
-        crate::actuation::stepper::limit_encoder_task::START_STALL_MONITOR.sender();
-    let mut rx_encoder_stall_event = crate::actuation::stepper::limit_encoder_task::STALL_EVENT
+        crate::actuation::stepper::encoder_stall_task::START_STALL_MONITOR.sender();
+    let mut rx_encoder_stall_event = crate::actuation::stepper::encoder_stall_task::STALL_EVENT
         .receiver()
         .unwrap();
 
@@ -86,107 +92,15 @@ pub async fn control_knife_motor() {
     // Check for limit switch activation
     loop {
         match select4(
-            action_rx.changed(),              // New MotorAction
             limit_rx.changed(),               // Limit switch event
             pos_rx.changed(),                 // Position Update event
             rx_encoder_stall_event.changed(), // Encoder stall event
+            action_rx.changed(),              // New MotorAction
         )
         .await
         {
-            // New motor action received from upstream
-            Either4::First(new_action) => {
-                debug!(
-                    "MOTOR: RX motor action: {:?} {} {:?} OLD motor action",
-                    new_action,
-                    if new_action != current_action {
-                        "!="
-                    } else {
-                        "=="
-                    },
-                    current_action
-                );
-
-                // We must be homed before accepting new motor actions
-                if let HomeStatus::Homed { position: _ } = home_status {
-                    // Is this a new action?
-                    // This state tracking is ergonomic to do here due to the nature of UART comms
-                    // Note: custom implementation of MotorVelocitySetpoint/MotorPositionSetpoint PartialEq
-                    if new_action != current_action {
-                        let new_cmd = match new_action.clone() {
-                            MotorAction::Hold => StepperAction::new_stopped(),
-
-                            MotorAction::MoveVelocity(sp) => {
-                                debug!("MOTOR HI: new velocity setpoint: {:?}", sp);
-                                seek_status = SeekStatus::NotStarted;
-                                StepperAction::MoveVelocity(sp)
-                            }
-
-                            MotorAction::Home => {
-                                // Home command; Reset home status
-                                home_status = HomeStatus::Lost;
-                                home_tx.send(home_status.clone());
-
-                                StepperAction::new_homing()
-                            }
-
-                            MotorAction::Seek => {
-                                match seek_status {
-                                    SeekStatus::NotStarted => {
-                                        // New Seek command; start "seeking" the cable
-                                        error!("xxx seek start");
-                                        seek_status = SeekStatus::SeekingCable;
-                                        StepperAction::new_seek_forward()
-                                    }
-                                    _ => {
-                                        // Seek command received whilst seek is in progress or
-                                        // previously completed; ignore
-                                        current_cmd.clone()
-                                    }
-                                }
-                            }
-
-                            MotorAction::MovePosition(MotorPositionSetpoint { target, speed }) => {
-                                let target_pos_steps = position_to_steps(target);
-
-                                // Inform upstream we are starting a new position mode action
-                                pos_tx.send(PositionModeStatus::InProgress);
-
-                                StepperAction::MovePosition(StepperPositionSetpoint {
-                                    target: target_pos_steps,
-                                    speed,
-                                })
-                            }
-
-                            MotorAction::Coast => StepperAction::Coast,
-                        };
-
-                        // Send new StepperCommand & Bookkeeping
-                        set_action(
-                            new_action,
-                            &mut current_action,
-                            new_cmd,
-                            &mut current_cmd,
-                            &cmd_tx,
-                        );
-                    }
-                } else {
-                    // Not homed: attempt to home
-                    if current_action != MotorAction::Home {
-                        // Currently lost && not homing -> Home motor
-                        info!("MOTOR: Homing status == LOST -> homing motor");
-                        set_action(
-                            MotorAction::Home,
-                            &mut current_action,
-                            StepperAction::new_homing(),
-                            &mut current_cmd,
-                            &cmd_tx,
-                        );
-                    }
-                }
-            }
-
             // limit_switch event
-            Either4::Second(level) => {
+            Either4::First(level) => {
                 if level == LimitSwitchState::Active {
                     // Limit switch pressed
                     match current_action {
@@ -232,7 +146,7 @@ pub async fn control_knife_motor() {
             }
 
             // Track position information from stepper task
-            Either4::Third(new_pos) => {
+            Either4::Second(new_pos) => {
                 // info!("MOTOR: new position information: {:?}", new_pos);
 
                 // Track current pos
@@ -250,46 +164,51 @@ pub async fn control_knife_motor() {
             }
 
             // Encoder stall event
-            Either4::Fourth(new_stall_event) => {
-                let new_stall = new_stall_event == StallEvent::Stalled
-                    && current_stall_state == StallEvent::Resolved;
-                let stall_resolved = new_stall_event == StallEvent::Resolved
-                    && current_stall_state == StallEvent::Stalled;
-
+            Either4::Third(new_stall_event) => {
                 match current_action {
                     MotorAction::Home => {
                         if new_stall_event == StallEvent::Stalled {
-                            // Stalled during homing, indicates succesful homing
-                            #[cfg(feature = "home_encoder_stall")]
-                            homing_finished(
-                                &cmd_tx,
-                                &home_tx,
-                                &pos_reset_tx,
-                                &mut current_action,
-                                &mut current_cmd,
-                                &mut home_status,
-                            );
+                            if stall_cnt >= HOMING_DETECTED_STALL_COUNT {
+                                // Stalled during homing, indicates succesful homing
+                                #[cfg(feature = "home_encoder_stall")]
+                                homing_finished(
+                                    &cmd_tx,
+                                    &home_tx,
+                                    &pos_reset_tx,
+                                    &mut current_action,
+                                    &mut current_cmd,
+                                    &mut home_status,
+                                );
+                            }
                         }
                     }
 
                     MotorAction::Seek => {
                         match new_stall_event {
                             StallEvent::Stalled => {
-                                if seek_status == SeekStatus::SeekingCable {
-                                    error!("xxx seek start reverse");
-                                    seek_start_reverse(&cmd_tx, &mut current_cmd, &mut seek_status)
+                                if stall_cnt >= SEEK_FORWARD_STALL_COUNT {
+                                    if seek_status == SeekStatus::SeekingCable {
+                                        error!("xxx seek start reverse");
+                                        seek_start_reverse(
+                                            &cmd_tx,
+                                            &mut current_cmd,
+                                            &mut seek_status,
+                                        )
+                                    }
                                 }
                             }
                             StallEvent::Resolved => {
                                 if seek_status == SeekStatus::ReversingAway {
-                                    error!("xxx seek finished");
-                                    // Stall while seeking -> seek finished
-                                    seek_finished(
-                                        &cmd_tx,
-                                        &mut current_action,
-                                        &mut current_cmd,
-                                        &mut seek_status,
-                                    );
+                                    if resolve_cnt > SEEK_REVERSE_RESOLVE_COUNT {
+                                        error!("xxx seek finished");
+                                        // Stall while seeking -> seek finished
+                                        seek_finished(
+                                            &cmd_tx,
+                                            &mut current_action,
+                                            &mut current_cmd,
+                                            &mut seek_status,
+                                        );
+                                    }
                                 }
                             }
                         }
@@ -300,8 +219,115 @@ pub async fn control_knife_motor() {
                     }
                 }
 
-                // Track last stall event
-                current_stall_state = new_stall_event;
+                // Bookkeeping of stall cnt when movement is expected
+                match new_stall_event {
+                    StallEvent::Stalled => {
+                        resolve_cnt = 0;
+                        stall_cnt += 1;
+                    }
+                    StallEvent::Resolved => {
+                        resolve_cnt += 1;
+                        stall_cnt = 0;
+                    }
+                };
+            }
+
+            // New motor action received from upstream
+            Either4::Fourth(new_action) => {
+                debug!(
+                    "MOTOR: RX motor action: {:?} {} {:?} OLD motor action",
+                    new_action,
+                    if new_action != current_action {
+                        "!="
+                    } else {
+                        "=="
+                    },
+                    current_action
+                );
+
+                // We must be homed before accepting new motor actions
+                if let HomeStatus::Homed { position: _ } = home_status {
+                    // Is this a new action?
+                    // This state tracking is ergonomic to do here due to the nature of UART comms
+                    // Note: custom implementation of MotorVelocitySetpoint/MotorPositionSetpoint PartialEq
+                    if new_action != current_action {
+                        // Reset stall counters on new action
+                        resolve_cnt = 0;
+                        stall_cnt = 0;
+
+                        let new_cmd = match new_action.clone() {
+                            MotorAction::Hold => StepperAction::new_stopped(),
+
+                            MotorAction::MoveVelocity(sp) => {
+                                debug!("MOTOR HI: new velocity setpoint: {:?}", sp);
+                                seek_status = SeekStatus::NotStarted;
+                                StepperAction::MoveVelocity(sp)
+                            }
+
+                            MotorAction::Home => {
+                                // Home command; Reset home status
+                                home_status = HomeStatus::Lost;
+                                home_tx.send(home_status.clone());
+                                seek_status = SeekStatus::NotStarted;
+
+                                StepperAction::new_homing()
+                            }
+
+                            MotorAction::Seek => {
+                                match seek_status {
+                                    SeekStatus::NotStarted => {
+                                        // New Seek command; start "seeking" the cable
+                                        error!("xxx seek start");
+                                        seek_status = SeekStatus::SeekingCable;
+                                        StepperAction::new_seek_forward()
+                                    }
+                                    _ => {
+                                        // Seek command received whilst seek is in progress or
+                                        // previously completed; ignore
+                                        current_cmd.clone()
+                                    }
+                                }
+                            }
+
+                            MotorAction::MovePosition(MotorPositionSetpoint { target, speed }) => {
+                                seek_status = SeekStatus::NotStarted;
+                                let target_pos_steps = position_to_steps(target);
+
+                                // Inform upstream we are starting a new position mode action
+                                pos_tx.send(PositionModeStatus::InProgress);
+
+                                StepperAction::MovePosition(StepperPositionSetpoint {
+                                    target: target_pos_steps,
+                                    speed,
+                                })
+                            }
+
+                            MotorAction::Coast => StepperAction::Coast,
+                        };
+
+                        // Send new StepperCommand & Bookkeeping
+                        set_action(
+                            new_action,
+                            &mut current_action,
+                            new_cmd,
+                            &mut current_cmd,
+                            &cmd_tx,
+                        );
+                    }
+                } else {
+                    // Not homed: attempt to home
+                    if current_action != MotorAction::Home {
+                        // Currently lost && not homing -> Home motor
+                        info!("MOTOR: Homing status == LOST -> homing motor");
+                        set_action(
+                            MotorAction::Home,
+                            &mut current_action,
+                            StepperAction::new_homing(),
+                            &mut current_cmd,
+                            &cmd_tx,
+                        );
+                    }
+                }
             }
         }
     }
