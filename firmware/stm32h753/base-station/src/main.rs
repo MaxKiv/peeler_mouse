@@ -10,9 +10,11 @@ pub mod supervisor;
 
 use defmt::*;
 use embassy_executor::Spawner;
+use embassy_stm32::gpio::Input;
 use embassy_stm32::gpio::OutputType;
+use embassy_stm32::gpio::Pull;
 use embassy_stm32::peripherals::I2C2;
-use embassy_stm32::peripherals::USART3;
+use embassy_stm32::peripherals::USART2;
 use embassy_stm32::time::khz;
 use embassy_stm32::timer::simple_pwm::{PwmPin, SimplePwm};
 use embassy_stm32::{Config, bind_interrupts, i2c, usart};
@@ -30,7 +32,7 @@ use embedded_alloc::LlffHeap;
 bind_interrupts!(struct Irqs {
     I2C2_EV => i2c::EventInterruptHandler<I2C2>;
     I2C2_ER => i2c::ErrorInterruptHandler<I2C2>;
-    USART3 => usart::BufferedInterruptHandler<USART3>;
+    USART2 => usart::BufferedInterruptHandler<USART2>;
 });
 
 use {defmt_rtt as _, panic_probe as _};
@@ -126,10 +128,13 @@ async fn main(spawner: Spawner) {
 
     // Uart
     let comms_peri = comms::peripherals::CommsPeripherals {
-        uart: p.USART3,
-        tx: p.PB10,
-        rx: p.PB11,
+        uart: p.USART2,
+        tx: p.PA2,
+        rx: p.PA3,
     };
+
+    let broken1 = Input::new(p.PB10, Pull::Down);
+    let broken2 = Input::new(p.PB11, Pull::Down);
 
     // ---- HMI Task Construction -----
     hmi::button::DebouncedButton::run(
@@ -185,6 +190,9 @@ async fn main(spawner: Spawner) {
 
     // ---- UART Communication tasks -----
     comms::task::setup(&spawner, comms_peri);
+
+    info!("Setup complete");
+    core::future::pending::<()>().await; // never returns
 }
 
 // Set up a 128KiB heap in AXI SRAM
