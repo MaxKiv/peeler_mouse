@@ -10,7 +10,7 @@ use esp_idf_svc::{
     eventloop::{EspEventLoop, System},
     nvs::{EspNvsPartition, NvsDefault},
     timer::{EspTimerService, Task},
-    wifi::{AccessPointConfiguration, AsyncWifi, Configuration, EspWifi},
+    wifi::{AccessPointConfiguration, AsyncWifi, AuthMethod, Configuration, EspWifi},
 };
 
 use dotenvy_macro::dotenv;
@@ -37,8 +37,8 @@ pub async fn wifi_task(
     loop {
         log::info!("Trying to connect to Wifi");
         match try_connect(
-            dotenv!("WIFI_SSID"),
-            dotenv!("WIFI_PASSWORD"),
+            // dotenv!("WIFI_SSID"),
+            // dotenv!("WIFI_PASSWORD"),
             &mut modem,
             sys_loop.clone(),
             nvs.clone(),
@@ -69,8 +69,8 @@ pub async fn wifi_task(
 }
 
 async fn try_connect<'a>(
-    ssid: &'static str,
-    password: &'static str,
+    // ssid: &'static str,
+    // password: &'static str,
     modem: &'a mut Modem,
     sys_loop: EspEventLoop<System>,
     nvs: EspNvsPartition<NvsDefault>,
@@ -82,46 +82,27 @@ async fn try_connect<'a>(
         timer_service,
     )?;
 
-    // let client_cfg = ClientConfiguration {
-    //         ssid: ssid
-    //             .try_into()
-    //             .map_err(|_| anyhow::anyhow!("unable to fit {ssid} into heapless string"))?,
-    //         bssid: None,
-    //         auth_method: AuthMethod::WPA2Personal,
-    //         password: password
-    //             .try_into()
-    //             .map_err(|_| anyhow::anyhow!("unable to fit {password} into heapless string"))?,
-    //         channel: None,
-    //         ..Default::default()
-    // }
+    unsafe { esp_idf_sys::esp_wifi_set_country_code(b"EU\0".as_ptr() as _, true) };
 
-    let configuration = Configuration::AccessPoint(AccessPointConfiguration::default());
-
-    // let configuration = Configuration::Mixed(
-    //     ClientConfiguration {
-    //         ssid: ssid
-    //             .try_into()
-    //             .map_err(|_| anyhow::anyhow!("unable to fit {ssid} into heapless string"))?,
-    //         bssid: None,
-    //         auth_method: AuthMethod::WPA2Personal,
-    //         password: password
-    //             .try_into()
-    //             .map_err(|_| anyhow::anyhow!("unable to fit {password} into heapless string"))?,
-    //         channel: None,
-    //         ..Default::default()
-    //     },
-    //     AccessPointConfiguration {
-    //         ..Default::default()
-    //     },
-    // );
+    let mut ap_cfg = AccessPointConfiguration::default();
+    ap_cfg.ssid = "peeler".try_into().unwrap();
+    ap_cfg.channel = 6; // wifi channel
+    let configuration = Configuration::AccessPoint(ap_cfg);
 
     wifi.set_configuration(&configuration)?;
 
     wifi.start().await?;
     log::info!("Wifi started");
 
-    // wifi.connect().await?;
-    // log::info!("Wifi connected");
+    unsafe {
+        // 84 * 0.25 dBm = 21 dBm requested; the driver clamps to what the chip/regulatory domain allows
+        esp_idf_sys::esp!(esp_idf_sys::esp_wifi_set_max_tx_power(84))?;
+
+        // Read it back to see what you actually got
+        let mut power: i8 = 0;
+        esp_idf_sys::esp!(esp_idf_sys::esp_wifi_get_max_tx_power(&mut power))?;
+        log::info!("TX power: {} ({} dBm)", power, power as f32 * 0.25);
+    }
 
     wifi.wait_netif_up().await?;
     log::info!("Wifi netif up");
